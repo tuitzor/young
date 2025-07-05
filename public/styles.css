@@ -1,63 +1,108 @@
 body {
-    font-family: Arial, sans-serif;
-    margin: 20px;
-    background-color: #f0f0f0;
-    max-width: 100%;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Мягкий и читаемый шрифт */
+    margin: 0;
+    padding: 20px;
+    background: linear-gradient(135deg, #f5f7fa 0%, #e0e7ee 100%); /* Нежный градиент фона */
+    min-height: 100vh;
+    color: #333;
     overflow-x: hidden;
 }
+
 #login, #gallery, #adminPanel {
-    max-width: 800px;
+    max-width: 900px; /* Увеличенная ширина для удобства */
     margin: 0 auto;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.9); /* Полупрозрачный белый фон */
+    border-radius: 15px; /* Скруглённые углы */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); /* Мягкая тень */
 }
-#login form, .screenshot-container, #adminPanel form {
-    background: white;
-    padding: 10px;
-    border-radius: 5px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-    margin-bottom: 20px;
-}
+
 h1, h2 {
     text-align: center;
-    color: #333;
+    color: #4a5d7a; /* Нежный тёмно-синий */
+    font-weight: 500;
+    margin-bottom: 20px;
 }
+
+#login form, .screenshot-container, #adminPanel form {
+    padding: 20px;
+    border-radius: 10px;
+    background: #ffffff; /* Чистый белый фон для форм */
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    margin-bottom: 20px;
+}
+
 #screenshotList {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 25px; /* Увеличенный интервал между элементами */
 }
+
+.screenshot-container {
+    transition: transform 0.3s ease; /* Плавная анимация при наведении */
+}
+.screenshot-container:hover {
+    transform: translateY(-5px); /* Лёгкое поднятие при наведении */
+}
+
 .screenshot-container img {
     width: 100%;
     height: auto;
-    border: 1px solid #ccc;
-    border-radius: 5px;
+    border-radius: 10px;
+    border: 2px solid #e0e7ee; /* Нежная рамка */
+    object-fit: cover;
 }
+
 .answer-form {
-    margin-top: 10px;
+    margin-top: 15px;
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 10px;
 }
+
 .answer-form label {
-    font-weight: bold;
+    font-weight: 500;
+    color: #6b7280; /* Нежный серый для текста */
+    font-size: 14px;
 }
+
 .answer-form input {
-    padding: 5px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
+    padding: 10px;
+    border: 1px solid #e0e7ee;
+    border-radius: 8px;
+    font-size: 14px;
+    background: #f9fafb; /* Очень светлый фон для полей */
+    transition: border-color 0.3s ease;
 }
+.answer-form input:focus {
+    border-color: #93c5fd; /* Лёгкий синий акцент при фокусе */
+    outline: none;
+}
+
 .answer-form button {
-    padding: 5px;
-    background-color: #4CAF50;
+    padding: 10px;
+    background: linear-gradient(90deg, #a3bffa 0%, #6b7280 100%); /* Нежный градиент кнопки */
     color: white;
     border: none;
-    border-radius: 4px;
+    border-radius: 8px;
+    font-weight: 500;
     cursor: pointer;
+    transition: background 0.3s ease, transform 0.2s ease;
 }
 .answer-form button:hover {
-    background-color: #45a049;
+    background: linear-gradient(90deg, #93c5fd 0%, #6b7280 100%);
+    transform: scale(1.05); /* Лёгкое увеличение при наведении */
 }
+
 #loginStatus, #adminStatus {
     text-align: center;
     margin-top: 10px;
-    color: #d32f2f;
+    color: #ef4444; /* Нежный красный для ошибок */
+    font-size: 14px;
+}
+
+#adminPanel {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f3f4f6; /* Ещё более мягкий фон для админ-панели */
 }
