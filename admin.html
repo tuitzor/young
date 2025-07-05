@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Screenshot Gallery</title>
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+        /* Дополнительные стили для админ-панели */
+        .screenshot-container {
+            position: relative;
+        }
+        .delete-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background-color: #f44336;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-size: 12px;
+            opacity: 0.8;
+        }
+        .delete-btn:hover {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <h1>Admin Panel - Screenshot Gallery</h1>
+    <button onclick="loadScreenshots()">Refresh Screenshots</button>
+    <div id="gallery"></div>
+
+    <script>
+        async function loadScreenshots() {
+            try {
+                const response = await fetch('/screenshots');
+                const screenshots = await response.json();
+                const gallery = document.getElementById('gallery');
+                gallery.innerHTML = '';
+                screenshots.forEach(shot => {
+                    const container = document.createElement('div');
+                    container.className = 'screenshot-container';
+                    container.innerHTML = `
+                        <img src="${shot.url}" alt="Screenshot ${shot.id}">
+                        <p>Question ID: ${shot.id}</p>
+                        <p>Uploaded: ${new Date(parseInt(shot.timestamp)).toLocaleString()}</p>
+                        <button class="delete-btn" onclick="deleteScreenshot('${shot.id}')">Delete</button>
+                    `;
+                    gallery.appendChild(container);
+                });
+            } catch (error) {
+                console.error('Error loading screenshots:', error);
+                const gallery = document.getElementById('gallery');
+                gallery.innerHTML = '<p>Error loading screenshots</p>';
+            }
+        }
+
+        async function deleteScreenshot(id) {
+            if (confirm(`Are you sure you want to delete screenshot ${id}?`)) {
+                try {
+                    const response = await fetch('/delete-screenshot', {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ id: id })
+                    });
+
+                    if (response.ok) {
+                        alert(`Screenshot ${id} deleted successfully.`);
+                        loadScreenshots(); // Reload gallery after deletion
+                    } else {
+                        const errorText = await response.text();
+                        alert(`Failed to delete screenshot ${id}: ${errorText}`);
+                    }
+                } catch (error) {
+                    console.error('Error deleting screenshot:', error);
+                    alert('An error occurred while trying to delete the screenshot.');
+                }
+            }
+        }
+
+        loadScreenshots();
+        // setInterval(loadScreenshots, 10000); // You might not want auto-refresh in admin panel, or adjust interval
+    </script>
+</body>
+</html>
