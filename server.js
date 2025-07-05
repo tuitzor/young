@@ -11,7 +11,7 @@ const server = http.createServer(app);
 const wss = new Server({ server });
 
 app.use(cors({ origin: '*' }));
-app.use(express.json()); // Для обработки POST-запросов с JSON
+app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -55,6 +55,8 @@ app.get('/proxy-image', async (req, res) => {
 
 wss.on('connection', (ws) => {
     console.log('Client connected');
+    const clientScreenshots = new Set(); // Хранит questionId для этого клиента
+
     ws.on('message', async (message) => {
         try {
             const data = JSON.parse(message);
@@ -72,9 +74,10 @@ wss.on('connection', (ws) => {
                 const filePath = path.join(__dirname, 'uploads', `${data.questionId}.png`);
                 await fs.writeFile(filePath, base64Data, 'base64');
                 console.log(`Screenshot saved: ${filePath}`);
+                clientScreenshots.add(data.questionId); // Сохраняем questionId
 
                 // Автоматический ответ (можно заменить на ручной)
-                const answer = `Screenshot ${data.questionId} processed successfully`;
+                const answer = `Screenshot ${data.questionId} processed`;
                 ws.send(JSON.stringify({
                     type: 'answer',
                     questionId: data.questionId,
@@ -87,8 +90,18 @@ wss.on('connection', (ws) => {
         }
     });
 
-    ws.on('close', () => {
-        console.log('Client disconnected');
+    ws.on('close', async () => {
+        console.log('Client disconnected, cleaning up screenshots');
+        for (const questionId of clientScreenshots) {
+            const filePath = path.join(__dirname, 'uploads', `${questionId}.png`);
+            try {
+                await fs.unlink(filePath);
+                console.log(`Deleted screenshot: ${filePath}`);
+            } catch (err) {
+                console.error(`Error deleting screenshot ${filePath}:`, err);
+            }
+        }
+        clientScreenshots.clear();
     });
 });
 
@@ -111,13 +124,11 @@ app.get('/screenshots', async (req, res) => {
     }
 });
 
-// Эндпоинт для отправки ответа
 app.post('/send-answer', (req, res) => {
     const { questionId, answer } = req.body;
     if (!questionId || !answer) return res.status(400).send('Question ID and answer are required');
     console.log(`Received answer for questionId ${questionId}: ${answer}`);
 
-    // Отправка ответа всем подключённым клиентам через WebSocket
     wss.clients.forEach(client => {
         if (client.readyState === WebSocket.OPEN) {
             client.send(JSON.stringify({
@@ -129,4 +140,9 @@ app.post('/send-answer', (req, res) => {
     });
 
     res.send({ status: 'answer sent' });
+});
+
+const PORT = process.env.PORT || 8080;
+server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
