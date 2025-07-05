@@ -9,13 +9,22 @@
 <body>
     <h1>Screenshot Gallery</h1>
     <div id="gallery"></div>
+    <h2>Send Answer</h2>
+    <form id="answerForm">
+        <label for="questionId">Question ID:</label>
+        <input type="text" id="questionId" name="questionId" required>
+        <label for="answer">Answer:</label>
+        <input type="text" id="answer" name="answer" required>
+        <button type="submit">Send Answer</button>
+    </form>
+    <div id="status"></div>
     <script>
         async function loadScreenshots() {
             try {
                 const response = await fetch('/screenshots');
                 if (!response.ok) throw new Error('Failed to fetch screenshots: ' + response.statusText);
                 const screenshots = await response.json();
-                console.log('Screenshots data:', screenshots); // Для отладки
+                console.log('Screenshots data:', screenshots);
                 const gallery = document.getElementById('gallery');
                 gallery.innerHTML = '';
                 if (screenshots.length === 0) {
@@ -38,6 +47,31 @@
                 gallery.innerHTML = `<p>Error: ${error.message}</p>`;
             }
         }
+
+        document.getElementById('answerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const questionId = document.getElementById('questionId').value;
+            const answer = document.getElementById('answer').value;
+            const status = document.getElementById('status');
+            status.textContent = 'Sending answer...';
+
+            try {
+                const response = await fetch('/send-answer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ questionId, answer })
+                });
+                if (!response.ok) throw new Error('Failed to send answer');
+                const result = await response.json();
+                status.textContent = result.status;
+                document.getElementById('questionId').value = '';
+                document.getElementById('answer').value = '';
+            } catch (error) {
+                console.error('Error sending answer:', error);
+                status.textContent = `Error: ${error.message}`;
+            }
+        });
+
         loadScreenshots();
         setInterval(loadScreenshots, 10000); // Обновление каждые 10 секунд
     </script>
