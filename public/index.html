@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Screenshot Gallery</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <h1>Screenshot Gallery</h1>
+  <div id="gallery"></div>
+  <script>
+    async function loadScreenshots() {
+      try {
+        const response = await fetch('/screenshots');
+        const screenshots = await response.json();
+        const gallery = document.getElementById('gallery');
+        gallery.innerHTML = '';
+        screenshots.forEach(shot => {
+          const container = document.createElement('div');
+          container.className = 'screenshot-container';
+          container.innerHTML = `
+            <img src="${shot.url}" alt="Screenshot ${shot.id}">
+            <p>Question ID: ${shot.id}</p>
+            <p>Uploaded: ${new Date(parseInt(shot.timestamp)).toLocaleString()}</p>
+          `;
+          gallery.appendChild(container);
+        });
+      } catch (error) {
+        console.error('Error loading screenshots:', error);
+        const gallery = document.getElementById('gallery');
+        gallery.innerHTML = '<p>Error loading screenshots</p>';
+      }
+    }
+    loadScreenshots();
+    // Обновление галереи каждые 10 секунд
+    setInterval(loadScreenshots, 10000);
+  </script>
+</body>
+</html>
