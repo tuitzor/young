@@ -15,6 +15,27 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// Хранение пользователей (временное, можно заменить на базу данных)
+let users = {};
+let answers = {}; // Хранит ответы для каждого questionId
+
+// Загрузка пользователей из файла
+async function loadUsers() {
+    try {
+        const data = await fs.readFile(path.join(__dirname, 'users.json'), 'utf8');
+        users = JSON.parse(data);
+    } catch (err) {
+        console.log('No users.json found, starting with empty users');
+        users = { 'user1': 'pass1', 'user2': 'pass2' }; // Пример пользователей
+        await saveUsers();
+    }
+}
+
+// Сохранение пользователей в файл
+async function saveUsers() {
+    await fs.writeFile(path.join(__dirname, 'users.json'), JSON.stringify(users, null, 2));
+}
+
 // Асинхронное создание папки
 async function ensureUploadsDir() {
     try {
@@ -26,24 +47,22 @@ async function ensureUploadsDir() {
     }
 }
 
-// Запуск сервера
 async function startServer() {
     try {
         await ensureUploadsDir();
-        const PORT = process.env.PORT || 10000; // Используем порт, назначенный Render
+        await loadUsers();
+        const PORT = process.env.PORT || 10000;
         server.listen(PORT, () => {
             console.log(`Server running on port ${PORT}`);
         });
     } catch (err) {
         console.error('Failed to start server:', err);
-        process.exit(1); // Завершаем процесс при ошибке
+        process.exit(1);
     }
 }
 
-// Запуск сервера один раз
 startServer();
 
-// Эндпоинт для прокси изображений
 app.get('/proxy-image', async (req, res) => {
     const imageUrl = req.query.url;
     if (!imageUrl) return res.status(400).send('No URL provided');
@@ -59,9 +78,20 @@ app.get('/proxy-image', async (req, res) => {
     }
 });
 
+// Аутентификация
+app.post('/login', (req, res) => {
+    const { username, password } = req.body;
+    if (users[username] === password) {
+        res.send({ status: 'success', username });
+    } else {
+        res.status(401).send({ status: 'error', message: 'Invalid username or password' });
+    }
+});
+
 // Обработка WebSocket
 wss.on('connection', (ws) => {
     console.log('Client connected');
+    let authenticated = false;
     const clientScreenshots = new Set();
 
     ws.on('message', async (message) => {
@@ -69,7 +99,17 @@ wss.on('connection', (ws) => {
             const data = JSON.parse(message);
             console.log('Received:', data);
 
-            if (data.role === 'helper') {
+            if (data.role === 'login') {
+                if (users[data.username] === data.password) {
+                    authenticated = true;
+                    ws.send(JSON.stringify({ type: 'auth', status: 'success', message: 'Authenticated' }));
+                } else {
+                    ws.send(JSON.stringify({ type: 'auth', status: 'error', message: 'Invalid credentials' }));
+                }
+            } else if (!authenticated) {
+                ws.send(JSON.stringify({ type: 'error', message: 'Authentication required' }));
+                return;
+            } else if (data.role === 'helper') {
                 console.log('Helper client registered');
                 ws.send(JSON.stringify({ type: 'ack', message: 'Helper registered' }));
             } else if (data.type === 'pageHTML') {
@@ -83,11 +123,11 @@ wss.on('connection', (ws) => {
                 console.log(`Screenshot saved: ${filePath}`);
                 clientScreenshots.add(data.questionId);
 
-                const answer = `Screenshot ${data.questionId} processed successfully`;
+                const answer = `Screenshot ${data.questionId} processed`;
                 ws.send(JSON.stringify({
                     type: 'answer',
                     questionId: data.questionId,
-                    answer: answer
+                    answer: answers[data.questionId] || answer
                 }));
             }
         } catch (error) {
@@ -103,6 +143,7 @@ wss.on('connection', (ws) => {
             try {
                 await fs.unlink(filePath);
                 console.log(`Deleted screenshot: ${filePath}`);
+                delete answers[questionId]; // Удаляем сохранённые ответы
             } catch (err) {
                 console.error(`Error deleting screenshot ${filePath}:`, err);
             }
@@ -121,7 +162,8 @@ app.get('/screenshots', async (req, res) => {
         const screenshots = files.filter(file => file.endsWith('.png')).map(file => ({
             id: file.replace('.png', ''),
             url: `/uploads/${file}`,
-            timestamp: file.replace('.png', '')
+            timestamp: file.replace('.png', ''),
+            answer: answers[file.replace('.png', '')] || ''
         }));
         res.json(screenshots);
     } catch (error) {
@@ -134,6 +176,7 @@ app.post('/send-answer', (req, res) => {
     const { questionId, answer } = req.body;
     if (!questionId || !answer) return res.status(400).send('Question ID and answer are required');
     console.log(`Received answer for questionId ${questionId}: ${answer}`);
+    answers[questionId] = answer; // Сохраняем ответ
 
     wss.clients.forEach(client => {
         if (client.readyState === WebSocket.OPEN) {
