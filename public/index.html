@@ -21,9 +21,21 @@
     <div id="gallery" style="display: none;">
         <h1>Screenshot Gallery</h1>
         <div id="screenshotList"></div>
+        <div id="adminPanel" style="display: none;">
+            <h2>Admin Panel</h2>
+            <form id="createUserForm">
+                <label for="newUsername">New Username:</label>
+                <input type="text" id="newUsername" name="newUsername" required>
+                <label for="newPassword">New Password:</label>
+                <input type="password" id="newPassword" name="newPassword" required>
+                <button type="submit">Create User</button>
+            </form>
+            <div id="adminStatus"></div>
+        </div>
     </div>
     <script>
         let authenticated = false;
+        let userRole = '';
 
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -40,15 +52,43 @@
                 const result = await response.json();
                 if (result.status === 'success') {
                     authenticated = true;
+                    userRole = result.role;
                     document.getElementById('login').style.display = 'none';
                     document.getElementById('gallery').style.display = 'block';
-                    loginStatus.textContent = 'Logged in as ' + result.username;
+                    loginStatus.textContent = `Logged in as ${result.username} (${result.role})`;
+                    if (userRole === 'admin') {
+                        document.getElementById('adminPanel').style.display = 'block';
+                    }
                     loadScreenshots();
                 } else {
                     loginStatus.textContent = result.message;
                 }
             } catch (error) {
                 loginStatus.textContent = 'Error: ' + error.message;
+            }
+        });
+
+        document.getElementById('createUserForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (userRole !== 'admin') return;
+            const adminUsername = 'admin'; // Предполагаем, что админ всегда 'admin'
+            const adminPassword = prompt('Enter admin password:'); // Безопасность можно улучшить
+            const newUsername = document.getElementById('newUsername').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const adminStatus = document.getElementById('adminStatus');
+
+            try {
+                const response = await fetch('/create-user', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ adminUsername, adminPassword, newUsername, newPassword })
+                });
+                const result = await response.json();
+                adminStatus.textContent = result.message;
+                document.getElementById('newUsername').value = '';
+                document.getElementById('newPassword').value = '';
+            } catch (error) {
+                adminStatus.textContent = 'Error: ' + error.message;
             }
         });
 
@@ -107,7 +147,7 @@
         }
 
         loadScreenshots();
-        setInterval(loadScreenshots, 10000); // Обновление каждые 10 секунд
+        setInterval(loadScreenshots, 10000);
     </script>
 </body>
 </html>
