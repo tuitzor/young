@@ -10,10 +10,12 @@ const app = express();
 const server = http.createServer(app);
 const wss = new Server({ server });
 
+// Middleware для обработки JSON-тела запросов
+app.use(express.json()); // Add this line to parse JSON bodies
+
 // Настройка CORS и статических файлов
 app.use(cors({ origin: '*' }));
 app.use(express.static(path.join(__dirname, 'public')));
-// Serve static files from the 'uploads' directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Создание папки uploads для временного хранения
@@ -82,7 +84,7 @@ wss.on('connection', (ws) => {
     });
 });
 
-// Главная страница
+// Главная страница (галерея)
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -96,10 +98,38 @@ app.get('/screenshots', async (req, res) => {
             url: `/uploads/${file}`,
             timestamp: file.replace('.png', '')
         }));
+        // Sort by timestamp descending (newest first)
+        screenshots.sort((a, b) => parseInt(b.timestamp) - parseInt(a.timestamp));
         res.json(screenshots);
     } catch (error) {
         console.error('Error listing screenshots:', error);
         res.status(500).send('Failed to list screenshots');
+    }
+});
+
+// Новый эндпоинт для админ-панели
+app.get('/admin', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+// Новый эндпоинт для удаления скриншота
+app.delete('/delete-screenshot', async (req, res) => {
+    const { id } = req.body;
+    if (!id) {
+        return res.status(400).send('Screenshot ID is required');
+    }
+
+    const filePath = path.join(__dirname, 'uploads', `${id}.png`);
+    try {
+        await fs.unlink(filePath);
+        console.log(`Screenshot deleted: ${filePath}`);
+        res.status(200).send('Screenshot deleted successfully');
+    } catch (error) {
+        if (error.code === 'ENOENT') {
+            return res.status(404).send('Screenshot not found');
+        }
+        console.error('Error deleting screenshot:', error);
+        res.status(500).send('Failed to delete screenshot');
     }
 });
 
