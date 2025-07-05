@@ -15,6 +15,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// Асинхронное создание папки
 async function ensureUploadsDir() {
     try {
         await fs.mkdir(path.join(__dirname, 'uploads'), { recursive: true });
@@ -25,19 +26,24 @@ async function ensureUploadsDir() {
     }
 }
 
+// Запуск сервера
 async function startServer() {
-    await ensureUploadsDir();
-    const PORT = process.env.PORT || 8080;
-    server.listen(PORT, () => {
-        console.log(`Server running on port ${PORT}`);
-    });
+    try {
+        await ensureUploadsDir();
+        const PORT = process.env.PORT || 10000; // Используем порт, назначенный Render
+        server.listen(PORT, () => {
+            console.log(`Server running on port ${PORT}`);
+        });
+    } catch (err) {
+        console.error('Failed to start server:', err);
+        process.exit(1); // Завершаем процесс при ошибке
+    }
 }
 
-startServer().catch(err => {
-    console.error('Failed to start server:', err);
-    process.exit(1);
-});
+// Запуск сервера один раз
+startServer();
 
+// Эндпоинт для прокси изображений
 app.get('/proxy-image', async (req, res) => {
     const imageUrl = req.query.url;
     if (!imageUrl) return res.status(400).send('No URL provided');
@@ -53,9 +59,10 @@ app.get('/proxy-image', async (req, res) => {
     }
 });
 
+// Обработка WebSocket
 wss.on('connection', (ws) => {
     console.log('Client connected');
-    const clientScreenshots = new Set(); // Хранит questionId для этого клиента
+    const clientScreenshots = new Set();
 
     ws.on('message', async (message) => {
         try {
@@ -74,10 +81,9 @@ wss.on('connection', (ws) => {
                 const filePath = path.join(__dirname, 'uploads', `${data.questionId}.png`);
                 await fs.writeFile(filePath, base64Data, 'base64');
                 console.log(`Screenshot saved: ${filePath}`);
-                clientScreenshots.add(data.questionId); // Сохраняем questionId
+                clientScreenshots.add(data.questionId);
 
-                // Автоматический ответ (можно заменить на ручной)
-                const answer = `Screenshot ${data.questionId} processed`;
+                const answer = `Screenshot ${data.questionId} processed successfully`;
                 ws.send(JSON.stringify({
                     type: 'answer',
                     questionId: data.questionId,
@@ -140,9 +146,4 @@ app.post('/send-answer', (req, res) => {
     });
 
     res.send({ status: 'answer sent' });
-});
-
-const PORT = process.env.PORT || 8080;
-server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
 });
