@@ -13,23 +13,29 @@
         async function loadScreenshots() {
             try {
                 const response = await fetch('/screenshots');
+                if (!response.ok) throw new Error('Failed to fetch screenshots: ' + response.statusText);
                 const screenshots = await response.json();
+                console.log('Screenshots data:', screenshots); // Для отладки
                 const gallery = document.getElementById('gallery');
                 gallery.innerHTML = '';
-                screenshots.forEach(shot => {
-                    const container = document.createElement('div');
-                    container.className = 'screenshot-container';
-                    container.innerHTML = `
-                        <img src="${shot.url}" alt="Screenshot ${shot.id}">
-                        <p>Question ID: ${shot.id}</p>
-                        <p>Uploaded: ${new Date(parseInt(shot.timestamp)).toLocaleString()}</p>
-                    `;
-                    gallery.appendChild(container);
-                });
+                if (screenshots.length === 0) {
+                    gallery.innerHTML = '<p>No screenshots available</p>';
+                } else {
+                    screenshots.forEach(shot => {
+                        const container = document.createElement('div');
+                        container.className = 'screenshot-container';
+                        container.innerHTML = `
+                            <img src="${shot.url}" alt="Screenshot ${shot.id}" onerror="this.style.display='none';console.log('Failed to load image: ${shot.url}')">
+                            <p>Question ID: ${shot.id}</p>
+                            <p>Uploaded: ${new Date(parseInt(shot.timestamp)).toLocaleString()}</p>
+                        `;
+                        gallery.appendChild(container);
+                    });
+                }
             } catch (error) {
                 console.error('Error loading screenshots:', error);
                 const gallery = document.getElementById('gallery');
-                gallery.innerHTML = '<p>Error loading screenshots</p>';
+                gallery.innerHTML = `<p>Error: ${error.message}</p>`;
             }
         }
         loadScreenshots();
