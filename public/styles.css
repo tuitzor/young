@@ -5,27 +5,27 @@ body {
     max-width: 100%;
     overflow-x: hidden;
 }
-h1 {
-    text-align: center;
-    color: #333;
+#login, #gallery {
+    max-width: 800px;
+    margin: 0 auto;
 }
-#gallery {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 20px;
-    padding: 0;
-    width: 100%;
-}
-.screenshot-container {
+#login form, .screenshot-container {
     background: white;
     padding: 10px;
     border-radius: 5px;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-    width: 90%;
-    max-width: 800px;
+    margin-bottom: 20px;
 }
-img {
+h1, h2 {
+    text-align: center;
+    color: #333;
+}
+#screenshotList {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+.screenshot-container img {
     width: 100%;
     height: auto;
     border: 1px solid #ccc;
@@ -55,4 +55,9 @@ img {
 }
 .answer-form button:hover {
     background-color: #45a049;
+}
+#loginStatus {
+    text-align: center;
+    margin-top: 10px;
+    color: #d32f2f;
 }
