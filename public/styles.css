@@ -5,11 +5,11 @@ body {
     max-width: 100%;
     overflow-x: hidden;
 }
-#login, #gallery {
+#login, #gallery, #adminPanel {
     max-width: 800px;
     margin: 0 auto;
 }
-#login form, .screenshot-container {
+#login form, .screenshot-container, #adminPanel form {
     background: white;
     padding: 10px;
     border-radius: 5px;
@@ -56,7 +56,7 @@ h1, h2 {
 .answer-form button:hover {
     background-color: #45a049;
 }
-#loginStatus {
+#loginStatus, #adminStatus {
     text-align: center;
     margin-top: 10px;
     color: #d32f2f;
