@@ -10,19 +10,34 @@ const app = express();
 const server = http.createServer(app);
 const wss = new Server({ server });
 
-// Настройка CORS и статических файлов
 app.use(cors({ origin: '*' }));
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Добавляем обслуживание uploads
 
-// Создание папки uploads для временного хранения
+// Асинхронное создание папки перед запуском
 async function ensureUploadsDir() {
     try {
         await fs.mkdir(path.join(__dirname, 'uploads'), { recursive: true });
+        console.log('Uploads directory created or already exists');
     } catch (err) {
-        console.error('Error creating uploads directory:', err);
+        console.error('Error creating uploads directory:', err.message);
+        throw err; // Прерываем запуск, если папка не создана
     }
 }
-ensureUploadsDir();
+
+// Запуск сервера только после создания папки
+async function startServer() {
+    await ensureUploadsDir();
+    const PORT = process.env.PORT || 8080;
+    server.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+    });
+}
+
+startServer().catch(err => {
+    console.error('Failed to start server:', err);
+    process.exit(1); // Завершаем процесс при ошибке
+});
 
 // Эндпоинт для прокси изображений
 app.get('/proxy-image', async (req, res) => {
@@ -40,7 +55,7 @@ app.get('/proxy-image', async (req, res) => {
     }
 });
 
-// Обработка WebSocket-соединений
+// Обработка WebSocket
 wss.on('connection', (ws) => {
     console.log('Client connected');
     ws.on('message', async (message) => {
@@ -61,11 +76,11 @@ wss.on('connection', (ws) => {
                 await fs.writeFile(filePath, base64Data, 'base64');
                 console.log(`Screenshot saved: ${filePath}`);
 
-                // Пример ответа (можно настроить логику ответа)
+                // Пример ответа
                 const answer = `Screenshot ${data.questionId} processed successfully`;
                 ws.send(JSON.stringify({
                     type: 'answer',
-                    questionId: data.questionId,
+                    questionId: renderData.questionId,
                     answer: answer
                 }));
             }
@@ -99,9 +114,4 @@ app.get('/screenshots', async (req, res) => {
         console.error('Error listing screenshots:', error);
         res.status(500).send('Failed to list screenshots');
     }
-});
-
-const PORT = process.env.PORT || 8080;
-server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
 });
