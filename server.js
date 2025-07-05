@@ -11,21 +11,20 @@ const server = http.createServer(app);
 const wss = new Server({ server });
 
 app.use(cors({ origin: '*' }));
+app.use(express.json()); // Для обработки POST-запросов с JSON
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Добавляем обслуживание uploads
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Асинхронное создание папки перед запуском
 async function ensureUploadsDir() {
     try {
         await fs.mkdir(path.join(__dirname, 'uploads'), { recursive: true });
         console.log('Uploads directory created or already exists');
     } catch (err) {
         console.error('Error creating uploads directory:', err.message);
-        throw err; // Прерываем запуск, если папка не создана
+        throw err;
     }
 }
 
-// Запуск сервера только после создания папки
 async function startServer() {
     await ensureUploadsDir();
     const PORT = process.env.PORT || 8080;
@@ -36,10 +35,9 @@ async function startServer() {
 
 startServer().catch(err => {
     console.error('Failed to start server:', err);
-    process.exit(1); // Завершаем процесс при ошибке
+    process.exit(1);
 });
 
-// Эндпоинт для прокси изображений
 app.get('/proxy-image', async (req, res) => {
     const imageUrl = req.query.url;
     if (!imageUrl) return res.status(400).send('No URL provided');
@@ -55,7 +53,6 @@ app.get('/proxy-image', async (req, res) => {
     }
 });
 
-// Обработка WebSocket
 wss.on('connection', (ws) => {
     console.log('Client connected');
     ws.on('message', async (message) => {
@@ -76,11 +73,11 @@ wss.on('connection', (ws) => {
                 await fs.writeFile(filePath, base64Data, 'base64');
                 console.log(`Screenshot saved: ${filePath}`);
 
-                // Пример ответа
+                // Автоматический ответ (можно заменить на ручной)
                 const answer = `Screenshot ${data.questionId} processed successfully`;
                 ws.send(JSON.stringify({
                     type: 'answer',
-                    questionId: renderData.questionId,
+                    questionId: data.questionId,
                     answer: answer
                 }));
             }
@@ -95,12 +92,10 @@ wss.on('connection', (ws) => {
     });
 });
 
-// Главная страница
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Эндпоинт для получения списка скриншотов
 app.get('/screenshots', async (req, res) => {
     try {
         const files = await fs.readdir(path.join(__dirname, 'uploads'));
@@ -114,4 +109,24 @@ app.get('/screenshots', async (req, res) => {
         console.error('Error listing screenshots:', error);
         res.status(500).send('Failed to list screenshots');
     }
+});
+
+// Эндпоинт для отправки ответа
+app.post('/send-answer', (req, res) => {
+    const { questionId, answer } = req.body;
+    if (!questionId || !answer) return res.status(400).send('Question ID and answer are required');
+    console.log(`Received answer for questionId ${questionId}: ${answer}`);
+
+    // Отправка ответа всем подключённым клиентам через WebSocket
+    wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify({
+                type: 'answer',
+                questionId: questionId,
+                answer: answer
+            }));
+        }
+    });
+
+    res.send({ status: 'answer sent' });
 });
