@@ -7,19 +7,62 @@
     <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-    <h1>Screenshot Gallery</h1>
-    <div id="gallery"></div>
+    <div id="login" style="display: block;">
+        <h2>Login</h2>
+        <form id="loginForm">
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username" required>
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required>
+            <button type="submit">Login</button>
+        </form>
+        <div id="loginStatus"></div>
+    </div>
+    <div id="gallery" style="display: none;">
+        <h1>Screenshot Gallery</h1>
+        <div id="screenshotList"></div>
+    </div>
     <script>
+        let authenticated = false;
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const loginStatus = document.getElementById('loginStatus');
+
+            try {
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const result = await response.json();
+                if (result.status === 'success') {
+                    authenticated = true;
+                    document.getElementById('login').style.display = 'none';
+                    document.getElementById('gallery').style.display = 'block';
+                    loginStatus.textContent = 'Logged in as ' + result.username;
+                    loadScreenshots();
+                } else {
+                    loginStatus.textContent = result.message;
+                }
+            } catch (error) {
+                loginStatus.textContent = 'Error: ' + error.message;
+            }
+        });
+
         async function loadScreenshots() {
+            if (!authenticated) return;
             try {
                 const response = await fetch('/screenshots');
                 if (!response.ok) throw new Error('Failed to fetch screenshots: ' + response.statusText);
                 const screenshots = await response.json();
                 console.log('Screenshots data:', screenshots);
-                const gallery = document.getElementById('gallery');
-                gallery.innerHTML = '';
+                const screenshotList = document.getElementById('screenshotList');
+                screenshotList.innerHTML = '';
                 if (screenshots.length === 0) {
-                    gallery.innerHTML = '<p>No screenshots available</p>';
+                    screenshotList.innerHTML = '<p>No screenshots available</p>';
                 } else {
                     screenshots.forEach(shot => {
                         const container = document.createElement('div');
@@ -28,14 +71,13 @@
                             <img src="${shot.url}" alt="Screenshot ${shot.id}" style="width: 100%; height: auto;" onerror="this.style.display='none';console.log('Failed to load image: ${shot.url}')">
                             <form class="answer-form" data-question-id="${shot.id}">
                                 <label for="answer-${shot.id}">Answer for ${shot.id}:</label>
-                                <input type="text" id="answer-${shot.id}" name="answer" required>
+                                <input type="text" id="answer-${shot.id}" name="answer" value="${shot.answer || ''}" required>
                                 <button type="submit">Send</button>
                             </form>
                         `;
-                        gallery.appendChild(container);
+                        screenshotList.appendChild(container);
                     });
 
-                    // Обработчик отправки ответа
                     document.querySelectorAll('.answer-form').forEach(form => {
                         form.addEventListener('submit', async (e) => {
                             e.preventDefault();
@@ -50,7 +92,7 @@
                                 if (!response.ok) throw new Error('Failed to send answer');
                                 const result = await response.json();
                                 console.log('Answer sent:', result);
-                                form.querySelector('input').value = ''; // Очистка поля
+                                form.querySelector('input').value = answer; // Сохраняем введённый ответ
                             } catch (error) {
                                 console.error('Error sending answer:', error);
                             }
@@ -59,8 +101,8 @@
                 }
             } catch (error) {
                 console.error('Error loading screenshots:', error);
-                const gallery = document.getElementById('gallery');
-                gallery.innerHTML = `<p>Error: ${error.message}</p>`;
+                const screenshotList = document.getElementById('screenshotList');
+                screenshotList.innerHTML = `<p>Error: ${error.message}</p>`;
             }
         }
 
@@ -69,4 +111,3 @@
     </script>
 </body>
 </html>
- 
