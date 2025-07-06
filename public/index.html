@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -18,8 +17,8 @@
     <script>
         async function loadAnswers() {
             try {
-                const response = await fetch('https://your-app.onrender.com/answers');
-                if (!response.ok) throw new Error('Failed to fetch answers');
+                const response = await fetch('https://young-z7wb.onrender.com/answers');
+                if (!response.ok) throw new Error(`Failed to fetch answers: ${response.statusText}`);
                 const answers = await response.json();
                 const answersDiv = document.getElementById('answers');
                 answersDiv.innerHTML = answers.map(a => `
