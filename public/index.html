@@ -43,6 +43,10 @@
             padding: 10px;
             text-align: center;
             border-bottom: 1px solid #eee;
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         .screenshot-img {
             max-width: 100%;
@@ -89,6 +93,11 @@
             color: #666;
             font-style: italic;
         }
+        .error-img {
+            color: #ff4444;
+            padding: 20px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -132,11 +141,24 @@
                 screenshots.forEach(screenshot => {
                     const card = document.createElement('div');
                     card.className = 'screenshot-card';
+                    
+                    // Image container with error handling
+                    const imgContainer = document.createElement('div');
+                    imgContainer.className = 'screenshot-img-container';
+                    
+                    const img = document.createElement('img');
+                    img.className = 'screenshot-img';
+                    img.src = screenshot.url;
+                    img.alt = `Скриншот ${screenshot.id}`;
+                    img.loading = 'lazy';
+                    
+                    img.onerror = () => {
+                        imgContainer.innerHTML = '<div class="error-img">Ошибка загрузки изображения</div>';
+                    };
+                    
+                    imgContainer.appendChild(img);
+                    
                     card.innerHTML = `
-                        <div class="screenshot-img-container">
-                            <img src="${screenshot.url}" class="screenshot-img" 
-                                 alt="Скриншот ${screenshot.id}" loading="lazy">
-                        </div>
                         <div class="screenshot-meta">
                             <p>ID: ${screenshot.id}</p>
                             <p>Дата: ${new Date(screenshot.timestamp).toLocaleString()}</p>
@@ -147,6 +169,8 @@
                             <button class="send-btn" data-id="${screenshot.id}">Отправить ответ</button>
                         </div>
                     `;
+                    
+                    card.prepend(imgContainer);
                     gallery.appendChild(card);
                 });
                 
