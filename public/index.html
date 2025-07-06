@@ -1,69 +1,45 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Screenshot Gallery</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Screenshot Q&A</title>
+    <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-    <h1>Screenshot Gallery</h1>
-    <div>
-        <input type="text" id="username" placeholder="Username">
-        <input type="password" id="password" 
-
- placeholder="Password">
-        <button onclick="login()">Login</button>
+    <div class="container">
+        <h1>Screenshot Q&A</h1>
+        <div class="answer-box">
+            <h2>Ответы</h2>
+            <div id="answers"></div>
+        </div>
     </div>
-    <div id="gallery"></div>
     <script>
-        async function login() {
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
+        async function loadAnswers() {
             try {
-                const response = await fetch('https://young-z7wb.onrender.com/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
-                if (!response.ok) throw new Error('Login failed');
-                const { token } = await response.json();
-                localStorage.setItem('authToken', token);
-                loadScreenshots();
+                const response = await fetch('https://your-app.onrender.com/answers');
+                if (!response.ok) throw new Error('Failed to fetch answers');
+                const answers = await response.json();
+                const answersDiv = document.getElementById('answers');
+                answersDiv.innerHTML = answers.map(a => `
+                    <div class="answer">
+                        <p><strong>ID:</strong> ${a.questionId}</p>
+                        <p><strong>Ответ:</strong> ${a.answer}</p>
+                        <p><strong>Время:</strong> ${new Date(a.timestamp).toLocaleString()}</p>
+                    </div>
+                `).join('');
             } catch (error) {
-                console.error('Login error:', error);
-                alert('Invalid credentials');
+                console.error('Error loading answers:', error);
+                document.getElementById('answers').innerHTML = '<p>Ошибка загрузки ответов</p>';
             }
         }
 
-        async function loadScreenshots() {
-            try {
-                const token = localStorage.getItem('authToken');
-                const response = await fetch('https://young-z7wb.onrender.com/screenshots', {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                if (!response.ok) throw new Error('Failed to fetch screenshots');
-                const screenshots = await response.json();
-                const gallery = document.getElementById('gallery');
-                gallery.innerHTML = '';
-                screenshots.forEach(s => {
-                    const container = document.createElement('div');
-                    container.className = 'screenshot-container';
-                    container.innerHTML = `
-                        <img src="${s.url}" alt="Screenshot ${s.id}">
-                        <p>ID: ${s.id}</p>
-                        <p>Timestamp: ${s.timestamp}</p>
-                    `;
-                    gallery.appendChild(container);
-                });
-            } catch (error) {
-                console.error('Error loading screenshots:', error);
-                alert('Please login to view screenshots');
-            }
-        }
-
-        // Загружаем скриншоты, если токен уже есть
-        if (localStorage.getItem('authToken')) loadScreenshots();
+        // Загружаем ответы при загрузке страницы
+        loadAnswers();
+        // Обновляем ответы каждые 5 секунд
+        setInterval(loadAnswers, 5000);
     </script>
 </body>
 </html>
+```
