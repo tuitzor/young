@@ -1,43 +1,43 @@
-<!DOCTYPE html>
-<html lang="en">
+ <!DOCTYPE html>
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Screenshot Q&A</title>
+    <title>Галерея скриншотов</title>
     <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-    <div class="container">
-        <h1>Screenshot Q&A</h1>
-        <div class="answer-box">
-            <h2>Ответы</h2>
-            <div id="answers"></div>
-        </div>
-    </div>
+    <h1>Галерея скриншотов</h1>
+    <div id="gallery"></div>
     <script>
-        async function loadAnswers() {
+        async function loadScreenshots() {
             try {
-                const response = await fetch('https://young-z7wb.onrender.com/answers');
-                if (!response.ok) throw new Error(`Failed to fetch answers: ${response.statusText}`);
-                const answers = await response.json();
-                const answersDiv = document.getElementById('answers');
-                answersDiv.innerHTML = answers.map(a => `
-                    <div class="answer">
-                        <p><strong>ID:</strong> ${a.questionId}</p>
-                        <p><strong>Ответ:</strong> ${a.answer}</p>
-                        <p><strong>Время:</strong> ${new Date(a.timestamp).toLocaleString()}</p>
-                    </div>
-                `).join('');
+                const response = await fetch('/screenshots');
+                const screenshots = await response.json();
+                const gallery = document.getElementById('gallery');
+                gallery.innerHTML = '';
+                screenshots.forEach(shot => {
+                    const container = document.createElement('div');
+                    container.className = 'screenshot-container';
+                    container.innerHTML = `
+                        <img src="${shot.url}" alt="Скриншот ${shot.id}">
+                        <p>ID вопроса: ${shot.id}</p>
+                        <p>Загружен: ${new Date(parseInt(shot.timestamp)).toLocaleString()}</p>
+                        <div class="answer-box">
+                            <strong>Ответ:</strong>
+                            <p>${shot.answer}</p>
+                        </div>
+                    `;
+                    gallery.appendChild(container);
+                });
             } catch (error) {
-                console.error('Error loading answers:', error);
-                document.getElementById('answers').innerHTML = '<p>Ошибка загрузки ответов</p>';
+                console.error('Ошибка загрузки:', error);
+                const gallery = document.getElementById('gallery');
+                gallery.innerHTML = '<p>Ошибка загрузки скриншотов</p>';
             }
         }
-
-        // Загружаем ответы при загрузке страницы
-        loadAnswers();
-        // Обновляем ответы каждые 5 секунд
-        setInterval(loadAnswers, 5000);
+        loadScreenshots();
+        setInterval(loadScreenshots, 10000);
     </script>
 </body>
 </html>
