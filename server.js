@@ -2,12 +2,16 @@ const express = require('express');
 const { Server } = require('ws');
 const http = require('http');
 const cors = require('cors');
+const fetch = require('node-fetch');
 const fs = require('fs').promises;
 const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
 const wss = new Server({ server });
+
+// Хранилище ответов
+const answers = new Map();
 
 // Настройка CORS и статических файлов
 app.use(cors({ origin: '*' }));
@@ -17,81 +21,69 @@ app.use(express.static(path.join(__dirname, 'public')));
 async function ensureUploadsDir() {
     try {
         await fs.mkdir(path.join(__dirname, 'uploads'), { recursive: true });
-        console.log('Uploads directory ready');
     } catch (err) {
-        console.error('Error creating uploads directory:', err);
+        console.error('Ошибка создания папки uploads:', err);
     }
 }
 ensureUploadsDir();
 
-// Инициализация answers.json
-async function initAnswersFile() {
+// Прокси изображений
+app.get('/proxy-image', async (req, res) => {
+    const imageUrl = req.query.url;
+    if (!imageUrl) return res.status(400).send('URL не указан');
     try {
-        const filePath = path.join(__dirname, 'answers.json');
-        await fs.access(filePath);
-        const content = await fs.readFile(filePath, 'utf8');
-        JSON.parse(content);
-        console.log('answers.json loaded successfully');
-    } catch {
-        console.log('Initializing answers.json');
-        await fs.writeFile(
-            filePath,
-            JSON.stringify({ answers: [] }, null, 2)
-        );
+        const response = await fetch(imageUrl);
+        if (!response.ok) throw new Error(`Ошибка загрузки: ${response.statusText}`);
+        const buffer = await response.buffer();
+        res.set('Content-Type', response.headers.get('content-type'));
+        res.send(buffer);
+    } catch (error) {
+        console.error('Ошибка прокси:', error);
+        res.status(500).send('Не удалось загрузить изображение');
     }
-}
-initAnswersFile();
+});
 
-// Обработка WebSocket-соединений
+// WebSocket обработчик
 wss.on('connection', (ws) => {
-    console.log('Client connected');
+    console.log('Клиент подключен');
     ws.on('message', async (message) => {
-        console.log('Raw message received:', message.toString());
         try {
-            if (!message || typeof message !== 'string') {
-                console.error('Invalid message received:', message);
-                ws.send(JSON.stringify({ type: 'error', message: 'Invalid message format' }));
-                return;
-            }
             const data = JSON.parse(message);
-            console.log('Received:', data);
+            console.log('Получено:', data);
 
-            if (data.type === 'screenshot') {
-                console.log('Received screenshot, questionId:', data.questionId, 'size:', data.screenshot?.length);
-                if (!data.screenshot || !data.questionId) {
-                    throw new Error('Missing screenshot or questionId');
-                }
+            if (data.role === 'helper') {
+                console.log('Подключен помощник');
+                ws.send(JSON.stringify({ type: 'ack', message: 'Помощник зарегистрирован' }));
+            } else if (data.type === 'pageHTML') {
+                console.log('Получен HTML:', data.html.substring(0, 50) + '...');
+                ws.send(JSON.stringify({ type: 'ack', message: 'HTML получен' }));
+            } else if (data.type === 'screenshot') {
+                console.log('Получен скриншот, questionId:', data.questionId);
                 const base64Data = data.screenshot.replace(/^data:image\/png;base64,/, '');
-                const filePath = path.join(__dirname, 'Uploads', `${data.questionId}.png`);
+                const filePath = path.join(__dirname, 'uploads', `${data.questionId}.png`);
                 await fs.writeFile(filePath, base64Data, 'base64');
-                console.log(`Screenshot saved: ${filePath}`);
+                console.log(`Скриншот сохранен: ${filePath}`);
 
-                // Сохраняем ответ в answers.json
-                const answers = JSON.parse(await fs.readFile(path.join(__dirname, 'answers.json')));
-                const answerText = `Screenshot ${data.questionId} processed successfully`;
-                answers.answers.push({
-                    questionId: data.questionId,
-                    answer: answerText,
-                    timestamp: new Date().toISOString()
+                // Сохраняем ответ
+                answers.set(data.questionId, {
+                    answer: `Ответ для ${data.questionId}`,
+                    timestamp: Date.now()
                 });
-                await fs.writeFile(path.join(__dirname, 'answers.json'), JSON.stringify(answers, null, 2));
-                console.log(`Answer for ${data.questionId} added to answers.json`);
 
-                // Отправляем ответ клиенту
                 ws.send(JSON.stringify({
                     type: 'answer',
                     questionId: data.questionId,
-                    answer: answerText
+                    answer: `Ответ для ${data.questionId}`
                 }));
             }
         } catch (error) {
-            console.error('Error processing message:', error.message, message);
-            ws.send(JSON.stringify({ type: 'error', message: `Error: ${error.message}` }));
+            console.error('Ошибка обработки:', error);
+            ws.send(JSON.stringify({ type: 'error', message: error.message }));
         }
     });
 
     ws.on('close', () => {
-        console.log('Client disconnected');
+        console.log('Клиент отключен');
     });
 });
 
@@ -100,18 +92,27 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Эндпоинт для получения ответов
-app.get('/answers', async (req, res) => {
+// Получение списка скриншотов
+app.get('/screenshots', async (req, res) => {
     try {
-        const answers = JSON.parse(await fs.readFile(path.join(__dirname, 'answers.json')));
-        res.json(answers.answers);
+        const files = await fs.readdir(path.join(__dirname, 'uploads'));
+        const screenshots = files.filter(file => file.endsWith('.png')).map(file => {
+            const id = file.replace('.png', '');
+            return {
+                id: id,
+                url: `/uploads/${file}`,
+                timestamp: file.replace('.png', ''),
+                answer: answers.get(id)?.answer || "Ответ еще не готов"
+            };
+        });
+        res.json(screenshots);
     } catch (error) {
-        console.error('Error fetching answers:', error);
-        res.status(500).send('Failed to fetch answers');
+        console.error('Ошибка загрузки скриншотов:', error);
+        res.status(500).send('Ошибка сервера');
     }
 });
 
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`Сервер запущен на порту ${PORT}`);
 });
