@@ -3,148 +3,254 @@ const { Server } = require('ws');
 const http = require('http');
 const fs = require('fs').promises;
 const path = require('path');
+const bcrypt = require('bcryptjs');
+const cookieParser = require('cookie-parser');
+const session = require('express-session');
 
 const app = express();
 const server = http.createServer(app);
 const wss = new Server({ server });
 
-const activeConnections = new Map();
-const screenshotsData = new Map();
+// Конфигурация
+const CONFIG = {
+  MAX_ADMINS: 5,
+  SESSION_SECRET: 'your-secret-key-here', // Замените на случайную строку
+  ADMIN_PASSWORD: bcrypt.hashSync('admin123', 10) // Пароль по умолчанию для главного админа
+};
+
+// База данных (временная, в памяти)
+const DB = {
+  admins: new Map([
+    ['admin', { 
+      login: 'admin',
+      password: CONFIG.ADMIN_PASSWORD,
+      isSuperAdmin: true,
+      online: false 
+    }]
+  ]),
+  activeConnections: new Map(),
+  screenshotsData: new Map(),
+  adminSessions: new Map()
+};
 
 // Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+app.use(session({
+  secret: CONFIG.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: false, httpOnly: true }
+}));
+
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Ensure directories exist
+// Проверка прав администратора
+function requireAdmin(req, res, next) {
+  if (!req.session.admin) {
+    return res.redirect('/admin/login');
+  }
+  next();
+}
+
+// Проверка прав суперадмина
+function requireSuperAdmin(req, res, next) {
+  if (!req.session.admin || !DB.admins.get(req.session.admin)?.isSuperAdmin) {
+    return res.status(403).send('Доступ запрещён');
+  }
+  next();
+}
+
+// Инициализация директорий
 async function initDirectories() {
-    try {
-        await fs.mkdir(path.join(__dirname, 'uploads'), { recursive: true });
-    } catch (err) {
-        console.error('Directory error:', err);
-    }
+  try {
+    await fs.mkdir(path.join(__dirname, 'uploads'), { recursive: true });
+  } catch (err) {
+    console.error('Ошибка создания директорий:', err);
+  }
 }
 
-// Cleanup function
+// Очистка соединений
 async function cleanupConnection(connectionId) {
-    // Delete all screenshots from this connection
-    for (const [questionId, data] of screenshotsData.entries()) {
-        if (data.connectionId === connectionId) {
-            try {
-                await fs.unlink(path.join(__dirname, 'uploads', `${questionId}.png`));
-                screenshotsData.delete(questionId);
-                console.log(`Deleted screenshot ${questionId}`);
-            } catch (err) {
-                console.error('Error deleting file:', err);
-            }
-        }
+  for (const [questionId, data] of DB.screenshotsData.entries()) {
+    if (data.connectionId === connectionId) {
+      try {
+        await fs.unlink(path.join(__dirname, 'uploads', `${questionId}.png`));
+        DB.screenshotsData.delete(questionId);
+      } catch (err) {
+        console.error('Ошибка удаления файла:', err);
+      }
     }
+  }
 }
 
-// WebSocket handler
+// WebSocket обработчик
 wss.on('connection', (ws) => {
-    const connectionId = Date.now().toString();
-    activeConnections.set(connectionId, ws);
-    console.log(`New connection: ${connectionId}`);
+  const connectionId = Date.now().toString();
+  DB.activeConnections.set(connectionId, ws);
 
-    // Send ping every 30 seconds to check connection
-    const pingInterval = setInterval(() => {
-        if (ws.readyState === ws.OPEN) {
-            ws.ping();
-        }
-    }, 30000);
+  const pingInterval = setInterval(() => {
+    if (ws.readyState === ws.OPEN) ws.ping();
+  }, 30000);
 
-    ws.on('message', async (message) => {
-        try {
-            const data = JSON.parse(message);
-            
-            if (data.type === 'screenshot') {
-                const base64Data = data.screenshot.replace(/^data:image\/png;base64,/, '');
-                const filePath = path.join(__dirname, 'uploads', `${data.questionId}.png`);
-                await fs.writeFile(filePath, base64Data, 'base64');
-                
-                screenshotsData.set(data.questionId, {
-                    connectionId,
-                    timestamp: Date.now(),
-                    answer: ""
-                });
-                
-                ws.send(JSON.stringify({
-                    type: 'acknowledge',
-                    questionId: data.questionId,
-                    status: 'screenshot_received'
-                }));
-            }
-        } catch (error) {
-            console.error('Error:', error);
-        }
-    });
-
-    ws.on('close', async () => {
-        console.log(`Connection closed: ${connectionId}`);
-        clearInterval(pingInterval);
-        await cleanupConnection(connectionId);
-        activeConnections.delete(connectionId);
-    });
-
-    ws.on('error', async (error) => {
-        console.log(`Connection error: ${connectionId}`, error);
-        clearInterval(pingInterval);
-        await cleanupConnection(connectionId);
-        activeConnections.delete(connectionId);
-    });
-});
-
-// API endpoints
-app.get('/api/screenshots', async (req, res) => {
+  ws.on('message', async (message) => {
     try {
-        // Verify files actually exist
-        const validScreenshots = [];
-        for (const [id, data] of screenshotsData.entries()) {
-            try {
-                await fs.access(path.join(__dirname, 'uploads', `${id}.png`));
-                validScreenshots.push({
-                    id,
-                    url: `/uploads/${id}.png`,
-                    timestamp: data.timestamp,
-                    answer: data.answer
-                });
-            } catch {
-                screenshotsData.delete(id);
-            }
-        }
+      const data = JSON.parse(message);
+      if (data.type === 'screenshot') {
+        const base64Data = data.screenshot.replace(/^data:image\/png;base64,/, '');
+        const filePath = path.join(__dirname, 'uploads', `${data.questionId}.png`);
+        await fs.writeFile(filePath, base64Data, 'base64');
         
-        res.json(validScreenshots);
-    } catch (error) {
-        console.error('Error:', error);
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
-app.post('/api/answers', express.json(), async (req, res) => {
-    const { questionId, answer } = req.body;
-    if (screenshotsData.has(questionId)) {
-        screenshotsData.set(questionId, {
-            ...screenshotsData.get(questionId),
-            answer: answer
+        DB.screenshotsData.set(data.questionId, {
+          connectionId,
+          timestamp: Date.now(),
+          answer: ""
         });
-        
-        // Send answer back to client if still connected
-        const connectionId = screenshotsData.get(questionId).connectionId;
-        if (activeConnections.has(connectionId)) {
-            activeConnections.get(connectionId).send(JSON.stringify({
-                type: 'answer',
-                questionId,
-                answer
-            }));
-        }
-        
-        return res.sendStatus(200);
+      }
+    } catch (error) {
+      console.error('Ошибка WebSocket:', error);
     }
-    res.sendStatus(404);
+  });
+
+  ws.on('close', async () => {
+    clearInterval(pingInterval);
+    await cleanupConnection(connectionId);
+    DB.activeConnections.delete(connectionId);
+  });
 });
 
-// Init and start
+// API для админ-панели
+app.post('/api/admin/login', async (req, res) => {
+  const { login, password } = req.body;
+  const admin = DB.admins.get(login);
+  
+  if (admin && bcrypt.compareSync(password, admin.password)) {
+    admin.online = true;
+    req.session.admin = login;
+    DB.adminSessions.set(req.session.id, login);
+    return res.json({ success: true });
+  }
+  
+  res.status(401).json({ error: 'Неверные данные' });
+});
+
+app.post('/api/admin/logout', requireAdmin, (req, res) => {
+  const admin = DB.admins.get(req.session.admin);
+  if (admin) admin.online = false;
+  
+  DB.adminSessions.delete(req.session.id);
+  req.session.destroy();
+  res.json({ success: true });
+});
+
+app.get('/api/admin/stats', requireAdmin, (req, res) => {
+  const stats = {
+    totalAdmins: DB.admins.size,
+    onlineAdmins: Array.from(DB.admins.values()).filter(a => a.online).length,
+    activeConnections: DB.activeConnections.size,
+    totalScreenshots: DB.screenshotsData.size
+  };
+  res.json(stats);
+});
+
+app.get('/api/admin/list', requireSuperAdmin, (req, res) => {
+  res.json(Array.from(DB.admins.values()));
+});
+
+app.post('/api/admin/add', requireSuperAdmin, (req, res) => {
+  if (DB.admins.size >= CONFIG.MAX_ADMINS) {
+    return res.status(400).json({ error: 'Достигнут лимит администраторов' });
+  }
+  
+  const { login, password } = req.body;
+  if (DB.admins.has(login)) {
+    return res.status(400).json({ error: 'Администратор уже существует' });
+  }
+  
+  DB.admins.set(login, {
+    login,
+    password: bcrypt.hashSync(password, 10),
+    isSuperAdmin: false,
+    online: false
+  });
+  
+  res.json({ success: true });
+});
+
+app.post('/api/admin/remove', requireSuperAdmin, (req, res) => {
+  const { login } = req.body;
+  if (login === 'admin') {
+    return res.status(400).json({ error: 'Нельзя удалить главного администратора' });
+  }
+  
+  if (!DB.admins.has(login)) {
+    return res.status(404).json({ error: 'Администратор не найден' });
+  }
+  
+  DB.admins.delete(login);
+  res.json({ success: true });
+});
+
+// API для работы со скриншотами
+app.get('/api/screenshots', requireAdmin, async (req, res) => {
+  try {
+    const validScreenshots = [];
+    for (const [id, data] of DB.screenshotsData.entries()) {
+      try {
+        await fs.access(path.join(__dirname, 'uploads', `${id}.png`));
+        validScreenshots.push({
+          id,
+          url: `/uploads/${id}.png`,
+          timestamp: data.timestamp,
+          answer: data.answer
+        });
+      } catch {
+        DB.screenshotsData.delete(id);
+      }
+    }
+    res.json(validScreenshots);
+  } catch (error) {
+    console.error('Ошибка:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+app.post('/api/answers', requireAdmin, async (req, res) => {
+  const { questionId, answer } = req.body;
+  if (DB.screenshotsData.has(questionId)) {
+    DB.screenshotsData.set(questionId, {
+      ...DB.screenshotsData.get(questionId),
+      answer
+    });
+    
+    const connectionId = DB.screenshotsData.get(questionId).connectionId;
+    if (DB.activeConnections.has(connectionId)) {
+      DB.activeConnections.get(connectionId).send(JSON.stringify({
+        type: 'answer',
+        questionId,
+        answer
+      }));
+    }
+    
+    return res.sendStatus(200);
+  }
+  res.sendStatus(404);
+});
+
+// Роуты админ-панели
+app.get('/admin', requireAdmin, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+app.get('/admin/login', (req, res) => {
+  if (req.session.admin) return res.redirect('/admin');
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+// Запуск сервера
 initDirectories().then(() => {
-    const PORT = process.env.PORT || 8080;
-    server.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+  const PORT = process.env.PORT || 8080;
+  server.listen(PORT, () => console.log(`Сервер запущен на http://localhost:${PORT}`));
 });
