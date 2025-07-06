@@ -1,8 +1,7 @@
-
 {
-    "name": "screenshot-qa",
+    "name": "screenshot-server",
     "version": "1.0.0",
-    "description": "Simple screenshot Q&A server",
+    "description": "Server to receive, store, and display screenshots",
     "main": "server.js",
     "scripts": {
         "start": "node server.js"
