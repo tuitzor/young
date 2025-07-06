@@ -245,6 +245,34 @@
             border-radius: 4px;
             cursor: pointer;
         }
+        
+        .refresh-btn {
+            padding: 8px 15px;
+            background: #33b5e5;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 15px;
+        }
+        
+        .new-screenshots-badge {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #ff4444;
+            color: white;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 1000;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -290,6 +318,7 @@
 
         <div class="admin-content">
             <div class="screenshots-container" id="screenshots-container">
+                <button class="refresh-btn" id="refresh-btn">Обновить скриншоты</button>
                 <!-- Скриншоты будут здесь -->
             </div>
 
@@ -307,6 +336,8 @@
             </div>
         </div>
     </div>
+
+    <div class="new-screenshots-badge" id="new-screenshots-badge" title="Новые скриншоты"></div>
 
     <script>
         // DOM элементы
@@ -328,11 +359,16 @@
         const newAdminLogin = document.getElementById('new-admin-login');
         const newAdminPassword = document.getElementById('new-admin-password');
         const addAdminBtn = document.getElementById('add-admin-btn');
+        const refreshBtn = document.getElementById('refresh-btn');
+        const newScreenshotsBadge = document.getElementById('new-screenshots-badge');
 
         // Текущий администратор
         let currentAdmin = null;
         let isSuperAdmin = false;
         let statsInterval = null;
+        let screenshotsInterval = null;
+        let lastScreenshotCount = 0;
+        let newScreenshotsCount = 0;
 
         // Инициализация
         document.addEventListener('DOMContentLoaded', () => {
@@ -346,6 +382,12 @@
             });
             logoutBtn.addEventListener('click', logout);
             addAdminBtn.addEventListener('click', addAdmin);
+            refreshBtn.addEventListener('click', loadScreenshots);
+            newScreenshotsBadge.addEventListener('click', () => {
+                loadScreenshots();
+                newScreenshotsCount = 0;
+                newScreenshotsBadge.style.display = 'none';
+            });
         });
 
         // Проверка авторизации
@@ -373,10 +415,7 @@
         function showLoginPage() {
             loginPage.style.display = 'flex';
             adminPanel.style.display = 'none';
-            if (statsInterval) {
-                clearInterval(statsInterval);
-                statsInterval = null;
-            }
+            clearAllIntervals();
         }
 
         // Показать админ-панель
@@ -385,6 +424,7 @@
             adminPanel.style.display = 'block';
             
             updateStats(initialStats);
+            lastScreenshotCount = initialStats.totalScreenshots || 0;
             
             // Загружаем информацию об администраторе
             try {
@@ -407,14 +447,75 @@
                 }
                 
                 // Загружаем скриншоты
-                loadScreenshots();
+                await loadScreenshots();
                 
                 // Запускаем обновление статистики
-                startStatsUpdater();
+                startIntervals();
             } catch (error) {
                 console.error('Ошибка загрузки данных:', error);
                 alert('Ошибка загрузки данных');
                 logout();
+            }
+        }
+
+        // Очистка всех интервалов
+        function clearAllIntervals() {
+            if (statsInterval) {
+                clearInterval(statsInterval);
+                statsInterval = null;
+            }
+            if (screenshotsInterval) {
+                clearInterval(screenshotsInterval);
+                screenshotsInterval = null;
+            }
+        }
+
+        // Запуск интервалов обновления
+        function startIntervals() {
+            // Обновление статистики каждые 10 секунд
+            statsInterval = setInterval(updateStatsData, 10000);
+            
+            // Проверка новых скриншотов каждые 5 секунд
+            screenshotsInterval = setInterval(checkNewScreenshots, 5000);
+        }
+
+        // Обновление данных статистики
+        async function updateStatsData() {
+            try {
+                const response = await fetch('/api/admin/stats', {
+                    credentials: 'include'
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    updateStats(data);
+                }
+            } catch (error) {
+                console.error('Ошибка обновления статистики:', error);
+            }
+        }
+
+        // Проверка новых скриншотов
+        async function checkNewScreenshots() {
+            try {
+                const response = await fetch('/api/admin/stats', {
+                    credentials: 'include'
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    const currentCount = data.totalScreenshots || 0;
+                    
+                    if (currentCount > lastScreenshotCount) {
+                        newScreenshotsCount += (currentCount - lastScreenshotCount);
+                        lastScreenshotCount = currentCount;
+                        
+                        if (newScreenshotsCount > 0) {
+                            newScreenshotsBadge.textContent = newScreenshotsCount;
+                            newScreenshotsBadge.style.display = 'flex';
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Ошибка проверки новых скриншотов:', error);
             }
         }
 
@@ -477,6 +578,9 @@
 
         // Загрузка скриншотов
         async function loadScreenshots() {
+            refreshBtn.disabled = true;
+            refreshBtn.textContent = 'Загрузка...';
+            
             try {
                 const response = await fetch('/api/screenshots', {
                     credentials: 'include'
@@ -486,38 +590,53 @@
                 
                 const screenshots = await response.json();
                 renderScreenshots(screenshots);
+                
+                // Обновляем счетчик
+                lastScreenshotCount = screenshots.length;
+                newScreenshotsCount = 0;
+                newScreenshotsBadge.style.display = 'none';
             } catch (error) {
                 console.error('Ошибка загрузки скриншотов:', error);
+            } finally {
+                refreshBtn.disabled = false;
+                refreshBtn.textContent = 'Обновить скриншоты';
             }
         }
 
         // Отображение скриншотов
         function renderScreenshots(screenshots) {
-            screenshotsContainer.innerHTML = '';
+            const container = document.createElement('div');
             
             if (screenshots.length === 0) {
-                screenshotsContainer.innerHTML = '<p>Нет скриншотов для отображения</p>';
-                return;
+                container.innerHTML = '<p>Нет скриншотов для отображения</p>';
+            } else {
+                screenshots.forEach(screenshot => {
+                    const card = document.createElement('div');
+                    card.className = 'screenshot-card';
+                    card.innerHTML = `
+                        <div class="screenshot-img-container">
+                            <img src="${screenshot.url}" class="screenshot-img" alt="Скриншот ${screenshot.id}" loading="lazy">
+                        </div>
+                        <div class="screenshot-info">
+                            <p>ID: ${screenshot.id}</p>
+                            <p>Дата: ${new Date(screenshot.timestamp).toLocaleString()}</p>
+                        </div>
+                        <div class="answer-section">
+                            <textarea class="answer-input" data-id="${screenshot.id}" placeholder="Введите ответ...">${screenshot.answer || ''}</textarea>
+                            <button class="send-answer-btn" data-id="${screenshot.id}">Отправить</button>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
             }
             
-            screenshots.forEach(screenshot => {
-                const card = document.createElement('div');
-                card.className = 'screenshot-card';
-                card.innerHTML = `
-                    <div class="screenshot-img-container">
-                        <img src="${screenshot.url}" class="screenshot-img" alt="Скриншот ${screenshot.id}" loading="lazy">
-                    </div>
-                    <div class="screenshot-info">
-                        <p>ID: ${screenshot.id}</p>
-                        <p>Дата: ${new Date(screenshot.timestamp).toLocaleString()}</p>
-                    </div>
-                    <div class="answer-section">
-                        <textarea class="answer-input" data-id="${screenshot.id}" placeholder="Введите ответ...">${screenshot.answer || ''}</textarea>
-                        <button class="send-answer-btn" data-id="${screenshot.id}">Отправить</button>
-                    </div>
-                `;
-                screenshotsContainer.appendChild(card);
-            });
+            // Заменяем содержимое контейнера
+            const oldContainer = screenshotsContainer.querySelector('div');
+            if (oldContainer) {
+                screenshotsContainer.replaceChild(container, oldContainer);
+            } else {
+                screenshotsContainer.appendChild(container);
+            }
             
             // Добавляем обработчики для кнопок отправки
             document.querySelectorAll('.send-answer-btn').forEach(btn => {
@@ -664,22 +783,6 @@
                 addAdminBtn.disabled = false;
                 addAdminBtn.textContent = 'Добавить';
             }
-        }
-
-        // Автоматическое обновление статистики
-        function startStatsUpdater() {
-            statsInterval = setInterval(async () => {
-                try {
-                    const response = await fetch('/api/admin/stats', {
-                        credentials: 'include'
-                    });
-                    if (response.ok) {
-                        updateStats(await response.json());
-                    }
-                } catch (error) {
-                    console.error('Ошибка обновления статистики:', error);
-                }
-            }, 10000);
         }
     </script>
 </body>
