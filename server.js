@@ -5,6 +5,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
+const cors = require('cors');
 
 const app = express();
 const server = http.createServer(app);
@@ -14,32 +15,39 @@ const wss = new Server({ server });
 const CONFIG = {
   MAX_ADMINS: 5,
   SESSION_SECRET: process.env.SESSION_SECRET || 'your-strong-secret-here',
-  ADMIN_PASSWORD: bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'admin12345', 10)
+  ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || 'admin123'
 };
 
 // Временная "база данных" в памяти
 const DB = {
-  admins: new Map([
-    ['admin', { 
-      login: 'admin',
-      password: CONFIG.ADMIN_PASSWORD,
-      isSuperAdmin: true,
-      online: false 
-    }]
-  ]),
+  admins: new Map(),
   activeConnections: new Map(),
   screenshotsData: new Map()
 };
 
+// Инициализация админа
+function initAdmin() {
+  const hashedPassword = bcrypt.hashSync(CONFIG.ADMIN_PASSWORD, 10);
+  DB.admins.set('admin', {
+    login: 'admin',
+    password: hashedPassword,
+    isSuperAdmin: true,
+    online: false
+  });
+}
+
 // Middleware
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(session({
   secret: CONFIG.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
-  cookie: { 
-    secure: process.env.NODE_ENV === 'production',
+  cookie: {
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000 // 1 день
   }
@@ -53,16 +61,6 @@ async function initDirectories() {
   try {
     await fs.mkdir(path.join(__dirname, 'public'), { recursive: true });
     await fs.mkdir(path.join(__dirname, 'uploads'), { recursive: true });
-    
-    // Создаем index.html если его нет
-    try {
-      await fs.access(path.join(__dirname, 'public', 'index.html'));
-    } catch {
-      await fs.writeFile(
-        path.join(__dirname, 'public', 'index.html'),
-        '<!-- Ваш HTML будет сгенерирован автоматически -->'
-      );
-    }
   } catch (err) {
     console.error('Ошибка инициализации директорий:', err);
   }
@@ -72,7 +70,6 @@ async function initDirectories() {
 wss.on('connection', (ws) => {
   const connectionId = Date.now().toString();
   DB.activeConnections.set(connectionId, ws);
-  console.log(`Новое подключение: ${connectionId}`);
 
   ws.on('message', async (message) => {
     try {
@@ -84,7 +81,6 @@ wss.on('connection', (ws) => {
         const filePath = path.join(__dirname, 'uploads', filename);
         
         await fs.writeFile(filePath, base64Data, 'base64');
-        console.log(`Скриншот сохранен: ${filename}`);
         
         DB.screenshotsData.set(data.questionId, {
           connectionId,
@@ -98,25 +94,25 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
-    console.log(`Соединение закрыто: ${connectionId}`);
     DB.activeConnections.delete(connectionId);
   });
 });
 
 // Проверка авторизации
 function requireAuth(req, res, next) {
-  if (!req.session.admin) {
-    return res.status(401).json({ error: 'Требуется авторизация' });
+  if (req.session.admin) {
+    return next();
   }
-  next();
+  res.status(401).json({ error: 'Требуется авторизация' });
 }
 
 // Проверка прав суперадмина
 function requireSuperAdmin(req, res, next) {
-  if (!req.session.admin || !DB.admins.get(req.session.admin)?.isSuperAdmin) {
-    return res.status(403).json({ error: 'Доступ запрещен' });
+  const admin = DB.admins.get(req.session.admin);
+  if (admin && admin.isSuperAdmin) {
+    return next();
   }
-  next();
+  res.status(403).json({ error: 'Доступ запрещен' });
 }
 
 // API для авторизации
@@ -127,7 +123,10 @@ app.post('/api/admin/login', async (req, res) => {
   if (admin && bcrypt.compareSync(password, admin.password)) {
     admin.online = true;
     req.session.admin = login;
-    return res.json({ success: true, isSuperAdmin: admin.isSuperAdmin });
+    return res.json({ 
+      success: true, 
+      isSuperAdmin: admin.isSuperAdmin 
+    });
   }
   
   res.status(401).json({ error: 'Неверные учетные данные' });
@@ -137,8 +136,12 @@ app.post('/api/admin/logout', (req, res) => {
   const admin = DB.admins.get(req.session.admin);
   if (admin) admin.online = false;
   
-  req.session.destroy();
-  res.json({ success: true });
+  req.session.destroy(err => {
+    if (err) {
+      return res.status(500).json({ error: 'Ошибка выхода' });
+    }
+    res.json({ success: true });
+  });
 });
 
 // API для работы со скриншотами
@@ -147,12 +150,15 @@ app.get('/api/screenshots', requireAuth, async (req, res) => {
     const files = await fs.readdir(path.join(__dirname, 'uploads'));
     const screenshots = files
       .filter(file => file.endsWith('.png'))
-      .map(file => ({
-        id: file.replace('.png', ''),
-        url: `/uploads/${file}`,
-        timestamp: DB.screenshotsData.get(file.replace('.png', ''))?.timestamp || Date.now(),
-        answer: DB.screenshotsData.get(file.replace('.png', ''))?.answer || ""
-      }));
+      .map(file => {
+        const id = file.replace('.png', '');
+        return {
+          id,
+          url: `/uploads/${file}`,
+          timestamp: DB.screenshotsData.get(id)?.timestamp || Date.now(),
+          answer: DB.screenshotsData.get(id)?.answer || ""
+        };
+      });
     
     res.json(screenshots);
   } catch (error) {
@@ -188,21 +194,22 @@ app.post('/api/answers', requireAuth, (req, res) => {
 
 // API для управления администраторами
 app.get('/api/admin/stats', requireAuth, (req, res) => {
+  const admin = DB.admins.get(req.session.admin);
   res.json({
     totalAdmins: DB.admins.size,
     onlineAdmins: Array.from(DB.admins.values()).filter(a => a.online).length,
     activeConnections: DB.activeConnections.size,
     totalScreenshots: DB.screenshotsData.size,
     currentAdmin: req.session.admin,
-    isSuperAdmin: DB.admins.get(req.session.admin)?.isSuperAdmin || false
+    isSuperAdmin: admin?.isSuperAdmin || false
   });
 });
 
-app.get('/api/admin/list', requireSuperAdmin, (req, res) => {
+app.get('/api/admin/list', requireAuth, requireSuperAdmin, (req, res) => {
   res.json(Array.from(DB.admins.values()));
 });
 
-app.post('/api/admin/add', requireSuperAdmin, (req, res) => {
+app.post('/api/admin/add', requireAuth, requireSuperAdmin, (req, res) => {
   const { login, password } = req.body;
   
   if (DB.admins.size >= CONFIG.MAX_ADMINS) {
@@ -223,7 +230,7 @@ app.post('/api/admin/add', requireSuperAdmin, (req, res) => {
   res.json({ success: true });
 });
 
-app.post('/api/admin/remove', requireSuperAdmin, (req, res) => {
+app.post('/api/admin/remove', requireAuth, requireSuperAdmin, (req, res) => {
   const { login } = req.body;
   
   if (login === 'admin') {
@@ -244,10 +251,11 @@ app.get('*', (req, res) => {
 });
 
 // Инициализация и запуск сервера
-initDirectories().then(() => {
-  const PORT = process.env.PORT || 10000;
-  server.listen(PORT, () => {
-    console.log(`Сервер запущен на порту ${PORT}`);
-    console.log('Предупреждение: Для production используйте Redis для хранения сессий');
-  });
+initDirectories();
+initAdmin();
+
+const PORT = process.env.PORT || 10000;
+server.listen(PORT, () => {
+  console.log(`Сервер запущен на порту ${PORT}`);
+  console.log('Главный администратор: admin');
 });
