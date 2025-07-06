@@ -14,7 +14,7 @@ const wss = new Server({ server });
 const CONFIG = {
   MAX_ADMINS: 5,
   SESSION_SECRET: process.env.SESSION_SECRET || 'your-strong-secret-here',
-  ADMIN_PASSWORD: bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'admin123', 10)
+  ADMIN_PASSWORD: bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'admin12345', 10)
 };
 
 // Временная "база данных" в памяти
