@@ -5,68 +5,68 @@ const cors = require('cors');
 const fetch = require('node-fetch');
 const fs = require('fs').promises;
 const path = require('path');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 const server = http.createServer(app);
 const wss = new Server({ server });
 
-app.use(cors({ origin: '*' }));
+// Настройка CORS и статических файлов
+app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+    setHeaders: (res) => res.set('Content-Type', 'image/png')
+}));
 
-let users = {}; // { username: { password, role } }
-let answers = {}; // Хранит ответы для каждого questionId
+// Секрет для JWT (замени на свой)
+const JWT_SECRET = 'your_jwt_secret_key';
 
-// Загрузка пользователей из файла
-async function loadUsers() {
+// Middleware для проверки JWT
+function authMiddleware(req, res, next) {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).send('Unauthorized');
     try {
-        const data = await fs.readFile(path.join(__dirname, 'users.json'), 'utf8');
-        users = JSON.parse(data);
-    } catch (err) {
-        console.log('No users.json found, starting with admin');
-        users = { 'admin': { password: 'adminpass', role: 'admin' } }; // Старший админ по умолчанию
-        await saveUsers();
+        const decoded = jwt.verify(token, JWT_SECRET);
+        req.user = decoded; // Сохраняем данные пользователя
+        next();
+    } catch (error) {
+        console.error('Auth error:', error);
+        res.status(401).send('Invalid token');
     }
 }
 
-// Сохранение пользователей в файл
-async function saveUsers() {
-    await fs.writeFile(path.join(__dirname, 'users.json'), JSON.stringify(users, null, 2));
-}
-
-// Асинхронное создание папки
+// Создание папки uploads
 async function ensureUploadsDir() {
     try {
         await fs.mkdir(path.join(__dirname, 'uploads'), { recursive: true });
-        console.log('Uploads directory created or already exists');
+        console.log('Uploads directory ready');
     } catch (err) {
-        console.error('Error creating uploads directory:', err.message);
-        throw err;
+        console.error('Error creating uploads directory:', err);
     }
 }
+ensureUploadsDir();
 
-async function startServer() {
+// Инициализация users.json
+async function initUsersFile() {
     try {
-        await ensureUploadsDir();
-        await loadUsers();
-        const PORT = process.env.PORT || 10000;
-        server.listen(PORT, () => {
-            console.log(`Server running on port ${PORT}`);
-        });
-    } catch (err) {
-        console.error('Failed to start server:', err);
-        process.exit(1);
+        const filePath = path.join(__dirname, 'users.json');
+        await fs.access(filePath);
+    } catch {
+        await fs.writeFile(path.join(__dirname, 'users.json'), JSON.stringify({ admins: [], screenshots: [] }, null, 2));
+        console.log('users.json initialized');
     }
 }
+initUsersFile();
 
-startServer();
-
+// Эндпоинт для прокси изображений
 app.get('/proxy-image', async (req, res) => {
     const imageUrl = req.query.url;
     if (!imageUrl) return res.status(400).send('No URL provided');
     try {
-        const response = await fetch(imageUrl);
+        const token = req.headers.authorization; // Передаем токен
+        const response = await fetch(imageUrl, {
+            headers: token ? { Authorization: token } : {}
+        });
         if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
         const buffer = await response.buffer();
         res.set('Content-Type', response.headers.get('content-type'));
@@ -77,70 +77,62 @@ app.get('/proxy-image', async (req, res) => {
     }
 });
 
-// Аутентификация
-app.post('/login', (req, res) => {
+// Эндпоинт для логина админа (для теста)
+app.post('/login', async (req, res) => {
     const { username, password } = req.body;
-    if (users[username] && users[username].password === password) {
-        res.send({ status: 'success', username, role: users[username].role });
+    // Пример проверки (замени на свою логику)
+    if (username === 'admin' && password === 'password') {
+        const token = jwt.sign({ username, role: 'admin' }, JWT_SECRET, { expiresIn: '1h' });
+        // Сохраняем админа в users.json
+        const users = JSON.parse(await fs.readFile(path.join(__dirname, 'users.json')));
+        if (!users.admins.find(admin => admin.username === username)) {
+            users.admins.push({ username, role: 'admin', lastLogin: new Date().toISOString() });
+            await fs.writeFile(path.join(__dirname, 'users.json'), JSON.stringify(users, null, 2));
+            console.log(`Admin ${username} added to users.json`);
+        }
+        res.json({ token });
     } else {
-        res.status(401).send({ status: 'error', message: 'Invalid username or password' });
+        res.status(401).send('Invalid credentials');
     }
 });
 
-// Создание нового пользователя (только для админа)
-app.post('/create-user', (req, res) => {
-    const { adminUsername, adminPassword, newUsername, newPassword } = req.body;
-    if (adminUsername !== 'admin' || users[adminUsername]?.password !== adminPassword || users[adminUsername]?.role !== 'admin') {
-        return res.status(403).send({ status: 'error', message: 'Admin access denied' });
-    }
-    if (users[newUsername]) {
-        return res.status(400).send({ status: 'error', message: 'Username already exists' });
-    }
-    users[newUsername] = { password: newPassword, role: 'user' };
-    saveUsers().catch(err => console.error('Error saving users:', err));
-    res.send({ status: 'success', message: `Created user ${newUsername}` });
-});
-
-// Обработка WebSocket
+// Обработка WebSocket-соединений
 wss.on('connection', (ws) => {
     console.log('Client connected');
-    let authenticated = false;
-    const clientScreenshots = new Set();
-
     ws.on('message', async (message) => {
         try {
             const data = JSON.parse(message);
             console.log('Received:', data);
 
-            if (data.role === 'login') {
-                if (users[data.username] && users[data.username].password === data.password) {
-                    authenticated = true;
-                    ws.send(JSON.stringify({ type: 'auth', status: 'success', role: users[data.username].role }));
-                } else {
-                    ws.send(JSON.stringify({ type: 'auth', status: 'error', message: 'Invalid credentials' }));
-                }
-            } else if (!authenticated) {
-                ws.send(JSON.stringify({ type: 'error', message: 'Authentication required' }));
-                return;
-            } else if (data.role === 'helper' && users[data.username].role === 'user') {
+            if (data.role === 'helper') {
                 console.log('Helper client registered');
                 ws.send(JSON.stringify({ type: 'ack', message: 'Helper registered' }));
             } else if (data.type === 'pageHTML') {
                 console.log('Received page HTML:', data.html.substring(0, 50) + '...');
                 ws.send(JSON.stringify({ type: 'ack', message: 'HTML received' }));
-            } else if (data.type === 'screenshot' && users[data.username].role === 'user') {
-                console.log('Received screenshot, questionId:', data.questionId);
+            } else if (data.type === 'screenshot') {
+                console.log('Received screenshot, questionId:', data.questionId, 'size:', data.screenshot.length);
                 const base64Data = data.screenshot.replace(/^data:image\/png;base64,/, '');
                 const filePath = path.join(__dirname, 'uploads', `${data.questionId}.png`);
                 await fs.writeFile(filePath, base64Data, 'base64');
                 console.log(`Screenshot saved: ${filePath}`);
-                clientScreenshots.add(data.questionId);
 
-                const answer = answers[data.questionId] || `Screenshot ${data.questionId} processed`;
+                // Сохраняем информацию о скриншоте в users.json
+                const users = JSON.parse(await fs.readFile(path.join(__dirname, 'users.json')));
+                users.screenshots.push({
+                    questionId: data.questionId,
+                    timestamp: new Date().toISOString(),
+                    filePath
+                });
+                await fs.writeFile(path.join(__dirname, 'users.json'), JSON.stringify(users, null, 2));
+                console.log(`Screenshot ${data.questionId} added to users.json`);
+
+                // Ответ клиенту
+                const answer = `Screenshot ${data.questionId} processed successfully`;
                 ws.send(JSON.stringify({
                     type: 'answer',
                     questionId: data.questionId,
-                    answer: answer
+                    answer
                 }));
             }
         } catch (error) {
@@ -149,34 +141,24 @@ wss.on('connection', (ws) => {
         }
     });
 
-    ws.on('close', async () => {
-        console.log('Client disconnected, cleaning up screenshots');
-        for (const questionId of clientScreenshots) {
-            const filePath = path.join(__dirname, 'uploads', `${questionId}.png`);
-            try {
-                await fs.unlink(filePath);
-                console.log(`Deleted screenshot: ${filePath}`);
-                delete answers[questionId];
-            } catch (err) {
-                console.error(`Error deleting screenshot ${filePath}:`, err);
-            }
-        }
-        clientScreenshots.clear();
+    ws.on('close', () => {
+        console.log('Client disconnected');
     });
 });
 
+// Главная страница
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.get('/screenshots', async (req, res) => {
+// Эндпоинт для получения списка скриншотов (только для админов)
+app.get('/screenshots', authMiddleware, async (req, res) => {
     try {
-        const files = await fs.readdir(path.join(__dirname, 'uploads'));
+        const files = await fs.readdir(path.join(__dirname, 'Uploads'));
         const screenshots = files.filter(file => file.endsWith('.png')).map(file => ({
             id: file.replace('.png', ''),
             url: `/uploads/${file}`,
-            timestamp: file.replace('.png', ''),
-            answer: answers[file.replace('.png', '')] || ''
+            timestamp: file.replace('.png', '')
         }));
         res.json(screenshots);
     } catch (error) {
@@ -185,21 +167,7 @@ app.get('/screenshots', async (req, res) => {
     }
 });
 
-app.post('/send-answer', (req, res) => {
-    const { questionId, answer } = req.body;
-    if (!questionId || !answer) return res.status(400).send('Question ID and answer are required');
-    console.log(`Received answer for questionId ${questionId}: ${answer}`);
-    answers[questionId] = answer;
-
-    wss.clients.forEach(client => {
-        if (client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify({
-                type: 'answer',
-                questionId: questionId,
-                answer: answer
-            }));
-        }
-    });
-
-    res.send({ status: 'answer sent' });
+const PORT = process.env.PORT || 8080;
+server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
