@@ -8,27 +8,27 @@ const app = express();
 const server = http.createServer(app);
 const wss = new Server({ server });
 
-const activeConnections = new Map();
-const screenshotsData = new Map();
+const activeClients = new Map();
+const screenshotsDB = new Map();
 
 // Middleware
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Ensure uploads directory exists
-async function ensureUploadsDir() {
+// Ensure directories exist
+async function initDirectories() {
     try {
         await fs.mkdir(path.join(__dirname, 'uploads'), { recursive: true });
     } catch (err) {
-        console.error('Error creating uploads directory:', err);
+        console.error('Directory error:', err);
     }
 }
-ensureUploadsDir();
 
 // WebSocket handler
 wss.on('connection', (ws) => {
-    const connectionId = Date.now().toString();
-    activeConnections.set(connectionId, ws);
-    console.log(`New connection: ${connectionId}`);
+    const clientId = Date.now().toString();
+    activeClients.set(clientId, ws);
+    console.log(`Client connected: ${clientId}`);
 
     ws.on('message', async (message) => {
         try {
@@ -36,77 +36,77 @@ wss.on('connection', (ws) => {
             
             if (data.type === 'screenshot') {
                 const base64Data = data.screenshot.replace(/^data:image\/png;base64,/, '');
-                const filePath = path.join(__dirname, 'uploads', `${data.questionId}.png`);
-                await fs.writeFile(filePath, base64Data, 'base64');
+                const filename = `${data.questionId}.png`;
+                await fs.writeFile(path.join(__dirname, 'uploads', filename), base64Data, 'base64');
                 
-                screenshotsData.set(data.questionId, {
-                    connectionId,
+                screenshotsDB.set(data.questionId, {
+                    clientId,
+                    filename,
                     timestamp: Date.now(),
                     answer: ""
                 });
-                
+
                 ws.send(JSON.stringify({
-                    type: 'answer',
+                    type: 'acknowledge',
                     questionId: data.questionId,
-                    answer: ""
+                    status: 'screenshot_received'
                 }));
             }
         } catch (error) {
-            console.error('Error:', error);
+            console.error('WS error:', error);
         }
     });
 
-    ws.on('close', async () => {
-        console.log(`Connection closed: ${connectionId}`);
-        
-        // Delete all screenshots from this connection
-        for (const [questionId, data] of screenshotsData.entries()) {
-            if (data.connectionId === connectionId) {
-                try {
-                    await fs.unlink(path.join(__dirname, 'uploads', `${questionId}.png`));
-                    screenshotsData.delete(questionId);
-                } catch (err) {
-                    console.error('Error deleting file:', err);
-                }
-            }
-        }
-        
-        activeConnections.delete(connectionId);
+    ws.on('close', () => {
+        console.log(`Client disconnected: ${clientId}`);
+        activeClients.delete(clientId);
     });
 });
 
 // API endpoints
-app.get('/screenshots', async (req, res) => {
+app.get('/api/screenshots', async (req, res) => {
     try {
-        const files = await fs.readdir(path.join(__dirname, 'uploads'));
-        const screenshots = files.filter(file => file.endsWith('.png')).map(file => {
-            const id = file.replace('.png', '');
-            return {
-                id,
-                url: `/uploads/${file}`,
-                timestamp: screenshotsData.get(id)?.timestamp || 0,
-                answer: screenshotsData.get(id)?.answer || ""
-            };
-        });
+        const screenshots = Array.from(screenshotsDB.entries()).map(([id, data]) => ({
+            id,
+            url: `/uploads/${data.filename}`,
+            timestamp: data.timestamp,
+            answer: data.answer
+        }));
         res.json(screenshots);
     } catch (error) {
-        console.error('Error:', error);
-        res.status(500).send('Server error');
+        console.error('API error:', error);
+        res.status(500).json({ error: 'Server error' });
     }
 });
 
-app.post('/save-answer', express.json(), async (req, res) => {
-    const { questionId, answer } = req.body;
-    if (screenshotsData.has(questionId)) {
-        screenshotsData.set(questionId, {
-            ...screenshotsData.get(questionId),
-            answer: answer
-        });
-        return res.sendStatus(200);
+app.post('/api/answers', express.json(), async (req, res) => {
+    try {
+        const { questionId, answer } = req.body;
+        if (screenshotsDB.has(questionId)) {
+            const data = screenshotsDB.get(questionId);
+            data.answer = answer;
+            screenshotsDB.set(questionId, data);
+            
+            // Send answer back to client
+            if (activeClients.has(data.clientId)) {
+                activeClients.get(data.clientId).send(JSON.stringify({
+                    type: 'answer',
+                    questionId,
+                    answer
+                }));
+            }
+            
+            return res.sendStatus(200);
+        }
+        res.status(404).json({ error: 'Screenshot not found' });
+    } catch (error) {
+        console.error('Answer error:', error);
+        res.status(500).json({ error: 'Server error' });
     }
-    res.sendStatus(404);
 });
 
-// Start server
-const PORT = process.env.PORT || 8080;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// Init and start
+initDirectories().then(() => {
+    const PORT = process.env.PORT || 8080;
+    server.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+});
