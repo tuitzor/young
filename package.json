@@ -1,7 +1,7 @@
 {
     "name": "screenshot-server",
     "version": "1.0.0",
-    "description": "Server to receive, store, and display screenshots",
+    "description": "Server for screenshot gallery",
     "main": "server.js",
     "scripts": {
         "start": "node server.js"
