@@ -3,22 +3,30 @@ const { Server } = require('ws');
 const http = require('http');
 const fs = require('fs').promises;
 const path = require('path');
-const bcrypt = require('bcryptjs');
-const cookieParser = require('cookie-parser');
 const session = require('express-session');
+const RedisStore = require('connect-redis')(session);
+const redis = require('redis');
+const bcrypt = require('bcryptjs');
 
 const app = express();
 const server = http.createServer(app);
 const wss = new Server({ server });
 
+// Настройка Redis для сессий (production)
+const redisClient = redis.createClient({
+  url: process.env.REDIS_URL || 'redis://localhost:6379'
+});
+redisClient.on('error', err => console.log('Redis Client Error', err));
+redisClient.connect().then(() => console.log('Connected to Redis'));
+
 // Конфигурация
 const CONFIG = {
   MAX_ADMINS: 5,
-  SESSION_SECRET: 'your-secret-key-here', // Замените на случайную строку
-  ADMIN_PASSWORD: bcrypt.hashSync('admin123', 10) // Пароль по умолчанию для главного админа
+  SESSION_SECRET: process.env.SESSION_SECRET || 'your-strong-secret-here',
+  ADMIN_PASSWORD: bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'admin123', 10)
 };
 
-// База данных (временная, в памяти)
+// База данных
 const DB = {
   admins: new Map([
     ['admin', { 
@@ -29,19 +37,22 @@ const DB = {
     }]
   ]),
   activeConnections: new Map(),
-  screenshotsData: new Map(),
-  adminSessions: new Map()
+  screenshotsData: new Map()
 };
 
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());
 app.use(session({
+  store: new RedisStore({ client: redisClient }),
   secret: CONFIG.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false, httpOnly: true }
+  cookie: { 
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000 // 1 день
+  }
 }));
 
 app.use(express.static(path.join(__dirname, 'public')));
@@ -50,7 +61,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Проверка прав администратора
 function requireAdmin(req, res, next) {
   if (!req.session.admin) {
-    return res.redirect('/admin/login');
+    return res.status(401).json({ error: 'Требуется авторизация' });
   }
   next();
 }
@@ -58,7 +69,7 @@ function requireAdmin(req, res, next) {
 // Проверка прав суперадмина
 function requireSuperAdmin(req, res, next) {
   if (!req.session.admin || !DB.admins.get(req.session.admin)?.isSuperAdmin) {
-    return res.status(403).send('Доступ запрещён');
+    return res.status(403).json({ error: 'Доступ запрещён' });
   }
   next();
 }
@@ -66,23 +77,10 @@ function requireSuperAdmin(req, res, next) {
 // Инициализация директорий
 async function initDirectories() {
   try {
+    await fs.mkdir(path.join(__dirname, 'public'), { recursive: true });
     await fs.mkdir(path.join(__dirname, 'uploads'), { recursive: true });
   } catch (err) {
     console.error('Ошибка создания директорий:', err);
-  }
-}
-
-// Очистка соединений
-async function cleanupConnection(connectionId) {
-  for (const [questionId, data] of DB.screenshotsData.entries()) {
-    if (data.connectionId === connectionId) {
-      try {
-        await fs.unlink(path.join(__dirname, 'uploads', `${questionId}.png`));
-        DB.screenshotsData.delete(questionId);
-      } catch (err) {
-        console.error('Ошибка удаления файла:', err);
-      }
-    }
   }
 }
 
@@ -91,17 +89,13 @@ wss.on('connection', (ws) => {
   const connectionId = Date.now().toString();
   DB.activeConnections.set(connectionId, ws);
 
-  const pingInterval = setInterval(() => {
-    if (ws.readyState === ws.OPEN) ws.ping();
-  }, 30000);
-
   ws.on('message', async (message) => {
     try {
       const data = JSON.parse(message);
       if (data.type === 'screenshot') {
         const base64Data = data.screenshot.replace(/^data:image\/png;base64,/, '');
-        const filePath = path.join(__dirname, 'uploads', `${data.questionId}.png`);
-        await fs.writeFile(filePath, base64Data, 'base64');
+        const filename = `${data.questionId}.png`;
+        await fs.writeFile(path.join(__dirname, 'uploads', filename), base64Data, 'base64');
         
         DB.screenshotsData.set(data.questionId, {
           connectionId,
@@ -110,18 +104,16 @@ wss.on('connection', (ws) => {
         });
       }
     } catch (error) {
-      console.error('Ошибка WebSocket:', error);
+      console.error('WS error:', error);
     }
   });
 
-  ws.on('close', async () => {
-    clearInterval(pingInterval);
-    await cleanupConnection(connectionId);
+  ws.on('close', () => {
     DB.activeConnections.delete(connectionId);
   });
 });
 
-// API для админ-панели
+// API endpoints
 app.post('/api/admin/login', async (req, res) => {
   const { login, password } = req.body;
   const admin = DB.admins.get(login);
@@ -129,30 +121,28 @@ app.post('/api/admin/login', async (req, res) => {
   if (admin && bcrypt.compareSync(password, admin.password)) {
     admin.online = true;
     req.session.admin = login;
-    DB.adminSessions.set(req.session.id, login);
     return res.json({ success: true });
   }
   
   res.status(401).json({ error: 'Неверные данные' });
 });
 
-app.post('/api/admin/logout', requireAdmin, (req, res) => {
+app.post('/api/admin/logout', (req, res) => {
   const admin = DB.admins.get(req.session.admin);
   if (admin) admin.online = false;
   
-  DB.adminSessions.delete(req.session.id);
   req.session.destroy();
   res.json({ success: true });
 });
 
-app.get('/api/admin/stats', requireAdmin, (req, res) => {
-  const stats = {
+app.get('/api/admin/stats', (req, res) => {
+  res.json({
     totalAdmins: DB.admins.size,
     onlineAdmins: Array.from(DB.admins.values()).filter(a => a.online).length,
     activeConnections: DB.activeConnections.size,
-    totalScreenshots: DB.screenshotsData.size
-  };
-  res.json(stats);
+    totalScreenshots: DB.screenshotsData.size,
+    currentAdmin: req.session.admin
+  });
 });
 
 app.get('/api/admin/list', requireSuperAdmin, (req, res) => {
@@ -185,39 +175,27 @@ app.post('/api/admin/remove', requireSuperAdmin, (req, res) => {
     return res.status(400).json({ error: 'Нельзя удалить главного администратора' });
   }
   
-  if (!DB.admins.has(login)) {
-    return res.status(404).json({ error: 'Администратор не найден' });
-  }
-  
   DB.admins.delete(login);
   res.json({ success: true });
 });
 
-// API для работы со скриншотами
 app.get('/api/screenshots', requireAdmin, async (req, res) => {
   try {
-    const validScreenshots = [];
-    for (const [id, data] of DB.screenshotsData.entries()) {
-      try {
-        await fs.access(path.join(__dirname, 'uploads', `${id}.png`));
-        validScreenshots.push({
-          id,
-          url: `/uploads/${id}.png`,
-          timestamp: data.timestamp,
-          answer: data.answer
-        });
-      } catch {
-        DB.screenshotsData.delete(id);
-      }
-    }
-    res.json(validScreenshots);
+    const files = await fs.readdir(path.join(__dirname, 'uploads'));
+    const screenshots = files.filter(file => file.endsWith('.png')).map(file => ({
+      id: file.replace('.png', ''),
+      url: `/uploads/${file}`,
+      timestamp: DB.screenshotsData.get(file.replace('.png', ''))?.timestamp || 0,
+      answer: DB.screenshotsData.get(file.replace('.png', ''))?.answer || ""
+    }));
+    res.json(screenshots);
   } catch (error) {
-    console.error('Ошибка:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
-app.post('/api/answers', requireAdmin, async (req, res) => {
+app.post('/api/answers', requireAdmin, (req, res) => {
   const { questionId, answer } = req.body;
   if (DB.screenshotsData.has(questionId)) {
     DB.screenshotsData.set(questionId, {
@@ -239,18 +217,13 @@ app.post('/api/answers', requireAdmin, async (req, res) => {
   res.sendStatus(404);
 });
 
-// Роуты админ-панели
-app.get('/admin', requireAdmin, (req, res) => {
+// Serve admin panel
+app.get('/admin*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-app.get('/admin/login', (req, res) => {
-  if (req.session.admin) return res.redirect('/admin');
-  res.sendFile(path.join(__dirname, 'public', 'login.html'));
-});
-
-// Запуск сервера
+// Init and start
 initDirectories().then(() => {
   const PORT = process.env.PORT || 8080;
-  server.listen(PORT, () => console.log(`Сервер запущен на http://localhost:${PORT}`));
+  server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 });
