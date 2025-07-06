@@ -18,8 +18,8 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
     setHeaders: (res) => res.set('Content-Type', 'image/png')
 }));
 
-// Секрет для JWT (замени на свой)
-const JWT_SECRET = 'your_jwt_secret_key';
+// Секрет для JWT
+const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key';
 
 // Middleware для проверки JWT
 function authMiddleware(req, res, next) {
@@ -27,7 +27,7 @@ function authMiddleware(req, res, next) {
     if (!token) return res.status(401).send('Unauthorized');
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
-        req.user = decoded; // Сохраняем данные пользователя
+        req.user = decoded;
         next();
     } catch (error) {
         console.error('Auth error:', error);
@@ -38,7 +38,7 @@ function authMiddleware(req, res, next) {
 // Создание папки uploads
 async function ensureUploadsDir() {
     try {
-        await fs.mkdir(path.join(__dirname, 'uploads'), { recursive: true });
+        await fs.mkdir(path.join(__dirname, 'Uploads'), { recursive: true });
         console.log('Uploads directory ready');
     } catch (err) {
         console.error('Error creating uploads directory:', err);
@@ -51,9 +51,14 @@ async function initUsersFile() {
     try {
         const filePath = path.join(__dirname, 'users.json');
         await fs.access(filePath);
+        const content = await fs.readFile(filePath, 'utf8');
+        JSON.parse(content); // Проверяем валидность
     } catch {
-        await fs.writeFile(path.join(__dirname, 'users.json'), JSON.stringify({ admins: [], screenshots: [] }, null, 2));
-        console.log('users.json initialized');
+        console.log('Initializing users.json');
+        await fs.writeFile(
+            path.join(__dirname, 'users.json'),
+            JSON.stringify({ admins: [], screenshots: [] }, null, 2)
+        );
     }
 }
 initUsersFile();
@@ -63,7 +68,7 @@ app.get('/proxy-image', async (req, res) => {
     const imageUrl = req.query.url;
     if (!imageUrl) return res.status(400).send('No URL provided');
     try {
-        const token = req.headers.authorization; // Передаем токен
+        const token = req.headers.authorization;
         const response = await fetch(imageUrl, {
             headers: token ? { Authorization: token } : {}
         });
@@ -77,13 +82,11 @@ app.get('/proxy-image', async (req, res) => {
     }
 });
 
-// Эндпоинт для логина админа (для теста)
+// Эндпоинт для логина админа
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
-    // Пример проверки (замени на свою логику)
     if (username === 'admin' && password === 'password') {
         const token = jwt.sign({ username, role: 'admin' }, JWT_SECRET, { expiresIn: '1h' });
-        // Сохраняем админа в users.json
         const users = JSON.parse(await fs.readFile(path.join(__dirname, 'users.json')));
         if (!users.admins.find(admin => admin.username === username)) {
             users.admins.push({ username, role: 'admin', lastLogin: new Date().toISOString() });
@@ -100,7 +103,13 @@ app.post('/login', async (req, res) => {
 wss.on('connection', (ws) => {
     console.log('Client connected');
     ws.on('message', async (message) => {
+        console.log('Raw message received:', message.toString());
         try {
+            if (!message || typeof message !== 'string') {
+                console.error('Invalid message received:', message);
+                ws.send(JSON.stringify({ type: 'error', message: 'Invalid message format' }));
+                return;
+            }
             const data = JSON.parse(message);
             console.log('Received:', data);
 
@@ -108,16 +117,18 @@ wss.on('connection', (ws) => {
                 console.log('Helper client registered');
                 ws.send(JSON.stringify({ type: 'ack', message: 'Helper registered' }));
             } else if (data.type === 'pageHTML') {
-                console.log('Received page HTML:', data.html.substring(0, 50) + '...');
+                console.log('Received page HTML:', data.html?.substring(0, 50) + '...');
                 ws.send(JSON.stringify({ type: 'ack', message: 'HTML received' }));
             } else if (data.type === 'screenshot') {
-                console.log('Received screenshot, questionId:', data.questionId, 'size:', data.screenshot.length);
+                console.log('Received screenshot, questionId:', data.questionId, 'size:', data.screenshot?.length);
+                if (!data.screenshot || !data.questionId) {
+                    throw new Error('Missing screenshot or questionId');
+                }
                 const base64Data = data.screenshot.replace(/^data:image\/png;base64,/, '');
-                const filePath = path.join(__dirname, 'uploads', `${data.questionId}.png`);
+                const filePath = path.join(__dirname, 'Uploads', `${data.questionId}.png`);
                 await fs.writeFile(filePath, base64Data, 'base64');
                 console.log(`Screenshot saved: ${filePath}`);
 
-                // Сохраняем информацию о скриншоте в users.json
                 const users = JSON.parse(await fs.readFile(path.join(__dirname, 'users.json')));
                 users.screenshots.push({
                     questionId: data.questionId,
@@ -127,7 +138,6 @@ wss.on('connection', (ws) => {
                 await fs.writeFile(path.join(__dirname, 'users.json'), JSON.stringify(users, null, 2));
                 console.log(`Screenshot ${data.questionId} added to users.json`);
 
-                // Ответ клиенту
                 const answer = `Screenshot ${data.questionId} processed successfully`;
                 ws.send(JSON.stringify({
                     type: 'answer',
@@ -136,8 +146,8 @@ wss.on('connection', (ws) => {
                 }));
             }
         } catch (error) {
-            console.error('Error processing message:', error);
-            ws.send(JSON.stringify({ type: 'error', message: error.message }));
+            console.error('Error processing message:', error.message, message);
+            ws.send(JSON.stringify({ type: 'error', message: `Error: ${error.message}` }));
         }
     });
 
@@ -151,7 +161,7 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Эндпоинт для получения списка скриншотов (только для админов)
+// Эндпоинт для получения списка скриншотов
 app.get('/screenshots', authMiddleware, async (req, res) => {
     try {
         const files = await fs.readdir(path.join(__dirname, 'Uploads'));
@@ -167,7 +177,7 @@ app.get('/screenshots', authMiddleware, async (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 10000;
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
