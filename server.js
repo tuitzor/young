@@ -8,8 +8,8 @@ const app = express();
 const server = http.createServer(app);
 const wss = new Server({ server });
 
-const activeClients = new Map();
-const screenshotsDB = new Map();
+const activeConnections = new Map();
+const screenshotsData = new Map();
 
 // Middleware
 app.use(express.static(path.join(__dirname, 'public')));
@@ -24,11 +24,34 @@ async function initDirectories() {
     }
 }
 
+// Cleanup function
+async function cleanupConnection(connectionId) {
+    // Delete all screenshots from this connection
+    for (const [questionId, data] of screenshotsData.entries()) {
+        if (data.connectionId === connectionId) {
+            try {
+                await fs.unlink(path.join(__dirname, 'uploads', `${questionId}.png`));
+                screenshotsData.delete(questionId);
+                console.log(`Deleted screenshot ${questionId}`);
+            } catch (err) {
+                console.error('Error deleting file:', err);
+            }
+        }
+    }
+}
+
 // WebSocket handler
 wss.on('connection', (ws) => {
-    const clientId = Date.now().toString();
-    activeClients.set(clientId, ws);
-    console.log(`Client connected: ${clientId}`);
+    const connectionId = Date.now().toString();
+    activeConnections.set(connectionId, ws);
+    console.log(`New connection: ${connectionId}`);
+
+    // Send ping every 30 seconds to check connection
+    const pingInterval = setInterval(() => {
+        if (ws.readyState === ws.OPEN) {
+            ws.ping();
+        }
+    }, 30000);
 
     ws.on('message', async (message) => {
         try {
@@ -36,16 +59,15 @@ wss.on('connection', (ws) => {
             
             if (data.type === 'screenshot') {
                 const base64Data = data.screenshot.replace(/^data:image\/png;base64,/, '');
-                const filename = `${data.questionId}.png`;
-                await fs.writeFile(path.join(__dirname, 'uploads', filename), base64Data, 'base64');
+                const filePath = path.join(__dirname, 'uploads', `${data.questionId}.png`);
+                await fs.writeFile(filePath, base64Data, 'base64');
                 
-                screenshotsDB.set(data.questionId, {
-                    clientId,
-                    filename,
+                screenshotsData.set(data.questionId, {
+                    connectionId,
                     timestamp: Date.now(),
                     answer: ""
                 });
-
+                
                 ws.send(JSON.stringify({
                     type: 'acknowledge',
                     questionId: data.questionId,
@@ -53,56 +75,72 @@ wss.on('connection', (ws) => {
                 }));
             }
         } catch (error) {
-            console.error('WS error:', error);
+            console.error('Error:', error);
         }
     });
 
-    ws.on('close', () => {
-        console.log(`Client disconnected: ${clientId}`);
-        activeClients.delete(clientId);
+    ws.on('close', async () => {
+        console.log(`Connection closed: ${connectionId}`);
+        clearInterval(pingInterval);
+        await cleanupConnection(connectionId);
+        activeConnections.delete(connectionId);
+    });
+
+    ws.on('error', async (error) => {
+        console.log(`Connection error: ${connectionId}`, error);
+        clearInterval(pingInterval);
+        await cleanupConnection(connectionId);
+        activeConnections.delete(connectionId);
     });
 });
 
 // API endpoints
 app.get('/api/screenshots', async (req, res) => {
     try {
-        const screenshots = Array.from(screenshotsDB.entries()).map(([id, data]) => ({
-            id,
-            url: `/uploads/${data.filename}`,
-            timestamp: data.timestamp,
-            answer: data.answer
-        }));
-        res.json(screenshots);
+        // Verify files actually exist
+        const validScreenshots = [];
+        for (const [id, data] of screenshotsData.entries()) {
+            try {
+                await fs.access(path.join(__dirname, 'uploads', `${id}.png`));
+                validScreenshots.push({
+                    id,
+                    url: `/uploads/${id}.png`,
+                    timestamp: data.timestamp,
+                    answer: data.answer
+                });
+            } catch {
+                screenshotsData.delete(id);
+            }
+        }
+        
+        res.json(validScreenshots);
     } catch (error) {
-        console.error('API error:', error);
+        console.error('Error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });
 
 app.post('/api/answers', express.json(), async (req, res) => {
-    try {
-        const { questionId, answer } = req.body;
-        if (screenshotsDB.has(questionId)) {
-            const data = screenshotsDB.get(questionId);
-            data.answer = answer;
-            screenshotsDB.set(questionId, data);
-            
-            // Send answer back to client
-            if (activeClients.has(data.clientId)) {
-                activeClients.get(data.clientId).send(JSON.stringify({
-                    type: 'answer',
-                    questionId,
-                    answer
-                }));
-            }
-            
-            return res.sendStatus(200);
+    const { questionId, answer } = req.body;
+    if (screenshotsData.has(questionId)) {
+        screenshotsData.set(questionId, {
+            ...screenshotsData.get(questionId),
+            answer: answer
+        });
+        
+        // Send answer back to client if still connected
+        const connectionId = screenshotsData.get(questionId).connectionId;
+        if (activeConnections.has(connectionId)) {
+            activeConnections.get(connectionId).send(JSON.stringify({
+                type: 'answer',
+                questionId,
+                answer
+            }));
         }
-        res.status(404).json({ error: 'Screenshot not found' });
-    } catch (error) {
-        console.error('Answer error:', error);
-        res.status(500).json({ error: 'Server error' });
+        
+        return res.sendStatus(200);
     }
+    res.sendStatus(404);
 });
 
 // Init and start
