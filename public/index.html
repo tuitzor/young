@@ -7,8 +7,11 @@
     <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-    <h1>Галерея скриншотов</h1>
-    <div id="gallery"></div>
+    <div class="container">
+        <h1>Галерея скриншотов</h1>
+        <div id="gallery"></div>
+    </div>
+
     <script>
         async function loadScreenshots() {
             try {
@@ -16,26 +19,53 @@
                 const screenshots = await response.json();
                 const gallery = document.getElementById('gallery');
                 gallery.innerHTML = '';
+                
                 screenshots.forEach(shot => {
                     const container = document.createElement('div');
                     container.className = 'screenshot-container';
                     container.innerHTML = `
-                        <img src="${shot.url}" alt="Скриншот ${shot.id}">
-                        <p>ID вопроса: ${shot.id}</p>
-                        <p>Загружен: ${new Date(parseInt(shot.timestamp)).toLocaleString()}</p>
-                        <div class="answer-box">
-                            <strong>Ответ:</strong>
-                            <p>${shot.answer}</p>
+                        <div class="image-wrapper">
+                            <img src="${shot.url}" alt="Скриншот">
+                        </div>
+                        <div class="info">
+                            <p>ID: ${shot.id}</p>
+                            <p>${new Date(parseInt(shot.timestamp)).toLocaleString()}</p>
+                        </div>
+                        <div class="answer-section">
+                            <textarea 
+                                class="answer-input" 
+                                placeholder="Введите ответ..." 
+                                data-id="${shot.id}"
+                            >${shot.answer}</textarea>
+                            <button class="save-btn" data-id="${shot.id}">Сохранить</button>
                         </div>
                     `;
                     gallery.appendChild(container);
                 });
+
+                document.querySelectorAll('.save-btn').forEach(btn => {
+                    btn.addEventListener('click', async function() {
+                        const id = this.getAttribute('data-id');
+                        const answer = document.querySelector(`textarea[data-id="${id}"]`).value;
+                        
+                        try {
+                            await fetch('/save-answer', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ questionId: id, answer: answer })
+                            });
+                            alert('Ответ сохранён!');
+                        } catch (error) {
+                            console.error('Error:', error);
+                            alert('Ошибка сохранения');
+                        }
+                    });
+                });
             } catch (error) {
-                console.error('Ошибка загрузки:', error);
-                const gallery = document.getElementById('gallery');
-                gallery.innerHTML = '<p>Ошибка загрузки скриншотов</p>';
+                console.error('Error:', error);
             }
         }
+
         loadScreenshots();
         setInterval(loadScreenshots, 10000);
     </script>
