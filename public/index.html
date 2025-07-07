@@ -5,285 +5,70 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Скриншот-сервер</title>
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Arial', sans-serif;
-        }
-        
+        /* Основные стили */
         body {
-            background-color: #f5f7fa;
-            color: #333;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
+            font-family: Arial, sans-serif;
+            margin: 0;
             padding: 20px;
+            background-color: #f5f7fa;
         }
         
-        /* Страница входа */
-        .login-page {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-        }
-        
-        .login-form {
+        .login-container, .admin-container {
+            max-width: 500px;
+            margin: 50px auto;
+            padding: 20px;
             background: white;
-            padding: 30px;
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            width: 100%;
-            max-width: 400px;
         }
         
-        .login-form h1 {
-            margin-bottom: 20px;
+        h1 {
             text-align: center;
+            margin-bottom: 20px;
         }
         
-        .login-form input {
+        input, button {
             width: 100%;
-            padding: 12px;
-            margin-bottom: 15px;
+            padding: 10px;
+            margin-bottom: 10px;
             border: 1px solid #ddd;
             border-radius: 4px;
         }
         
-        .login-btn {
-            width: 100%;
-            padding: 12px;
+        button {
             background: #4CAF50;
             color: white;
             border: none;
-            border-radius: 4px;
             cursor: pointer;
-            font-size: 16px;
         }
         
-        .error-message {
+        .error {
             color: #ff4444;
+            text-align: center;
             margin-top: 10px;
-            text-align: center;
         }
         
-        /* Админ-панель */
-        .admin-panel {
-            display: none;
-        }
-        
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #eee;
-        }
-        
-        .logout-btn {
-            padding: 8px 15px;
-            background: #ff4444;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        
-        /* Статистика */
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-        
-        .stat-card {
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        
-        /* Скриншоты */
-        .screenshots-container {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-        
-        .screenshot {
-            margin-bottom: 20px;
-            border: 1px solid #eee;
-            border-radius: 4px;
-            overflow: hidden;
-        }
-        
-        .screenshot-img {
-            width: 100%;
-            display: block;
-            border-bottom: 1px solid #eee;
-        }
-        
-        .screenshot-info {
-            padding: 15px;
-        }
-        
-        .answer-section {
-            padding: 15px;
-            background: #f9f9f9;
-        }
-        
-        .answer-input {
-            width: 100%;
-            min-height: 80px;
-            padding: 10px;
-            margin-bottom: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        
-        .send-btn {
-            padding: 8px 15px;
-            background: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        
-        /* Управление админами */
-        .admin-management {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        
-        .admin-list {
-            margin: 15px 0;
-        }
-        
-        .admin-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px;
-            border-bottom: 1px solid #eee;
-        }
-        
-        .super-admin {
-            color: #ff8800;
-            font-weight: bold;
-        }
-        
-        .remove-admin {
-            color: #ff4444;
-            cursor: pointer;
-        }
-        
-        .add-admin-form input {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        
-        .add-admin-btn {
-            padding: 10px 15px;
-            background: #2196F3;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        
-        .refresh-btn {
-            padding: 10px 15px;
-            background: #2196F3;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-bottom: 15px;
-        }
-        
-        .new-screenshots-badge {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: #ff4444;
-            color: white;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            z-index: 1000;
+        .hidden {
             display: none;
         }
     </style>
 </head>
 <body>
     <!-- Страница входа -->
-    <div class="login-page" id="login-page">
-        <div class="login-form">
-            <h1>Вход в админ-панель</h1>
-            <input type="text" id="login-input" placeholder="Логин">
-            <input type="password" id="password-input" placeholder="Пароль">
-            <button class="login-btn" id="login-btn">Войти</button>
-            <div id="login-error" class="error-message"></div>
-        </div>
+    <div class="login-container" id="login-page">
+        <h1>Вход в админ-панель</h1>
+        <input type="text" id="login-input" placeholder="Логин">
+        <input type="password" id="password-input" placeholder="Пароль">
+        <button id="login-btn">Войти</button>
+        <div id="login-error" class="error"></div>
     </div>
 
     <!-- Админ-панель -->
-    <div class="admin-panel container" id="admin-panel">
-        <div class="header">
-            <h1>Админ-панель</h1>
-            <button class="logout-btn" id="logout-btn">Выйти</button>
-        </div>
-        
-        <div class="stats">
-            <div class="stat-card">
-                <h3>Админов онлайн</h3>
-                <p id="online-admins">0</p>
-            </div>
-            <div class="stat-card">
-                <h3>Всего админов</h3>
-                <p id="total-admins">0</p>
-            </div>
-            <div class="stat-card">
-                <h3>Скриншотов</h3>
-                <p id="total-screenshots">0</p>
-            </div>
-        </div>
-        
-        <div class="screenshots-container">
-            <button class="refresh-btn" id="refresh-btn">Обновить скриншоты</button>
-            <div id="screenshots-list"></div>
-        </div>
-        
-        <div class="admin-management" id="admin-management">
-            <h2>Управление администраторами</h2>
-            <div class="admin-list" id="admin-list"></div>
-            <div class="add-admin-form">
-                <h3>Добавить администратора</h3>
-                <input type="text" id="new-admin-login" placeholder="Логин">
-                <input type="password" id="new-admin-password" placeholder="Пароль">
-                <button class="add-admin-btn" id="add-admin-btn">Добавить</button>
-            </div>
-        </div>
+    <div class="admin-container hidden" id="admin-panel">
+        <h1>Админ-панель</h1>
+        <button id="logout-btn">Выйти</button>
+        <div id="content"></div>
     </div>
-    
-    <div class="new-screenshots-badge" id="new-screenshots-badge"></div>
 
     <script>
         // DOM элементы
@@ -294,90 +79,41 @@
         const loginBtn = document.getElementById('login-btn');
         const loginError = document.getElementById('login-error');
         const logoutBtn = document.getElementById('logout-btn');
-        const onlineAdminsEl = document.getElementById('online-admins');
-        const totalAdminsEl = document.getElementById('total-admins');
-        const totalScreenshotsEl = document.getElementById('total-screenshots');
-        const screenshotsList = document.getElementById('screenshots-list');
-        const adminManagement = document.getElementById('admin-management');
-        const adminList = document.getElementById('admin-list');
-        const newAdminLogin = document.getElementById('new-admin-login');
-        const newAdminPassword = document.getElementById('new-admin-password');
-        const addAdminBtn = document.getElementById('add-admin-btn');
-        const refreshBtn = document.getElementById('refresh-btn');
-        const newScreenshotsBadge = document.getElementById('new-screenshots-badge');
-
-        // Текущий пользователь
-        let currentUser = null;
-        let isSuperAdmin = false;
-        let lastScreenshotCount = 0;
-        let newScreenshotsCount = 0;
-        let refreshInterval = null;
+        const content = document.getElementById('content');
 
         // Инициализация
         document.addEventListener('DOMContentLoaded', () => {
-            checkAuth();
-            
             loginBtn.addEventListener('click', login);
-            passwordInput.addEventListener('keyup', (e) => {
-                if (e.key === 'Enter') login();
-            });
             logoutBtn.addEventListener('click', logout);
-            addAdminBtn.addEventListener('click', addAdmin);
-            refreshBtn.addEventListener('click', loadScreenshots);
-            newScreenshotsBadge.addEventListener('click', () => {
-                loadScreenshots();
-                newScreenshotsCount = 0;
-                newScreenshotsBadge.style.display = 'none';
-            });
+            checkAuth();
         });
 
         // Проверка авторизации
         async function checkAuth() {
             try {
-                const response = await fetch('/api/admin/stats', {
-                    credentials: 'include'
-                });
-                
+                const response = await fetch('/api/admin/stats');
                 if (response.ok) {
                     const data = await response.json();
-                    showAdminPanel(data);
+                    showAdminPanel();
                 } else {
                     showLoginPage();
                 }
             } catch (error) {
-                console.error('Ошибка проверки авторизации:', error);
                 showLoginPage();
             }
         }
 
         // Показать страницу входа
         function showLoginPage() {
-            loginPage.style.display = 'flex';
-            adminPanel.style.display = 'none';
-            clearInterval(refreshInterval);
+            loginPage.classList.remove('hidden');
+            adminPanel.classList.add('hidden');
         }
 
         // Показать админ-панель
-        async function showAdminPanel(data) {
-            loginPage.style.display = 'none';
-            adminPanel.style.display = 'block';
-            
-            currentUser = data.currentAdmin;
-            isSuperAdmin = currentUser === 'admin';
-            lastScreenshotCount = data.totalScreenshots || 0;
-            
-            updateStats(data);
-            loadScreenshots();
-            
-            if (isSuperAdmin) {
-                adminManagement.style.display = 'block';
-                loadAdmins();
-            } else {
-                adminManagement.style.display = 'none';
-            }
-            
-            // Автообновление каждые 5 секунд
-            refreshInterval = setInterval(checkNewScreenshots, 5000);
+        function showAdminPanel() {
+            loginPage.classList.add('hidden');
+            adminPanel.classList.remove('hidden');
+            content.innerHTML = '<p>Админ-панель успешно загружена</p>';
         }
 
         // Вход в систему
@@ -390,262 +126,36 @@
                 return;
             }
             
-            loginBtn.disabled = true;
-            loginError.textContent = '';
-            
             try {
                 const response = await fetch('/api/admin/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ login, password }),
-                    credentials: 'include'
+                    body: JSON.stringify({ login, password })
                 });
                 
                 if (response.ok) {
-                    checkAuth();
+                    const data = await response.json();
+                    if (data.success) {
+                        showAdminPanel();
+                    } else {
+                        loginError.textContent = 'Ошибка входа';
+                    }
                 } else {
                     const error = await response.json();
-                    throw new Error(error.error || 'Ошибка входа');
+                    loginError.textContent = error.error || 'Ошибка входа';
                 }
             } catch (error) {
-                loginError.textContent = error.message;
-            } finally {
-                loginBtn.disabled = false;
+                loginError.textContent = 'Ошибка сети';
             }
         }
 
         // Выход из системы
         async function logout() {
             try {
-                await fetch('/api/admin/logout', {
-                    method: 'POST',
-                    credentials: 'include'
-                });
+                await fetch('/api/admin/logout', { method: 'POST' });
                 showLoginPage();
             } catch (error) {
                 console.error('Ошибка выхода:', error);
-            }
-        }
-
-        // Обновление статистики
-        function updateStats(data) {
-            onlineAdminsEl.textContent = data.onlineAdmins;
-            totalAdminsEl.textContent = data.totalAdmins;
-            totalScreenshotsEl.textContent = data.totalScreenshots;
-        }
-
-        // Загрузка скриншотов
-        async function loadScreenshots() {
-            refreshBtn.disabled = true;
-            refreshBtn.textContent = 'Загрузка...';
-            
-            try {
-                const response = await fetch('/api/screenshots', {
-                    credentials: 'include'
-                });
-                
-                if (!response.ok) throw new Error('Ошибка загрузки');
-                
-                const screenshots = await response.json();
-                renderScreenshots(screenshots);
-                
-                lastScreenshotCount = screenshots.length;
-                newScreenshotsCount = 0;
-                newScreenshotsBadge.style.display = 'none';
-            } catch (error) {
-                console.error('Ошибка:', error);
-            } finally {
-                refreshBtn.disabled = false;
-                refreshBtn.textContent = 'Обновить скриншоты';
-            }
-        }
-
-        // Отображение скриншотов
-        function renderScreenshots(screenshots) {
-            screenshotsList.innerHTML = '';
-            
-            if (screenshots.length === 0) {
-                screenshotsList.innerHTML = '<p>Нет скриншотов для отображения</p>';
-                return;
-            }
-            
-            screenshots.forEach(screenshot => {
-                const screenshotEl = document.createElement('div');
-                screenshotEl.className = 'screenshot';
-                screenshotEl.innerHTML = `
-                    <img src="${screenshot.url}" class="screenshot-img" alt="Скриншот">
-                    <div class="screenshot-info">
-                        <p>ID: ${screenshot.id}</p>
-                        <p>Дата: ${new Date(screenshot.timestamp).toLocaleString()}</p>
-                    </div>
-                    <div class="answer-section">
-                        <textarea class="answer-input" data-id="${screenshot.id}">${screenshot.answer || ''}</textarea>
-                        <button class="send-btn" data-id="${screenshot.id}">Отправить ответ</button>
-                    </div>
-                `;
-                screenshotsList.appendChild(screenshotEl);
-            });
-            
-            // Обработчики для кнопок отправки
-            document.querySelectorAll('.send-btn').forEach(btn => {
-                btn.addEventListener('click', sendAnswer);
-            });
-        }
-
-        // Отправка ответа
-        async function sendAnswer(e) {
-            const btn = e.target;
-            const questionId = btn.getAttribute('data-id');
-            const answer = document.querySelector(`textarea[data-id="${questionId}"]`).value;
-            
-            btn.disabled = true;
-            btn.textContent = 'Отправка...';
-            
-            try {
-                const response = await fetch('/api/answers', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ questionId, answer }),
-                    credentials: 'include'
-                });
-                
-                if (!response.ok) throw new Error('Ошибка отправки');
-                btn.textContent = 'Отправлено!';
-                setTimeout(() => {
-                    btn.textContent = 'Отправить ответ';
-                    btn.disabled = false;
-                }, 2000);
-            } catch (error) {
-                console.error('Ошибка:', error);
-                btn.textContent = 'Ошибка';
-                setTimeout(() => {
-                    btn.textContent = 'Отправить ответ';
-                    btn.disabled = false;
-                }, 2000);
-            }
-        }
-
-        // Проверка новых скриншотов
-        async function checkNewScreenshots() {
-            try {
-                const response = await fetch('/api/admin/stats', {
-                    credentials: 'include'
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    const currentCount = data.totalScreenshots || 0;
-                    
-                    if (currentCount > lastScreenshotCount) {
-                        newScreenshotsCount += (currentCount - lastScreenshotCount);
-                        lastScreenshotCount = currentCount;
-                        
-                        if (newScreenshotsCount > 0) {
-                            newScreenshotsBadge.textContent = newScreenshotsCount;
-                            newScreenshotsBadge.style.display = 'flex';
-                        }
-                    }
-                }
-            } catch (error) {
-                console.error('Ошибка проверки скриншотов:', error);
-            }
-        }
-
-        // Загрузка списка администраторов
-        async function loadAdmins() {
-            try {
-                const response = await fetch('/api/admin/list', {
-                    credentials: 'include'
-                });
-                
-                if (response.ok) {
-                    const admins = await response.json();
-                    renderAdmins(admins);
-                }
-            } catch (error) {
-                console.error('Ошибка загрузки администраторов:', error);
-            }
-        }
-
-        // Отображение списка администраторов
-        function renderAdmins(admins) {
-            adminList.innerHTML = '';
-            
-            admins.forEach(admin => {
-                const adminEl = document.createElement('div');
-                adminEl.className = 'admin-item';
-                adminEl.innerHTML = `
-                    <span class="${admin.isSuperAdmin ? 'super-admin' : ''}">
-                        ${admin.login}
-                    </span>
-                    ${!admin.isSuperAdmin ? `<span class="remove-admin" data-login="${admin.login}">×</span>` : ''}
-                `;
-                adminList.appendChild(adminEl);
-            });
-            
-            // Обработчики для удаления
-            document.querySelectorAll('.remove-admin').forEach(btn => {
-                btn.addEventListener('click', removeAdmin);
-            });
-        }
-
-        // Удаление администратора
-        async function removeAdmin(e) {
-            const login = e.target.getAttribute('data-login');
-            
-            if (!confirm(`Удалить администратора ${login}?`)) return;
-            
-            try {
-                const response = await fetch('/api/admin/remove', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ login }),
-                    credentials: 'include'
-                });
-                
-                if (!response.ok) throw new Error('Ошибка удаления');
-                loadAdmins();
-                checkAuth(); // Обновляем статистику
-            } catch (error) {
-                console.error('Ошибка:', error);
-                alert('Не удалось удалить администратора');
-            }
-        }
-
-        // Добавление администратора
-        async function addAdmin() {
-            const login = newAdminLogin.value.trim();
-            const password = newAdminPassword.value.trim();
-            
-            if (!login || !password) {
-                alert('Введите логин и пароль');
-                return;
-            }
-            
-            addAdminBtn.disabled = true;
-            
-            try {
-                const response = await fetch('/api/admin/add', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ login, password }),
-                    credentials: 'include'
-                });
-                
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Ошибка добавления');
-                }
-                
-                newAdminLogin.value = '';
-                newAdminPassword.value = '';
-                loadAdmins();
-                checkAuth(); // Обновляем статистику
-            } catch (error) {
-                console.error('Ошибка:', error);
-                alert(error.message);
-            } finally {
-                addAdminBtn.disabled = false;
             }
         }
     </script>
