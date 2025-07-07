@@ -1,6 +1,8 @@
 const express = require('express');
 const { Server } = require('ws');
 const http = require('http');
+const cors = require('cors');
+const fetch = require('node-fetch');
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -8,129 +10,139 @@ const app = express();
 const server = http.createServer(app);
 const wss = new Server({ server });
 
-// Хранилище данных
-const DB = {
-  activeConnections: new Map(),
-  connectionScreenshots: new Map(),
-  screenshotsData: new Map()
-};
-
-// Middleware
+app.use(cors({ origin: '*' }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Разрешаем CORS
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-  next();
-});
-
-// Создание директорий
-async function initDirectories() {
-  try {
-    await fs.mkdir(path.join(__dirname, 'public'), { recursive: true });
-    await fs.mkdir(path.join(__dirname, 'uploads'), { recursive: true });
-  } catch (err) {
-    console.error('Ошибка инициализации директорий:', err);
-  }
-}
-
-// Очистка соединения
-async function cleanupConnection(connectionId) {
-  const screenshotIds = DB.connectionScreenshots.get(connectionId) || [];
-  
-  for (const id of screenshotIds) {
+async function ensureUploadsDir() {
     try {
-      await fs.unlink(path.join(__dirname, 'uploads', `${id}.png`));
-      DB.screenshotsData.delete(id);
+        await fs.mkdir(path.join(__dirname, 'uploads'), { recursive: true });
+        console.log('Uploads directory created or already exists');
     } catch (err) {
-      console.error(`Ошибка удаления скриншота ${id}:`, err);
+        console.error('Error creating uploads directory:', err.message);
+        throw err;
     }
-  }
-  
-  DB.connectionScreenshots.delete(connectionId);
-  DB.activeConnections.delete(connectionId);
 }
 
-// WebSocket обработчик
-wss.on('connection', (ws) => {
-  const connectionId = Date.now().toString();
-  DB.activeConnections.set(connectionId, ws);
-  DB.connectionScreenshots.set(connectionId, []);
-  console.log(`Новое подключение: ${connectionId}`);
+async function startServer() {
+    await ensureUploadsDir();
+    const PORT = process.env.PORT || 8080;
+    server.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+    });
+}
 
-  ws.on('message', async (message) => {
+startServer().catch(err => {
+    console.error('Failed to start server:', err);
+    process.exit(1);
+});
+
+app.get('/proxy-image', async (req, res) => {
+    const imageUrl = req.query.url;
+    if (!imageUrl) return res.status(400).send('No URL provided');
     try {
-      const data = JSON.parse(message);
-      
-      if (data.type === 'screenshot') {
-        const base64Data = data.screenshot.replace(/^data:image\/png;base64,/, '');
-        const filename = `${data.questionId}.png`;
-        const filePath = path.join(__dirname, 'uploads', filename);
-        
-        await fs.writeFile(filePath, base64Data, 'base64');
-        
-        DB.screenshotsData.set(data.questionId, {
-          connectionId,
-          timestamp: Date.now()
-        });
-        
-        const connScreenshots = DB.connectionScreenshots.get(connectionId) || [];
-        connScreenshots.push(data.questionId);
-        DB.connectionScreenshots.set(connectionId, connScreenshots);
-      }
+        const response = await fetch(imageUrl);
+        if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
+        const buffer = await response.buffer();
+        res.set('Content-Type', response.headers.get('content-type'));
+        res.send(buffer);
     } catch (error) {
-      console.error('Ошибка WebSocket:', error);
+        console.error('Proxy error:', error);
+        res.status(500).send('Failed to fetch image');
     }
-  });
-
-  ws.on('close', async () => {
-    console.log(`Соединение закрыто: ${connectionId}`);
-    await cleanupConnection(connectionId);
-  });
 });
 
-// API для получения списка скриншотов
-app.get('/api/screenshots', async (req, res) => {
-  try {
-    const files = await fs.readdir(path.join(__dirname, 'uploads'));
-    const screenshots = files
-      .filter(file => file.endsWith('.png'))
-      .map(file => ({
-        id: file.replace('.png', ''),
-        url: `/uploads/${file}`,
-        timestamp: DB.screenshotsData.get(file.replace('.png', ''))?.timestamp || Date.now()
-      }));
-    
-    res.json(screenshots);
-  } catch (error) {
-    console.error('Error getting screenshots:', error);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
+wss.on('connection', (ws) => {
+    console.log('Client connected');
+    const clientScreenshots = new Set(); // Хранит questionId для этого клиента
 
-// Запуск сервера
-initDirectories();
+    ws.on('message', async (message) => {
+        try {
+            const data = JSON.parse(message);
+            console.log('Received:', data);
 
-const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  
-  // Очистка неактивных соединений каждые 5 минут
-  setInterval(async () => {
-    const now = Date.now();
-    for (const [connectionId] of DB.activeConnections) {
-      if (!DB.connectionScreenshots.has(connectionId)) continue;
-      
-      const screenshotIds = DB.connectionScreenshots.get(connectionId) || [];
-      if (screenshotIds.length > 0) {
-        const firstScreenshot = DB.screenshotsData.get(screenshotIds[0]);
-        if (firstScreenshot && now - firstScreenshot.timestamp > 300000) {
-          await cleanupConnection(connectionId);
+            if (data.role === 'helper') {
+                console.log('Helper client registered');
+                ws.send(JSON.stringify({ type: 'ack', message: 'Helper registered' }));
+            } else if (data.type === 'pageHTML') {
+                console.log('Received page HTML:', data.html.substring(0, 50) + '...');
+                ws.send(JSON.stringify({ type: 'ack', message: 'HTML received' }));
+            } else if (data.type === 'screenshot') {
+                console.log('Received screenshot, questionId:', data.questionId);
+                const base64Data = data.screenshot.replace(/^data:image\/png;base64,/, '');
+                const filePath = path.join(__dirname, 'uploads', `${data.questionId}.png`);
+                await fs.writeFile(filePath, base64Data, 'base64');
+                console.log(`Screenshot saved: ${filePath}`);
+                clientScreenshots.add(data.questionId); // Сохраняем questionId
+
+                // Автоматический ответ (можно заменить на ручной)
+                const answer = `Screenshot ${data.questionId} processed`;
+                ws.send(JSON.stringify({
+                    type: 'answer',
+                    questionId: data.questionId,
+                    answer: answer
+                }));
+            }
+        } catch (error) {
+            console.error('Error processing message:', error);
+            ws.send(JSON.stringify({ type: 'error', message: error.message }));
         }
-      }
+    });
+
+    ws.on('close', async () => {
+        console.log('Client disconnected, cleaning up screenshots');
+        for (const questionId of clientScreenshots) {
+            const filePath = path.join(__dirname, 'uploads', `${questionId}.png`);
+            try {
+                await fs.unlink(filePath);
+                console.log(`Deleted screenshot: ${filePath}`);
+            } catch (err) {
+                console.error(`Error deleting screenshot ${filePath}:`, err);
+            }
+        }
+        clientScreenshots.clear();
+    });
+});
+
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.get('/screenshots', async (req, res) => {
+    try {
+        const files = await fs.readdir(path.join(__dirname, 'uploads'));
+        const screenshots = files.filter(file => file.endsWith('.png')).map(file => ({
+            id: file.replace('.png', ''),
+            url: `/uploads/${file}`,
+            timestamp: file.replace('.png', '')
+        }));
+        res.json(screenshots);
+    } catch (error) {
+        console.error('Error listing screenshots:', error);
+        res.status(500).send('Failed to list screenshots');
     }
-  }, 300000);
+});
+
+app.post('/send-answer', (req, res) => {
+    const { questionId, answer } = req.body;
+    if (!questionId || !answer) return res.status(400).send('Question ID and answer are required');
+    console.log(`Received answer for questionId ${questionId}: ${answer}`);
+
+    wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify({
+                type: 'answer',
+                questionId: questionId,
+                answer: answer
+            }));
+        }
+    });
+
+    res.send({ status: 'answer sent' });
+});
+
+const PORT = process.env.PORT || 8080;
+server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
