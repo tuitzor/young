@@ -1,55 +1,39 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Screenshot Admin Panel</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Screenshot Gallery</title>
+    <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>Screenshot Admin Panel</h1>
-            <div class="stats">
-                <div class="stat-item">
-                    <span class="stat-label">Total Screenshots:</span>
-                    <span class="stat-value" id="total-screenshots">0</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Pending Answers:</span>
-                    <span class="stat-value" id="pending-answers">0</span>
-                </div>
-            </div>
-        </header>
-
-        <main>
-            <div class="controls">
-                <button id="refresh-btn" class="btn">Refresh</button>
-                <input type="text" id="search-input" placeholder="Search by URL...">
-            </div>
-
-            <div class="screenshots-grid" id="screenshots-grid">
-                <!-- Скриншоты будут здесь -->
-                <div class="empty-state">No screenshots available</div>
-            </div>
-        </main>
-
-        <div class="modal" id="answer-modal">
-            <div class="modal-content">
-                <span class="close-btn">&times;</span>
-                <h2>Answer to Screenshot</h2>
-                <div class="screenshot-container">
-                    <img id="modal-screenshot" src="" alt="Screenshot">
-                </div>
-                <div class="form-group">
-                    <label for="answer-text">Your Answer:</label>
-                    <textarea id="answer-text" rows="5"></textarea>
-                </div>
-                <button id="submit-answer" class="btn">Submit Answer</button>
-            </div>
-        </div>
-    </div>
-
-    <script src="admin.js"></script>
+    <h1>Screenshot Gallery</h1>
+    <div id="gallery"></div>
+    <script>
+        async function loadScreenshots() {
+            try {
+                const response = await fetch('/screenshots');
+                const screenshots = await response.json();
+                const gallery = document.getElementById('gallery');
+                gallery.innerHTML = '';
+                screenshots.forEach(shot => {
+                    const container = document.createElement('div');
+                    container.className = 'screenshot-container';
+                    container.innerHTML = `
+                        <img src="${shot.url}" alt="Screenshot ${shot.id}">
+                        <p>Question ID: ${shot.id}</p>
+                        <p>Uploaded: ${new Date(parseInt(shot.timestamp)).toLocaleString()}</p>
+                    `;
+                    gallery.appendChild(container);
+                });
+            } catch (error) {
+                console.error('Error loading screenshots:', error);
+                const gallery = document.getElementById('gallery');
+                gallery.innerHTML = '<p>Error loading screenshots</p>';
+            }
+        }
+        loadScreenshots();
+        setInterval(loadScreenshots, 10000); // Обновление каждые 10 секунд
+    </script>
 </body>
 </html>
