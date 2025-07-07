@@ -1,17 +1,15 @@
 {
-  "name": "screenshot-server",
-  "version": "1.0.0",
-  "license": "MIT",
-  "engines": {
-    "node": "18.x"
-  },
-  "scripts": {
-    "start": "node server.js"
-  },
-  "dependencies": {
-    "bcryptjs": "^2.4.3",
-    "express": "^4.18.2",
-    "express-session": "^1.17.3",
-    "ws": "^8.14.2"
-  }
+    "name": "screenshot-receiver",
+    "version": "1.0.0",
+    "description": "Server to receive and display screenshots",
+    "main": "server.js",
+    "scripts": {
+        "start": "node server.js"
+    },
+    "dependencies": {
+        "express": "^4.18.2",
+        "ws": "^8.14.2",
+        "cors": "^2.8.5",
+        "node-fetch": "^2.6.7"
+    }
 }
