@@ -5,7 +5,6 @@ const fs = require('fs').promises;
 const path = require('path');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
-const cors = require('cors');
 
 const app = express();
 const server = http.createServer(app);
@@ -14,7 +13,7 @@ const wss = new Server({ server });
 // Конфигурация
 const CONFIG = {
   MAX_ADMINS: 5,
-  SESSION_SECRET: process.env.SESSION_SECRET || 'your-strong-secret-here',
+  SESSION_SECRET: process.env.SESSION_SECRET || 'strong-secret-here',
   ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || 'admin123'
 };
 
@@ -37,10 +36,6 @@ function initAdmin() {
 }
 
 // Middleware
-app.use(cors({
-  origin: true,
-  credentials: true
-}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(session({
@@ -49,9 +44,16 @@ app.use(session({
   saveUninitialized: false,
   cookie: {
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 1 день
+    maxAge: 24 * 60 * 60 * 1000
   }
 }));
+
+// Разрешаем CORS
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  next();
+});
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -61,6 +63,16 @@ async function initDirectories() {
   try {
     await fs.mkdir(path.join(__dirname, 'public'), { recursive: true });
     await fs.mkdir(path.join(__dirname, 'uploads'), { recursive: true });
+    
+    // Создаем index.html если его нет
+    try {
+      await fs.access(path.join(__dirname, 'public', 'index.html'));
+    } catch {
+      await fs.writeFile(
+        path.join(__dirname, 'public', 'index.html'),
+        '<!DOCTYPE html><html><head><title>Screenshot Server</title></head><body><h1>Screenshot Server is Running</h1></body></html>'
+      );
+    }
   } catch (err) {
     console.error('Ошибка инициализации директорий:', err);
   }
@@ -103,16 +115,7 @@ function requireAuth(req, res, next) {
   if (req.session.admin) {
     return next();
   }
-  res.status(401).json({ error: 'Требуется авторизация' });
-}
-
-// Проверка прав суперадмина
-function requireSuperAdmin(req, res, next) {
-  const admin = DB.admins.get(req.session.admin);
-  if (admin && admin.isSuperAdmin) {
-    return next();
-  }
-  res.status(403).json({ error: 'Доступ запрещен' });
+  res.status(401).json({ error: 'Authentication required' });
 }
 
 // API для авторизации
@@ -129,7 +132,7 @@ app.post('/api/admin/login', async (req, res) => {
     });
   }
   
-  res.status(401).json({ error: 'Неверные учетные данные' });
+  res.status(401).json({ error: 'Invalid credentials' });
 });
 
 app.post('/api/admin/logout', (req, res) => {
@@ -138,7 +141,7 @@ app.post('/api/admin/logout', (req, res) => {
   
   req.session.destroy(err => {
     if (err) {
-      return res.status(500).json({ error: 'Ошибка выхода' });
+      return res.status(500).json({ error: 'Logout error' });
     }
     res.json({ success: true });
   });
@@ -162,8 +165,8 @@ app.get('/api/screenshots', requireAuth, async (req, res) => {
     
     res.json(screenshots);
   } catch (error) {
-    console.error('Ошибка получения скриншотов:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
+    console.error('Error getting screenshots:', error);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
@@ -189,10 +192,10 @@ app.post('/api/answers', requireAuth, (req, res) => {
     return res.json({ success: true });
   }
   
-  res.status(404).json({ error: 'Скриншот не найден' });
+  res.status(404).json({ error: 'Screenshot not found' });
 });
 
-// API для управления администраторами
+// API для статистики
 app.get('/api/admin/stats', requireAuth, (req, res) => {
   const admin = DB.admins.get(req.session.admin);
   res.json({
@@ -203,46 +206,6 @@ app.get('/api/admin/stats', requireAuth, (req, res) => {
     currentAdmin: req.session.admin,
     isSuperAdmin: admin?.isSuperAdmin || false
   });
-});
-
-app.get('/api/admin/list', requireAuth, requireSuperAdmin, (req, res) => {
-  res.json(Array.from(DB.admins.values()));
-});
-
-app.post('/api/admin/add', requireAuth, requireSuperAdmin, (req, res) => {
-  const { login, password } = req.body;
-  
-  if (DB.admins.size >= CONFIG.MAX_ADMINS) {
-    return res.status(400).json({ error: 'Достигнут лимит администраторов' });
-  }
-  
-  if (DB.admins.has(login)) {
-    return res.status(400).json({ error: 'Администратор уже существует' });
-  }
-  
-  DB.admins.set(login, {
-    login,
-    password: bcrypt.hashSync(password, 10),
-    isSuperAdmin: false,
-    online: false
-  });
-  
-  res.json({ success: true });
-});
-
-app.post('/api/admin/remove', requireAuth, requireSuperAdmin, (req, res) => {
-  const { login } = req.body;
-  
-  if (login === 'admin') {
-    return res.status(400).json({ error: 'Нельзя удалить главного администратора' });
-  }
-  
-  if (!DB.admins.has(login)) {
-    return res.status(404).json({ error: 'Администратор не найден' });
-  }
-  
-  DB.admins.delete(login);
-  res.json({ success: true });
 });
 
 // Отдача index.html для всех остальных GET-запросов
@@ -256,6 +219,8 @@ initAdmin();
 
 const PORT = process.env.PORT || 10000;
 server.listen(PORT, () => {
-  console.log(`Сервер запущен на порту ${PORT}`);
-  console.log('Главный администратор: admin');
+  console.log(`Server running on port ${PORT}`);
+  console.log('Admin credentials:');
+  console.log(`Login: admin`);
+  console.log(`Password: ${CONFIG.ADMIN_PASSWORD}`);
 });
