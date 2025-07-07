@@ -1,85 +1,58 @@
 body {
     font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 20px;
-    background-color: #f5f5f5;
+    margin: 20px;
+    background-color: #f0f0f0;
+    max-width: 100%;
+    overflow-x: hidden;
 }
-
-.container {
-    max-width: 1200px;
-    margin: 0 auto;
-}
-
 h1 {
     text-align: center;
     color: #333;
-    margin-bottom: 30px;
 }
-
 #gallery {
     display: flex;
     flex-direction: column;
-    gap: 30px;
+    align-items: center;
+    gap: 20px;
+    padding: 0;
+    width: 100%;
 }
-
 .screenshot-container {
     background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    overflow: hidden;
-}
-
-.image-wrapper {
-    background: #eee;
     padding: 10px;
-    text-align: center;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    width: 90%;
+    max-width: 800px;
 }
-
-.image-wrapper img {
-    max-width: 100%;
-    max-height: 70vh;
-    display: block;
-    margin: 0 auto;
-    border: 1px solid #ddd;
-}
-
-.info {
-    padding: 15px;
-    background: #f9f9f9;
-    border-bottom: 1px solid #eee;
-}
-
-.info p {
-    margin: 5px 0;
-    color: #666;
-    font-size: 14px;
-}
-
-.answer-section {
-    padding: 15px;
-}
-
-.answer-input {
+img {
     width: 100%;
-    min-height: 100px;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    resize: vertical;
-    font-family: Arial, sans-serif;
-    margin-bottom: 10px;
+    height: auto;
+    border: 1px solid #ccc;
+    border-radius: 5px;
 }
-
-.save-btn {
+.answer-form {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.answer-form label {
+    font-weight: bold;
+}
+.answer-form input {
+    padding: 5px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+.answer-form button {
+    padding: 5px;
     background-color: #4CAF50;
     color: white;
     border: none;
-    padding: 8px 16px;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 14px;
 }
-
-.save-btn:hover {
+.answer-form button:hover {
     background-color: #45a049;
 }
