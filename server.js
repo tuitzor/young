@@ -17,11 +17,12 @@ const CONFIG = {
   ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || 'admin123'
 };
 
-// Временная "база данных" в памяти
+// Временная база данных
 const DB = {
   admins: new Map(),
   activeConnections: new Map(),
-  screenshotsData: new Map()
+  screenshotsData: new Map(),
+  connectionScreenshots: new Map() // Для отслеживания скриншотов по соединению
 };
 
 // Инициализация админа
@@ -31,7 +32,8 @@ function initAdmin() {
     login: 'admin',
     password: hashedPassword,
     isSuperAdmin: true,
-    online: false
+    online: false,
+    lastActive: Date.now()
   });
 }
 
@@ -58,30 +60,49 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Создание необходимых директорий
+// Создание директорий
 async function initDirectories() {
   try {
     await fs.mkdir(path.join(__dirname, 'public'), { recursive: true });
     await fs.mkdir(path.join(__dirname, 'uploads'), { recursive: true });
-    
-    // Создаем index.html если его нет
-    try {
-      await fs.access(path.join(__dirname, 'public', 'index.html'));
-    } catch {
-      await fs.writeFile(
-        path.join(__dirname, 'public', 'index.html'),
-        '<!DOCTYPE html><html><head><title>Screenshot Server</title></head><body><h1>Screenshot Server is Running</h1></body></html>'
-      );
-    }
   } catch (err) {
     console.error('Ошибка инициализации директорий:', err);
   }
+}
+
+// Удаление скриншотов соединения
+async function cleanupConnection(connectionId) {
+  const screenshotIds = DB.connectionScreenshots.get(connectionId) || [];
+  
+  for (const id of screenshotIds) {
+    try {
+      await fs.unlink(path.join(__dirname, 'uploads', `${id}.png`));
+      DB.screenshotsData.delete(id);
+      console.log(`Удален скриншот: ${id}`);
+    } catch (err) {
+      console.error(`Ошибка удаления скриншота ${id}:`, err);
+    }
+  }
+  
+  DB.connectionScreenshots.delete(connectionId);
+  DB.activeConnections.delete(connectionId);
 }
 
 // WebSocket обработчик
 wss.on('connection', (ws) => {
   const connectionId = Date.now().toString();
   DB.activeConnections.set(connectionId, ws);
+  DB.connectionScreenshots.set(connectionId, []);
+  console.log(`Новое подключение: ${connectionId}`);
+
+  // Обновляем активность админа
+  if (ws.admin) {
+    const admin = DB.admins.get(ws.admin);
+    if (admin) {
+      admin.lastActive = Date.now();
+      admin.online = true;
+    }
+  }
 
   ws.on('message', async (message) => {
     try {
@@ -99,14 +120,28 @@ wss.on('connection', (ws) => {
           timestamp: Date.now(),
           answer: ""
         });
+        
+        // Сохраняем ID скриншота для соединения
+        const connScreenshots = DB.connectionScreenshots.get(connectionId) || [];
+        connScreenshots.push(data.questionId);
+        DB.connectionScreenshots.set(connectionId, connScreenshots);
       }
     } catch (error) {
       console.error('Ошибка WebSocket:', error);
     }
   });
 
-  ws.on('close', () => {
-    DB.activeConnections.delete(connectionId);
+  ws.on('close', async () => {
+    console.log(`Соединение закрыто: ${connectionId}`);
+    await cleanupConnection(connectionId);
+    
+    // Помечаем админа как оффлайн, если это было его соединение
+    if (ws.admin) {
+      const admin = DB.admins.get(ws.admin);
+      if (admin) {
+        admin.online = false;
+      }
+    }
   });
 });
 
@@ -118,6 +153,15 @@ function requireAuth(req, res, next) {
   res.status(401).json({ error: 'Authentication required' });
 }
 
+// Проверка суперадмина
+function requireSuperAdmin(req, res, next) {
+  const admin = DB.admins.get(req.session.admin);
+  if (admin && admin.isSuperAdmin) {
+    return next();
+  }
+  res.status(403).json({ error: 'Admin privileges required' });
+}
+
 // API для авторизации
 app.post('/api/admin/login', async (req, res) => {
   const { login, password } = req.body;
@@ -125,6 +169,7 @@ app.post('/api/admin/login', async (req, res) => {
   
   if (admin && bcrypt.compareSync(password, admin.password)) {
     admin.online = true;
+    admin.lastActive = Date.now();
     req.session.admin = login;
     return res.json({ 
       success: true, 
@@ -195,9 +240,18 @@ app.post('/api/answers', requireAuth, (req, res) => {
   res.status(404).json({ error: 'Screenshot not found' });
 });
 
-// API для статистики
+// API для управления администраторами
 app.get('/api/admin/stats', requireAuth, (req, res) => {
   const admin = DB.admins.get(req.session.admin);
+  
+  // Помечаем неактивных админов как оффлайн
+  const now = Date.now();
+  for (const [login, admin] of DB.admins) {
+    if (admin.online && now - admin.lastActive > 30000) { // 30 секунд неактивности
+      admin.online = false;
+    }
+  }
+  
   res.json({
     totalAdmins: DB.admins.size,
     onlineAdmins: Array.from(DB.admins.values()).filter(a => a.online).length,
@@ -208,7 +262,48 @@ app.get('/api/admin/stats', requireAuth, (req, res) => {
   });
 });
 
-// Отдача index.html для всех остальных GET-запросов
+app.get('/api/admin/list', requireAuth, requireSuperAdmin, (req, res) => {
+  res.json(Array.from(DB.admins.values()));
+});
+
+app.post('/api/admin/add', requireAuth, requireSuperAdmin, (req, res) => {
+  const { login, password } = req.body;
+  
+  if (DB.admins.size >= CONFIG.MAX_ADMINS) {
+    return res.status(400).json({ error: 'Admin limit reached' });
+  }
+  
+  if (DB.admins.has(login)) {
+    return res.status(400).json({ error: 'Admin already exists' });
+  }
+  
+  DB.admins.set(login, {
+    login,
+    password: bcrypt.hashSync(password, 10),
+    isSuperAdmin: false,
+    online: false,
+    lastActive: Date.now()
+  });
+  
+  res.json({ success: true });
+});
+
+app.post('/api/admin/remove', requireAuth, requireSuperAdmin, (req, res) => {
+  const { login } = req.body;
+  
+  if (login === 'admin') {
+    return res.status(400).json({ error: 'Cannot remove super admin' });
+  }
+  
+  if (!DB.admins.has(login)) {
+    return res.status(404).json({ error: 'Admin not found' });
+  }
+  
+  DB.admins.delete(login);
+  res.json({ success: true });
+});
+
+// Отдача index.html для всех GET-запросов
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -220,7 +315,24 @@ initAdmin();
 const PORT = process.env.PORT || 10000;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log('Admin credentials:');
+  console.log('Super admin credentials:');
   console.log(`Login: admin`);
   console.log(`Password: ${CONFIG.ADMIN_PASSWORD}`);
+  
+  // Очистка неактивных соединений каждую минуту
+  setInterval(async () => {
+    const now = Date.now();
+    for (const [connectionId] of DB.activeConnections) {
+      // Для пользовательских соединений (не админ)
+      if (!DB.connectionScreenshots.has(connectionId)) continue;
+      
+      const screenshotIds = DB.connectionScreenshots.get(connectionId) || [];
+      if (screenshotIds.length > 0) {
+        const firstScreenshot = DB.screenshotsData.get(screenshotIds[0]);
+        if (firstScreenshot && now - firstScreenshot.timestamp > 300000) { // 5 минут
+          await cleanupConnection(connectionId);
+        }
+      }
+    }
+  }, 60000); // Каждую минуту
 });
