@@ -1,235 +1,33 @@
-/* Base Styles */
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
 body {
-    background-color: #f5f7fa;
+    font-family: Arial, sans-serif;
+    margin: 20px;
+    background-color: #f0f0f0;
+}
+h1 {
+    text-align: center;
     color: #333;
-    line-height: 1.6;
 }
-
-.container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px;
-}
-
-/* Header */
-header {
-    background-color: #2c3e50;
-    color: white;
-    padding: 20px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-header h1 {
-    font-size: 24px;
-}
-
-.stats {
-    display: flex;
-    gap: 20px;
-}
-
-.stat-item {
-    background-color: rgba(255, 255, 255, 0.1);
-    padding: 10px 15px;
-    border-radius: 5px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-.stat-label {
-    font-size: 12px;
-    opacity: 0.8;
-    margin-bottom: 5px;
-}
-
-.stat-value {
-    font-size: 18px;
-    font-weight: bold;
-}
-
-/* Controls */
-.controls {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 20px;
-    gap: 15px;
-}
-
-.btn {
-    background-color: #3498db;
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: background-color 0.3s;
-}
-
-.btn:hover {
-    background-color: #2980b9;
-}
-
-#search-input {
-    flex-grow: 1;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    font-size: 14px;
-}
-
-/* Screenshots Grid */
-.screenshots-grid {
+#gallery {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: 20px;
+    padding: 20px;
 }
-
-.screenshot-card {
-    background-color: white;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    transition: transform 0.3s;
-}
-
-.screenshot-card:hover {
-    transform: translateY(-5px);
-}
-
-.screenshot-img {
-    width: 100%;
-    height: 200px;
-    object-fit: cover;
-    border-bottom: 1px solid #eee;
-}
-
-.screenshot-info {
-    padding: 15px;
-}
-
-.screenshot-url {
-    color: #3498db;
-    font-size: 14px;
-    margin-bottom: 10px;
-    word-break: break-all;
-}
-
-.screenshot-date {
-    color: #7f8c8d;
-    font-size: 12px;
-    margin-bottom: 10px;
-}
-
-.screenshot-answer {
-    font-size: 14px;
-    margin-top: 10px;
-    padding: 10px;
-    background-color: #f8f9fa;
-    border-radius: 5px;
-}
-
-.answer-btn {
-    background-color: #2ecc71;
-    width: 100%;
-    margin-top: 10px;
-}
-
-.empty-state {
-    grid-column: 1 / -1;
-    text-align: center;
-    padding: 40px;
-    color: #7f8c8d;
-}
-
-/* Modal */
-.modal {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.7);
-    z-index: 1000;
-    justify-content: center;
-    align-items: center;
-}
-
-.modal-content {
-    background-color: white;
-    padding: 25px;
-    border-radius: 8px;
-    width: 90%;
-    max-width: 800px;
-    max-height: 90vh;
-    overflow-y: auto;
-    position: relative;
-}
-
-.close-btn {
-    position: absolute;
-    top: 15px;
-    right: 15px;
-    font-size: 24px;
-    cursor: pointer;
-}
-
 .screenshot-container {
-    margin: 20px 0;
+    background: white;
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
     text-align: center;
 }
-
-#modal-screenshot {
+img {
     max-width: 100%;
-    max-height: 400px;
+    height: auto;
+    border: 1px solid #ccc;
     border-radius: 5px;
 }
-
-.form-group {
-    margin-bottom: 20px;
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: bold;
-}
-
-.form-group textarea {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    resize: vertical;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-    .screenshots-grid {
-        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    }
-    
-    header {
-        flex-direction: column;
-        text-align: center;
-        gap: 15px;
-    }
-    
-    .stats {
-        width: 100%;
-        justify-content: space-around;
-    }
+p {
+    margin: 5px 0;
+    font-size: 14px;
+    color: #555;
 }
