@@ -3,6 +3,7 @@ const WebSocket = require('ws');
 const http = require('http');
 const path = require('path');
 const fs = require('fs');
+const axios = require('axios'); // Добавляем axios для выполнения HTTP-запросов
 
 const app = express();
 const server = http.createServer(app);
@@ -21,6 +22,26 @@ const frontendClients = new Set();
 
 // Раздаем статические файлы из папки 'public'
 app.use(express.static(path.join(__dirname, 'public')));
+
+// --- НОВАЯ ЧАСТЬ: ЭНДПОЙНТ ДЛЯ ПРОКСИРОВАНИЯ ИЗОБРАЖЕНИЙ ---
+app.get('/proxy-image', async (req, res) => {
+    const imageUrl = req.query.url;
+    if (!imageUrl) {
+        return res.status(400).send('URL изображения не предоставлен.');
+    }
+
+    try {
+        const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+        const contentType = response.headers['content-type'] || 'application/octet-stream';
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Access-Control-Allow-Origin', '*'); // Разрешаем CORS
+        res.send(response.data);
+    } catch (error) {
+        console.error('Ошибка проксирования изображения:', imageUrl, error.message);
+        res.status(500).send('Не удалось загрузить изображение.');
+    }
+});
+// --- КОНЕЦ НОВОЙ ЧАСТИ ---
 
 wss.on('connection', ws => {
     console.log('Новый клиент подключился по WebSocket');
