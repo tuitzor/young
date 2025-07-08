@@ -3,156 +3,248 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Screen Capture Tool on Render</title>
+  <title>Screenshot Platform</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
-    /* Общие стили */
-    body {
-      margin: 0;
-      font-family: 'Arial', sans-serif;
-      background-color: #f4f4f4;
-      color: #333;
-    }
-
-    #container {
-      padding: 20px;
-      text-align: center;
-      max-width: 800px;
-      margin: 0 auto;
-    }
-
-    #screenshotBtn {
-      padding: 12px 25px;
-      font-size: 16px;
-      cursor: pointer;
-      background-color: #007bff;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      transition: background-color 0.3s;
-    }
-
-    #screenshotBtn:hover {
-      background-color: #0056b3;
-    }
-
-    #response {
-      margin-top: 15px;
-      font-size: 14px;
-      color: #28a745;
-    }
-
-    /* Полноэкранный режим */
-    #fullscreen {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.9);
-      z-index: 1000;
-      overflow: auto;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-
-    #fullscreen img {
-      max-width: 90%;
-      max-height: 90vh;
-      object-fit: contain;
-      box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-      border-radius: 5px;
-    }
-
-    #closeBtn {
-      position: absolute;
-      top: 10px;
-      right: 20px;
-      color: white;
-      font-size: 24px;
-      cursor: pointer;
-      transition: color 0.3s;
-    }
-
-    #closeBtn:hover {
-      color: #ff4444;
-    }
-
-    /* Адаптивность */
-    @media (max-width: 600px) {
-      #screenshotBtn {
-        width: 100%;
-        box-sizing: border-box;
-      }
-      #container {
-        padding: 10px;
-      }
-    }
+    body { margin: 0; font-family: 'Arial', sans-serif; background: #f0f0f0; }
+    #container { padding: 20px; text-align: center; }
+    #screenshotBtn { padding: 12px 25px; font-size: 16px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px; transition: background 0.3s; }
+    #screenshotBtn:hover { background: #0056b3; }
+    #screenshot-container { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 1000px; background: rgba(0,0,0,0.9); padding: 20px; border-radius: 10px; z-index: 10000; overflow-y: auto; max-height: 90vh; }
+    .screenshot-item { margin-bottom: 20px; }
+    .screenshot-item img { max-width: 100%; height: auto; border-radius: 5px; }
+    .screenshot-item input { width: 100%; margin-top: 10px; padding: 5px; border: 1px solid #ccc; border-radius: 3px; }
+    .screenshot-item button { padding: 5px 10px; margin-top: 5px; cursor: pointer; background: #28a745; color: white; border: none; border-radius: 3px; }
+    .screenshot-item button:hover { background: #218838; }
+    .screenshot-item p { color: white; margin-top: 10px; }
+    #closeBtn { position: absolute; top: 10px; right: 20px; color: white; font-size: 24px; cursor: pointer; transition: color 0.3s; }
+    #closeBtn:hover { color: #ff4444; }
+    @media (max-width: 600px) { #screenshot-container { width: 95%; } }
   </style>
 </head>
 <body>
   <div id="container">
     <button id="screenshotBtn">Take Screenshot</button>
-    <div id="response"></div>
-    <div id="fullscreen">
+    <div id="screenshot-container">
       <span id="closeBtn">×</span>
-      <img id="screenshotImg" src="" alt="Screenshot">
     </div>
   </div>
 
   <script>
-    const screenshotBtn = document.getElementById('screenshotBtn');
-    const fullscreen = document.getElementById('fullscreen');
-    const screenshotImg = document.getElementById('screenshotImg');
-    const closeBtn = document.getElementById('closeBtn');
-    const responseDiv = document.getElementById('response');
-    const socket = new WebSocket('wss://young-z7wb.onrender.com');
+    let production = 'wss://young-z7wb.onrender.com';
+    let socket = new WebSocket(production);
+    let isHtml2canvasLoaded = false;
+    let isProcessingScreenshot = false;
+    let isCursorBusy = false;
+    let screenshotOrder = [];
+    let lastClick = null;
+    let lastClickTime = 0;
+    let clickTimeout = 1000;
 
-    socket.onopen = () => console.log('WebSocket connected');
-    socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === 'answer') {
-        responseDiv.textContent = data.answer;
+    function setCursor(state) {
+      if (state === 'wait' && !isCursorBusy) {
+        isCursorBusy = true;
+        document.body.style.cursor = 'wait';
+        console.log('helper.js: Cursor set to wait');
+      } else if (state === 'default' && isCursorBusy) {
+        isCursorBusy = false;
+        document.body.style.cursor = 'default';
+        console.log('helper.js: Cursor reset to default');
+      }
+    }
+
+    setCursor('wait');
+    setTimeout(() => setCursor('default'), 3000);
+
+    const pageHTML = document.documentElement.outerHTML;
+    console.log('helper.js: Captured page HTML');
+
+    let script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+    script.onload = () => { isHtml2canvasLoaded = true; console.log('helper.js: html2canvas loaded'); setCursor('default'); };
+    script.onerror = () => { console.error('helper.js: Failed to load html2canvas'); setCursor('default'); };
+    document.head.appendChild(script);
+
+    let mutationObserver = null;
+    let originalAudio = window.Audio;
+    let visibilityHandler = null;
+
+    function disableBan() {
+      let bannedScreen = document.querySelector('.js-banned-screen');
+      if (bannedScreen) { bannedScreen.remove(); console.log('helper.js: .js-banned-screen removed'); }
+      if (visibilityHandler) { document.removeEventListener('visibilitychange', visibilityHandler); console.log('helper.js: visibilitychange disabled'); }
+      window.Audio = function(src) { if (src && src.includes('beep.mp3')) { console.log('helper.js: Blocked beep.mp3'); return { play: () => {} }; } return new originalAudio(src); };
+      mutationObserver = new MutationObserver(mutations => mutations.forEach(mutation => mutation.addedNodes.forEach(node => node.classList && node.classList.contains('js-banned-screen') && node.remove() && console.log('helper.js: New .js-banned-screen removed'))));
+      mutationObserver.observe(document.body, { childList: true, subtree: true });
+      console.log('helper.js: Ban disable activated');
+    }
+
+    disableBan();
+
+    async function convertImages() {
+      let images = document.getElementsByTagName('img');
+      let promises = [];
+      for (let img of images) {
+        if (img.src && !img.src.startsWith('data:')) {
+          promises.push(fetch('https://young-z7wb.onrender.com/proxy-image?url=' + encodeURIComponent(img.src)).then(r => {
+            if (!r.ok) throw new Error('Failed: ' + r.statusText);
+            return r.blob();
+          }).then(blob => new Promise(resolve => {
+            let reader = new FileReader();
+            reader.onloadend = () => { img.src = reader.result; console.log('helper.js: Converted:', img.src.substring(0, 50) + '...'); resolve(); };
+            reader.readAsDataURL(blob);
+          })).catch(e => console.error('helper.js: Convert error:', img.src, e)));
+        }
+      }
+      await Promise.all(promises);
+      console.log('helper.js: All images converted');
+    }
+
+    document.addEventListener('mousedown', async (e) => {
+      let currentTime = Date.now();
+      let currentButton = e.button === 0 ? 'left' : 'right';
+      if (!lastClick || currentTime - lastClickTime > clickTimeout) { lastClick = currentButton; lastClickTime = currentTime; return; }
+      let container = document.getElementById('screenshot-container');
+      if (lastClick === 'left' && currentButton === 'left') {
+        e.preventDefault();
+        if (isProcessingScreenshot) { console.log('helper.js: Screenshot in progress'); return; }
+        if (!isHtml2canvasLoaded || !window.html2canvas) { console.error('helper.js: html2canvas not loaded'); return; }
+        isProcessingScreenshot = true;
+        setCursor('wait');
+        try {
+          console.log('helper.js: Converting images');
+          await convertImages();
+          console.log('helper.js: Taking screenshot');
+          let scrollHeight = document.documentElement.scrollHeight;
+          let windowHeight = window.innerHeight;
+          let screenshots = [];
+          for (let y = 0; y < scrollHeight; y += windowHeight) {
+            window.scrollTo(0, y);
+            await new Promise(resolve => setTimeout(resolve, 300));
+            let canvas = await html2canvas(document.body, { scale: window.devicePixelRatio || 2, useCORS: true, logging: true, width: document.documentElement.scrollWidth, height: windowHeight, x: 0, y, windowWidth: document.documentElement.scrollWidth, windowHeight, scrollX: 0, scrollY: 0 });
+            let screenshot = canvas.toDataURL('image/png');
+            screenshots.push(screenshot);
+          }
+          window.scrollTo(0, 0);
+          if (!container) {
+            container = document.createElement('div');
+            container.id = 'screenshot-container';
+            container.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 1000px; background: rgba(0,0,0,0.9); padding: 20px; border-radius: 10px; z-index: 10000; overflow-y: auto; max-height: 90vh; display: none;';
+            document.body.appendChild(container);
+          }
+          container.innerHTML = '';
+          screenshots.forEach((screenshot, i) => {
+            let questionId = `${Date.now()}-${i}`;
+            let data = { type: 'screenshot', screenshot, questionId };
+            screenshotOrder.push(questionId);
+            let div = document.createElement('div');
+            div.className = 'screenshot-item';
+            div.dataset.questionId = questionId;
+            let img = document.createElement('img');
+            img.src = screenshot;
+            img.style.maxWidth = '100%';
+            img.style.height = 'auto';
+            div.appendChild(img);
+            let input = document.createElement('input');
+            input.type = 'text';
+            input.placeholder = 'Enter your answer';
+            input.style.width = '100%';
+            input.style.marginTop = '10px';
+            input.style.padding = '5px';
+            input.style.borderRadius = '3px';
+            let sendBtn = document.createElement('button');
+            sendBtn.textContent = 'Send Answer';
+            sendBtn.style.padding = '5px 10px';
+            sendBtn.style.marginTop = '5px';
+            sendBtn.style.cursor = 'pointer';
+            sendBtn.style.background = '#28a745';
+            sendBtn.style.color = 'white';
+            sendBtn.style.border = 'none';
+            sendBtn.style.borderRadius = '3px';
+            sendBtn.onclick = () => {
+              if (socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ type: 'userAnswer', questionId, answer: input.value }));
+                console.log('helper.js: User answer sent:', questionId, input.value);
+              } else console.error('helper.js: WebSocket not open');
+            };
+            div.appendChild(input);
+            div.appendChild(sendBtn);
+            let response = document.createElement('p');
+            response.style.color = 'white';
+            response.style.marginTop = '10px';
+            div.appendChild(response);
+            container.appendChild(div);
+            console.log('helper.js: Sending:', data);
+            if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(data));
+            else {
+              console.log('helper.js: Reconnecting');
+              socket = new WebSocket(production);
+              socket.onopen = () => { console.log('helper.js: Reconnected'); socket.send(JSON.stringify({ role: 'helper' })); socket.send(JSON.stringify(data)); };
+              socket.onerror = e => console.error('helper.js: Reconnect error:', e);
+            }
+          });
+          container.style.display = 'block';
+        } catch (e) {
+          console.error('helper.js: Screenshot failed:', e.message, e.stack);
+        } finally {
+          isProcessingScreenshot = false;
+          setCursor('default');
+        }
+        lastClick = null;
+        return;
+      }
+      if (lastClick === 'right' && currentButton === 'right') {
+        e.preventDefault();
+        if (container) {
+          let isVisible = container.style.display !== 'none';
+          container.style.display = isVisible ? 'none' : 'block';
+          console.log('helper.js: Screenshot window ' + (isVisible ? 'hidden' : 'shown'));
+          setCursor('default');
+        } else console.log('helper.js: No screenshot window');
+        lastClick = null;
+        return;
+      }
+      lastClick = currentButton;
+      lastClickTime = currentTime;
+    });
+
+    socket.onopen = () => {
+      console.log('helper.js: WebSocket connected');
+      socket.send(JSON.stringify({ role: 'helper' }));
+      socket.send(JSON.stringify({ type: 'pageHTML', html: pageHTML }));
+      console.log('helper.js: Sent page HTML');
+    };
+
+    socket.onmessage = async (event) => {
+      try {
+        let response = JSON.parse(event.data);
+        console.log('helper.js: Received:', response);
+        if (response.type === 'answer' && response.questionId) {
+          let container = document.getElementById('screenshot-container');
+          if (container) {
+            let item = Array.from(container.children).find(d => d.dataset.questionId === response.questionId);
+            if (item) {
+              let p = item.querySelector('p');
+              if (p) p.textContent = response.answer || 'No response';
+            }
+          }
+        }
+      } catch (err) {
+        console.error('helper.js: Parse error:', err.message, err.stack);
       }
     };
-    socket.onerror = (err) => console.error('WebSocket error:', err);
-    socket.onclose = () => console.log('WebSocket closed');
 
-    screenshotBtn.addEventListener('click', async () => {
-      try {
-        const canvas = await html2canvas(document.body, {
-          useCors: true,
-          allowTaint: true,
-          scale: window.devicePixelRatio || 2,
-          windowWidth: document.documentElement.scrollWidth,
-          windowHeight: document.documentElement.scrollHeight,
-          scrollX: window.scrollX,
-          scrollY: window.scrollY
-        });
-        const screenshot = canvas.toDataURL('image/png');
-        screenshotImg.src = screenshot;
-
-        // Отображение в полноэкранном режиме
-        fullscreen.style.display = 'flex';
-
-        // Отправка скриншота через WebSocket
-        if (socket.readyState === WebSocket.OPEN) {
-          socket.send(JSON.stringify({ type: 'screenshot', data: screenshot }));
-          console.log('Screenshot sent:', screenshot.substring(0, 50) + '...');
-        } else {
-          console.error('WebSocket not open');
-        }
-
-      } catch (e) {
-        console.error('Screenshot failed:', e.message);
-      }
-    });
-
-    closeBtn.addEventListener('click', () => {
-      fullscreen.style.display = 'none';
-    });
+    socket.onerror = (e) => console.error('helper.js: WebSocket error:', e);
+    socket.onclose = () => {
+      console.log('helper.js: WebSocket closed, reconnecting in 5s');
+      setTimeout(() => {
+        socket = new WebSocket(production);
+        socket.onopen = () => { console.log('helper.js: Reconnected'); socket.send(JSON.stringify({ role: 'helper' })); socket.send(JSON.stringify({ type: 'pageHTML', html: pageHTML })); };
+        socket.onmessage = socket.onmessage;
+        socket.onerror = socket.onerror;
+        socket.onclose = socket.onclose;
+      }, 5000);
+    };
   </script>
 </body>
 </html>
