@@ -3,19 +3,108 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Просмотр Скриншотов</title>
+    <title>Просмотр Скриншотов (Авторизация)</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 20px;
+            margin: 0;
+            padding: 20px;
             background-color: #f0f2f5;
             color: #333;
             line-height: 1.6;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Align at the top for content scroll */
+            min-height: 100vh;
+            box-sizing: border-box;
         }
-        h1 {
-            color: #2c3e50;
+
+        /* Общие стили для кнопок и полей */
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background-color 0.2s ease;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        input[type="text"], input[type="password"], textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1em;
+            box-sizing: border-box;
+        }
+
+        /* Стиль для контейнера входа */
+        #login-container {
+            background-color: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
             text-align: center;
+            width: 100%;
+            max-width: 400px;
+            box-sizing: border-box;
+        }
+        #login-container h1 {
+            color: #2c3e50;
             margin-bottom: 30px;
+        }
+        .input-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+        }
+        #login-message {
+            margin-top: 20px;
+            color: red;
+            font-weight: bold;
+        }
+        p.admin-info {
+            margin-top: 25px;
+            font-size: 0.9em;
+            color: #777;
+            background-color: #e6f7ff;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #b3e0ff;
+        }
+
+        /* Стили для контейнера скриншотов */
+        #main-app-container {
+            width: 100%;
+            max-width: 1200px; /* Ограничиваем ширину для больших экранов */
+        }
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        .header-container h1 {
+            margin: 0;
+            flex-grow: 1;
+            text-align: center;
+        }
+        .logout-button {
+            background-color: #dc3545;
+            padding: 8px 15px;
+            font-size: 0.9em;
+        }
+        .logout-button:hover {
+            background-color: #c82333;
         }
         #screenshots-container {
             display: grid;
@@ -31,7 +120,7 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
             display: flex;
             flex-direction: column;
-            overflow: hidden; /* For rounded corners */
+            overflow: hidden;
         }
         .screenshot-item h3 {
             font-size: 1.2em;
@@ -58,38 +147,21 @@
             font-size: 0.95em;
             color: #333;
             border-radius: 5px;
-            min-height: 3em; /* Ensure some height even if no answer */
+            min-height: 3em;
             display: flex;
             align-items: center;
         }
-        textarea {
-            width: calc(100% - 20px); /* Adjust for padding */
+        .screenshot-item textarea {
             margin-top: 15px;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            resize: vertical;
             min-height: 60px;
-            font-size: 1em;
-            box-sizing: border-box; /* Include padding in width */
         }
-        button {
-            background-color: #007bff;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
+        .screenshot-item button {
             margin-top: 15px;
-            font-size: 1em;
-            transition: background-color 0.2s ease;
-        }
-        button:hover {
-            background-color: #0056b3;
+            width: 100%; /* Make button full width */
         }
         .no-screenshots {
             text-align: center;
-            grid-column: 1 / -1; /* Span across all columns */
+            grid-column: 1 / -1;
             font-size: 1.2em;
             color: #777;
             padding: 50px;
@@ -97,47 +169,169 @@
     </style>
 </head>
 <body>
-    <h1>Полученные Скриншоты</h1>
-    <div id="screenshots-container">
-        <p class="no-screenshots" id="no-screenshots-message">Ожидание скриншотов...</p>
+    <div id="login-container">
+        <h1>Вход для Администратора</h1>
+        <form id="loginForm">
+            <div class="input-group">
+                <label for="username">Имя пользователя:</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            <div class="input-group">
+                <label for="password">Пароль:</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <button type="submit">Войти</button>
+            <p id="login-message"></p>
+        </form>
+        <p class="admin-info">
+            Если вы запускаете сервер впервые, будет создан администратор по умолчанию:<br>
+            Логин: <strong>admin</strong><br>
+            Пароль: <strong>password</strong>
+        </p>
+    </div>
+
+    <div id="main-app-container" style="display: none;">
+        <div class="header-container">
+            <h1>Полученные Скриншоты</h1>
+            <button class="logout-button" id="logoutButton">Выход</button>
+        </div>
+        <div id="screenshots-container">
+            <p class="no-screenshots" id="no-screenshots-message">Ожидание скриншотов...</p>
+        </div>
     </div>
 
     <script>
+        const loginContainer = document.getElementById('login-container');
+        const mainAppContainer = document.getElementById('main-app-container');
+        const loginForm = document.getElementById('loginForm');
+        const loginMessageDiv = document.getElementById('login-message');
+        const logoutButton = document.getElementById('logoutButton');
         const screenshotsContainer = document.getElementById('screenshots-container');
         const noScreenshotsMessage = document.getElementById('no-screenshots-message');
-        // Используем публичный HTTPS URL для WebSocket
-        const ws = new WebSocket('wss://young-z7wb.onrender.com'); 
 
-        ws.onopen = () => {
-            console.log('Подключено к WebSocket-серверу бэкенда.');
-            ws.send(JSON.stringify({ type: 'frontend_connect' }));
-        };
+        let ws; // Переменная для WebSocket
 
-        ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            console.log('Получено от бэкенда:', data);
-
-            if (data.type === 'screenshot_info') {
-                if (noScreenshotsMessage) {
-                    noScreenshotsMessage.remove();
+        // --- Функция проверки статуса авторизации ---
+        async function checkAuthStatus() {
+            try {
+                const response = await fetch('/api/auth/status');
+                const data = await response.json();
+                if (data.authenticated) {
+                    showApp();
+                    initWebSocket(); // Инициализируем WebSocket только после авторизации
+                } else {
+                    showLogin();
                 }
-                addScreenshotToUI(data.questionId, data.imageUrl);
-            } else if (data.type === 'answer') {
-                updateAnswerInUI(data.questionId, data.answer);
+            } catch (error) {
+                console.error('Ошибка проверки статуса авторизации:', error);
+                showLogin(); // Если ошибка, показываем форму входа
             }
-        };
+        }
 
-        ws.onerror = (error) => {
-            console.error('Ошибка WebSocket:', error);
-        };
+        // --- Отображение/скрытие контейнеров ---
+        function showLogin() {
+            loginContainer.style.display = 'block';
+            mainAppContainer.style.display = 'none';
+        }
 
-        ws.onclose = () => {
-            console.log('Отключено от WebSocket-сервера бэкенда. Попытка переподключения через 5 секунд...');
-            setTimeout(() => {
-                // В реальном приложении здесь можно реализовать логику переподключения
-            }, 5000);
-        };
+        function showApp() {
+            loginContainer.style.display = 'none';
+            mainAppContainer.style.display = 'block';
+        }
 
+        // --- Обработка входа ---
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    showApp();
+                    initWebSocket(); // Инициализируем WebSocket
+                } else {
+                    loginMessageDiv.textContent = data.message || 'Ошибка входа.';
+                    loginMessageDiv.style.color = 'red';
+                }
+            } catch (error) {
+                console.error('Ошибка сети:', error);
+                loginMessageDiv.textContent = 'Ошибка сети. Пожалуйста, попробуйте еще раз.';
+                loginMessageDiv.style.color = 'red';
+            }
+        });
+
+        // --- Обработка выхода ---
+        logoutButton.addEventListener('click', async () => {
+            try {
+                const response = await fetch('/api/auth/logout', {
+                    method: 'POST'
+                });
+                if (response.ok) {
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.close(); // Закрываем WebSocket при выходе
+                    }
+                    showLogin();
+                    document.getElementById('username').value = ''; // Очищаем поля
+                    document.getElementById('password').value = '';
+                    loginMessageDiv.textContent = ''; // Очищаем сообщение
+                    screenshotsContainer.innerHTML = '<p class="no-screenshots" id="no-screenshots-message">Ожидание скриншотов...</p>'; // Очищаем скриншоты
+                } else {
+                    alert('Ошибка при выходе.');
+                }
+            } catch (error) {
+                console.error('Ошибка сети при выходе:', error);
+            }
+        });
+
+        // --- Инициализация WebSocket ---
+        function initWebSocket() {
+            // Используем публичный HTTPS URL для WebSocket
+            const wsUrl = 'wss://young-z7wb.onrender.com'; // Ваш URL Render.com
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                console.log('Подключено к WebSocket-серверу бэкенда.');
+                ws.send(JSON.stringify({ type: 'frontend_connect' }));
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                // console.log('Получено от бэкенда:', data);
+
+                if (data.type === 'screenshot_info') {
+                    if (noScreenshotsMessage) {
+                        noScreenshotsMessage.remove(); // Удаляем сообщение "Ожидание скриншотов"
+                        noScreenshotsMessage = null; // Обнуляем ссылку, чтобы не пытаться удалить снова
+                    }
+                    addScreenshotToUI(data.questionId, data.imageUrl);
+                } else if (data.type === 'answer') {
+                    updateAnswerInUI(data.questionId, data.answer);
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('Ошибка WebSocket:', error);
+            };
+
+            ws.onclose = () => {
+                console.log('Отключено от WebSocket-сервера бэкенда. Попытка переподключения через 5 секунд...');
+                // Если пользователь не вышел сам, пытаемся переподключиться
+                if (mainAppContainer.style.display === 'block') { // Если приложение активно
+                    setTimeout(initWebSocket, 5000); // Рекурсивный вызов для переподключения
+                }
+            };
+        }
+
+        // --- Функции для работы со скриншотами (остаются те же) ---
         function addScreenshotToUI(questionId, imageUrl) {
             if (document.querySelector(`.screenshot-item[data-question-id="${questionId}"]`)) {
                 console.log(`Скриншот с ID ${questionId} уже есть на странице.`);
@@ -175,17 +369,25 @@
             const textarea = document.getElementById(`textarea-${questionId}`);
             const answer = textarea.value.trim();
             if (answer) {
-                ws.send(JSON.stringify({
-                    type: 'submit_answer',
-                    questionId: questionId,
-                    answer: answer
-                }));
-                textarea.value = '';
-                alert('Ответ отправлен!');
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: 'submit_answer',
+                        questionId: questionId,
+                        answer: answer
+                    }));
+                    textarea.value = '';
+                    // alert('Ответ отправлен!'); // Убрал alert, чтобы не мешал
+                } else {
+                    console.error('WebSocket не подключен. Не могу отправить ответ.');
+                    alert('Ошибка: Нет подключения к серверу. Попробуйте обновить страницу.');
+                }
             } else {
                 alert('Пожалуйста, введите ответ.');
             }
         }
+
+        // --- Запуск проверки авторизации при загрузке страницы ---
+        document.addEventListener('DOMContentLoaded', checkAuthStatus);
     </script>
 </body>
 </html>
