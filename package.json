@@ -1,7 +1,7 @@
 {
   "name": "screenshot-platform",
   "version": "1.0.0",
-  "description": "Platform for screenshot capture and response handling",
+  "description": "Platform for bookmarklet screenshot handling",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
