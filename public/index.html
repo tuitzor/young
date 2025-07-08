@@ -1,120 +1,197 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Screenshot Display</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: 'Arial', sans-serif;
-      background: #f5f5f5;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-    }
-    #screenshot-container {
-      flex: 1;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background: #000;
-      padding: 20px;
-    }
-    #screenshot-container img {
-      max-width: 100%;
-      max-height: 100%;
-      object-fit: contain;
-      border-radius: 10px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    }
-    #input-container {
-      padding: 20px;
-      background: #fff;
-      border-top: 1px solid #ddd;
-      display: flex;
-      gap: 10px;
-    }
-    #input-container input {
-      flex: 1;
-      padding: 10px;
-      font-size: 16px;
-      border: 1px solid #ccc;
-      border-radius: 5px;
-      outline: none;
-    }
-    #input-container button {
-      padding: 10px 20px;
-      font-size: 16px;
-      background: #007bff;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      transition: background 0.3s;
-    }
-    #input-container button:hover {
-      background: #0056b3;
-    }
-    #status {
-      position: fixed;
-      top: 10px;
-      left: 10px;
-      color: #28a745;
-      font-size: 14px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Просмотр Скриншотов</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background-color: #f0f2f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        #screenshots-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 25px;
+            margin-top: 20px;
+        }
+        .screenshot-item {
+            background-color: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* For rounded corners */
+        }
+        .screenshot-item h3 {
+            font-size: 1.2em;
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #4a69bd;
+            border-bottom: 1px solid #f0f0f0;
+            padding-bottom: 10px;
+        }
+        .screenshot-item img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #f5f5f5;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            object-fit: contain;
+            background-color: #fff;
+        }
+        .screenshot-item .answer-display {
+            margin-top: 15px;
+            padding: 12px;
+            background-color: #e9f5ff;
+            border-left: 4px solid #007bff;
+            font-size: 0.95em;
+            color: #333;
+            border-radius: 5px;
+            min-height: 3em; /* Ensure some height even if no answer */
+            display: flex;
+            align-items: center;
+        }
+        textarea {
+            width: calc(100% - 20px); /* Adjust for padding */
+            margin-top: 15px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            resize: vertical;
+            min-height: 60px;
+            font-size: 1em;
+            box-sizing: border-box; /* Include padding in width */
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+            font-size: 1em;
+            transition: background-color 0.2s ease;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .no-screenshots {
+            text-align: center;
+            grid-column: 1 / -1; /* Span across all columns */
+            font-size: 1.2em;
+            color: #777;
+            padding: 50px;
+        }
+    </style>
 </head>
 <body>
-  <div id="status">Status: Waiting for connection...</div>
-  <div id="screenshot-container">
-    <img id="screenshot" src="" alt="Screenshot">
-  </div>
-  <div id="input-container">
-    <input type="text" id="answer-input" placeholder="Enter your answer">
-    <button id="send-button">Send</button>
-  </div>
+    <h1>Полученные Скриншоты</h1>
+    <div id="screenshots-container">
+        <p class="no-screenshots" id="no-screenshots-message">Ожидание скриншотов...</p>
+    </div>
 
-  <script>
-    const socket = new WebSocket('wss://young-z7wb.onrender.com');
-    const screenshotImg = document.getElementById('screenshot');
-    const answerInput = document.getElementById('answer-input');
-    const sendButton = document.getElementById('send-button');
-    const status = document.getElementById('status');
+    <script>
+        const screenshotsContainer = document.getElementById('screenshots-container');
+        const noScreenshotsMessage = document.getElementById('no-screenshots-message');
+        const ws = new WebSocket('ws://localhost:3000'); // Подключаемся к WebSocket-серверу
 
-    socket.onopen = () => {
-      status.textContent = 'Status: Connected';
-    };
+        ws.onopen = () => {
+            console.log('Подключено к WebSocket-серверу бэкенда.');
+            ws.send(JSON.stringify({ type: 'frontend_connect' })); // Идентифицируем себя как фронтенд-клиент
+        };
 
-    socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === 'screenshot') {
-        screenshotImg.src = data.screenshot;
-        console.log('Received screenshot:', data.questionId);
-      } else if (data.type === 'answer') {
-        console.log('Received answer:', data.answer);
-      }
-    };
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            console.log('Получено от бэкенда:', data);
 
-    socket.onerror = (error) => {
-      status.textContent = 'Status: Error';
-      console.error('WebSocket error:', error);
-    };
+            if (data.type === 'screenshot_info') { // Если бэкенд сообщил о новом скриншоте
+                // Удаляем сообщение "Ожидание скриншотов..." если оно есть
+                if (noScreenshotsMessage) {
+                    noScreenshotsMessage.remove();
+                }
+                addScreenshotToUI(data.questionId, data.imageUrl);
+            } else if (data.type === 'answer') { // Если получен ответ
+                updateAnswerInUI(data.questionId, data.answer);
+            }
+        };
 
-    socket.onclose = () => {
-      status.textContent = 'Status: Disconnected';
-    };
+        ws.onerror = (error) => {
+            console.error('Ошибка WebSocket:', error);
+        };
 
-    sendButton.addEventListener('click', () => {
-      const answer = answerInput.value.trim();
-      if (answer && socket.readyState === WebSocket.OPEN) {
-        const questionId = Date.now(); // Простой ID, можно улучшить
-        socket.send(JSON.stringify({ type: 'userAnswer', questionId, answer }));
-        answerInput.value = '';
-        console.log('Sent user answer:', answer);
-      }
-    });
-  </script>
+        ws.onclose = () => {
+            console.log('Отключено от WebSocket-сервера бэкенда. Попытка переподключения через 5 секунд...');
+            setTimeout(() => {
+                // В реальном приложении здесь можно реализовать логику переподключения
+                // window.location.reload(); // Простой способ переподключиться, но лучше использовать ws = new WebSocket(...)
+            }, 5000);
+        };
+
+        function addScreenshotToUI(questionId, imageUrl) {
+            // Проверяем, существует ли уже этот скриншот (чтобы не дублировать)
+            if (document.querySelector(`.screenshot-item[data-question-id="${questionId}"]`)) {
+                console.log(`Скриншот с ID ${questionId} уже есть на странице.`);
+                return;
+            }
+
+            const item = document.createElement('div');
+            item.className = 'screenshot-item';
+            item.dataset.questionId = questionId; // Сохраняем questionId для легкого поиска
+
+            item.innerHTML = `
+                <h3>ID Скриншота: ${questionId}</h3>
+                <img src="${imageUrl}" alt="Скриншот ${questionId}">
+                <div class="answer-display" id="answer-display-${questionId}">Нет ответа.</div>
+                <textarea id="textarea-${questionId}" placeholder="Введите ответ..."></textarea>
+                <button onclick="sendAnswer('${questionId}')">Отправить Ответ</button>
+            `;
+            screenshotsContainer.prepend(item); // Добавляем новые скриншоты в начало списка
+        }
+
+        function updateAnswerInUI(questionId, answer) {
+            const answerDiv = document.getElementById(`answer-display-${questionId}`);
+            if (answerDiv) {
+                answerDiv.textContent = answer || "Нет ответа.";
+                answerDiv.style.backgroundColor = '#d4edda'; // Легкая подсветка для нового ответа
+                answerDiv.style.borderColor = '#28a745';
+                setTimeout(() => { // Убрать подсветку через некоторое время
+                    answerDiv.style.backgroundColor = '#e9f5ff';
+                    answerDiv.style.borderColor = '#007bff';
+                }, 2000);
+            }
+        }
+
+        function sendAnswer(questionId) {
+            const textarea = document.getElementById(`textarea-${questionId}`);
+            const answer = textarea.value.trim();
+            if (answer) {
+                // Отправляем ответ на бэкенд через WebSocket
+                ws.send(JSON.stringify({
+                    type: 'submit_answer',
+                    questionId: questionId,
+                    answer: answer
+                }));
+                textarea.value = ''; // Очищаем поле ввода
+                alert('Ответ отправлен!');
+            } else {
+                alert('Пожалуйста, введите ответ.');
+            }
+        }
+
+        // Если при загрузке страницы нет скриншотов, сообщение будет видно.
+        // Если скриншоты появятся, оно удалится.
+    </script>
 </body>
 </html>
