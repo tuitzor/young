@@ -1,15 +1,17 @@
 {
-  "name": "screenshot-display",
+  "name": "screenshot-viewer",
   "version": "1.0.0",
-  "description": "Website to display screenshots and handle responses",
+  "description": "Server to receive, display, and respond to screenshots",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
   "dependencies": {
-    "express": "^4.18.2",
-    "ws": "^8.13.0"
-  },
-  "author": "Your Name",
-  "license": "MIT"
+    "express": "^4.19.2",
+    "ws": "^8.18.0"
+  }
 }
