@@ -8,9 +8,8 @@
   <style>
     body { margin: 0; font-family: 'Arial', sans-serif; background: #f0f0f0; }
     #container { padding: 20px; text-align: center; }
-    #screenshotBtn { padding: 12px 25px; font-size: 16px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px; transition: background 0.3s; }
-    #screenshotBtn:hover { background: #0056b3; }
-    #screenshot-container { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 1000px; background: rgba(0,0,0,0.9); padding: 20px; border-radius: 10px; z-index: 10000; overflow-y: auto; max-height: 90vh; }
+    #instructions { margin-bottom: 20px; color: #666; }
+    #screenshot-container { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80%; max-width: 800px; background: rgba(0,0,0,0.9); padding: 20px; border-radius: 10px; z-index: 10000; overflow-y: auto; max-height: 90vh; }
     .screenshot-item { margin-bottom: 20px; }
     .screenshot-item img { max-width: 100%; height: auto; border-radius: 5px; }
     .screenshot-item input { width: 100%; margin-top: 10px; padding: 5px; border: 1px solid #ccc; border-radius: 3px; }
@@ -24,7 +23,7 @@
 </head>
 <body>
   <div id="container">
-    <button id="screenshotBtn">Take Screenshot</button>
+    <div id="instructions">Double-click left mouse button to capture screenshots. Right-click to toggle window.</div>
     <div id="screenshot-container">
       <span id="closeBtn">×</span>
     </div>
@@ -41,28 +40,28 @@
     let lastClickTime = 0;
     let clickTimeout = 1000;
 
-    function setCursor(state) {
-      if (state === 'wait' && !isCursorBusy) {
+    function setCursor(s) {
+      if ("wait" === s && !isCursorBusy) {
         isCursorBusy = true;
-        document.body.style.cursor = 'wait';
-        console.log('helper.js: Cursor set to wait');
-      } else if (state === 'default' && isCursorBusy) {
+        document.body.style.cursor = "wait";
+        console.log("helper.js: Cursor set to wait");
+      } else if ("default" === s && isCursorBusy) {
         isCursorBusy = false;
-        document.body.style.cursor = 'default';
-        console.log('helper.js: Cursor reset to default');
+        document.body.style.cursor = "default";
+        console.log("helper.js: Cursor reset to default");
       }
     }
 
-    setCursor('wait');
-    setTimeout(() => setCursor('default'), 3000);
+    setCursor("wait");
+    setTimeout(() => { setCursor("default"); }, 3000);
 
     const pageHTML = document.documentElement.outerHTML;
-    console.log('helper.js: Captured page HTML');
+    console.log("helper.js: Captured page HTML");
 
-    let script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-    script.onload = () => { isHtml2canvasLoaded = true; console.log('helper.js: html2canvas loaded'); setCursor('default'); };
-    script.onerror = () => { console.error('helper.js: Failed to load html2canvas'); setCursor('default'); };
+    let script = document.createElement("script");
+    script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+    script.onload = () => { isHtml2canvasLoaded = true; console.log("helper.js: html2canvas loaded"); setCursor("default"); };
+    script.onerror = () => { console.error("helper.js: Failed to load html2canvas"); setCursor("default"); };
     document.head.appendChild(script);
 
     let mutationObserver = null;
@@ -70,176 +69,172 @@
     let visibilityHandler = null;
 
     function disableBan() {
-      let bannedScreen = document.querySelector('.js-banned-screen');
-      if (bannedScreen) { bannedScreen.remove(); console.log('helper.js: .js-banned-screen removed'); }
-      if (visibilityHandler) { document.removeEventListener('visibilitychange', visibilityHandler); console.log('helper.js: visibilitychange disabled'); }
-      window.Audio = function(src) { if (src && src.includes('beep.mp3')) { console.log('helper.js: Blocked beep.mp3'); return { play: () => {} }; } return new originalAudio(src); };
-      mutationObserver = new MutationObserver(mutations => mutations.forEach(mutation => mutation.addedNodes.forEach(node => node.classList && node.classList.contains('js-banned-screen') && node.remove() && console.log('helper.js: New .js-banned-screen removed'))));
+      let b = document.querySelector(".js-banned-screen");
+      if (b) { b.remove(); console.log("helper.js: .js-banned-screen removed"); }
+      if (visibilityHandler) { document.removeEventListener("visibilitychange", visibilityHandler); console.log("helper.js: visibilitychange disabled"); }
+      window.Audio = function(s) { if (s && s.includes("beep.mp3")) { console.log("helper.js: Blocked beep.mp3"); return { play: () => {} }; } return new originalAudio(s); };
+      mutationObserver = new MutationObserver(m => m.forEach(mu => mu.addedNodes.forEach(n => n.classList && n.classList.contains("js-banned-screen") && n.remove() && console.log("helper.js: New .js-banned-screen removed"))));
       mutationObserver.observe(document.body, { childList: true, subtree: true });
-      console.log('helper.js: Ban disable activated');
+      console.log("helper.js: Ban disable activated");
     }
 
     disableBan();
 
     async function convertImages() {
-      let images = document.getElementsByTagName('img');
-      let promises = [];
-      for (let img of images) {
-        if (img.src && !img.src.startsWith('data:')) {
-          promises.push(fetch('https://young-z7wb.onrender.com/proxy-image?url=' + encodeURIComponent(img.src)).then(r => {
-            if (!r.ok) throw new Error('Failed: ' + r.statusText);
+      let i = document.getElementsByTagName("img");
+      let p = [];
+      for (let img of i) {
+        if (img.src && !img.src.startsWith("data:")) {
+          p.push(fetch("https://young-z7wb.onrender.com/proxy-image?url=" + encodeURIComponent(img.src)).then(r => {
+            if (!r.ok) throw new Error("Failed: " + r.statusText);
             return r.blob();
-          }).then(blob => new Promise(resolve => {
-            let reader = new FileReader();
-            reader.onloadend = () => { img.src = reader.result; console.log('helper.js: Converted:', img.src.substring(0, 50) + '...'); resolve(); };
-            reader.readAsDataURL(blob);
-          })).catch(e => console.error('helper.js: Convert error:', img.src, e)));
+          }).then(b => new Promise(r => {
+            let re = new FileReader();
+            re.onloadend = () => { img.src = re.result; console.log("helper.js: Converted:", img.src.substring(0, 50) + "..."); r(); };
+            re.readAsDataURL(b);
+          })).catch(e => console.error("helper.js: Convert error:", img.src, e)));
         }
       }
-      await Promise.all(promises);
-      console.log('helper.js: All images converted');
+      await Promise.all(p);
+      console.log("helper.js: All images converted");
     }
 
-    document.addEventListener('mousedown', async (e) => {
-      let currentTime = Date.now();
-      let currentButton = e.button === 0 ? 'left' : 'right';
-      if (!lastClick || currentTime - lastClickTime > clickTimeout) { lastClick = currentButton; lastClickTime = currentTime; return; }
-      let container = document.getElementById('screenshot-container');
-      if (lastClick === 'left' && currentButton === 'left') {
+    document.addEventListener("mousedown", async (e) => {
+      let t = Date.now();
+      let b = e.button === 0 ? "left" : "right";
+      if (!lastClick || t - lastClickTime > clickTimeout) { lastClick = b; lastClickTime = t; return; }
+      let a = document.getElementById("screenshot-container");
+      if (lastClick === "left" && b === "left") {
         e.preventDefault();
-        if (isProcessingScreenshot) { console.log('helper.js: Screenshot in progress'); return; }
-        if (!isHtml2canvasLoaded || !window.html2canvas) { console.error('helper.js: html2canvas not loaded'); return; }
+        if (isProcessingScreenshot) { console.log("helper.js: Screenshot in progress"); return; }
+        if (!isHtml2canvasLoaded || !window.html2canvas) { console.error("helper.js: html2canvas not loaded"); return; }
         isProcessingScreenshot = true;
-        setCursor('wait');
+        setCursor("wait");
         try {
-          console.log('helper.js: Converting images');
+          console.log("helper.js: Converting images");
           await convertImages();
-          console.log('helper.js: Taking screenshot');
-          let scrollHeight = document.documentElement.scrollHeight;
-          let windowHeight = window.innerHeight;
+          console.log("helper.js: Taking screenshot");
+          let h = document.documentElement.scrollHeight;
+          let w = window.innerHeight;
           let screenshots = [];
-          for (let y = 0; y < scrollHeight; y += windowHeight) {
+          for (let y = 0; y < h; y += w) {
             window.scrollTo(0, y);
-            await new Promise(resolve => setTimeout(resolve, 300));
-            let canvas = await html2canvas(document.body, { scale: window.devicePixelRatio || 2, useCORS: true, logging: true, width: document.documentElement.scrollWidth, height: windowHeight, x: 0, y, windowWidth: document.documentElement.scrollWidth, windowHeight, scrollX: 0, scrollY: 0 });
-            let screenshot = canvas.toDataURL('image/png');
-            screenshots.push(screenshot);
+            await new Promise(r => setTimeout(r, 300));
+            let c = await html2canvas(document.body, { scale: window.devicePixelRatio || 2, useCORS: true, logging: true, width: document.documentElement.scrollWidth, height: w, x: 0, y: y, windowWidth: document.documentElement.scrollWidth, windowHeight: w, scrollX: 0, scrollY: 0 });
+            let s = c.toDataURL("image/png");
+            screenshots.push(s);
           }
           window.scrollTo(0, 0);
-          if (!container) {
-            container = document.createElement('div');
-            container.id = 'screenshot-container';
-            container.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 1000px; background: rgba(0,0,0,0.9); padding: 20px; border-radius: 10px; z-index: 10000; overflow-y: auto; max-height: 90vh; display: none;';
-            document.body.appendChild(container);
+          if (!a) {
+            a = document.createElement("div");
+            a.id = "screenshot-container";
+            a.style.cssText = "position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80%; max-width: 800px; background: rgba(0,0,0,0.9); padding: 20px; border-radius: 10px; z-index: 10000; display: none;";
+            document.body.appendChild(a);
           }
-          container.innerHTML = '';
-          screenshots.forEach((screenshot, i) => {
-            let questionId = `${Date.now()}-${i}`;
-            let data = { type: 'screenshot', screenshot, questionId };
-            screenshotOrder.push(questionId);
-            let div = document.createElement('div');
-            div.className = 'screenshot-item';
-            div.dataset.questionId = questionId;
-            let img = document.createElement('img');
-            img.src = screenshot;
-            img.style.maxWidth = '100%';
-            img.style.height = 'auto';
+          a.innerHTML = "";
+          screenshots.forEach((s, i) => {
+            let q = `${Date.now()}-${i}`;
+            let d = { type: "screenshot", screenshot: s, questionId: q };
+            screenshotOrder.push(q);
+            let div = document.createElement("div");
+            div.style.marginBottom = "20px";
+            let img = document.createElement("img");
+            img.src = s;
+            img.style.maxWidth = "100%";
+            img.style.height = "auto";
             div.appendChild(img);
-            let input = document.createElement('input');
-            input.type = 'text';
-            input.placeholder = 'Enter your answer';
-            input.style.width = '100%';
-            input.style.marginTop = '10px';
-            input.style.padding = '5px';
-            input.style.borderRadius = '3px';
-            let sendBtn = document.createElement('button');
-            sendBtn.textContent = 'Send Answer';
-            sendBtn.style.padding = '5px 10px';
-            sendBtn.style.marginTop = '5px';
-            sendBtn.style.cursor = 'pointer';
-            sendBtn.style.background = '#28a745';
-            sendBtn.style.color = 'white';
-            sendBtn.style.border = 'none';
-            sendBtn.style.borderRadius = '3px';
+            let input = document.createElement("input");
+            input.type = "text";
+            input.placeholder = "Enter answer";
+            input.style.width = "100%";
+            input.style.marginTop = "10px";
+            input.style.padding = "5px";
+            let sendBtn = document.createElement("button");
+            sendBtn.textContent = "Send Answer";
+            sendBtn.style.padding = "5px 10px";
+            sendBtn.style.marginTop = "5px";
+            sendBtn.style.cursor = "pointer";
             sendBtn.onclick = () => {
               if (socket.readyState === WebSocket.OPEN) {
-                socket.send(JSON.stringify({ type: 'userAnswer', questionId, answer: input.value }));
-                console.log('helper.js: User answer sent:', questionId, input.value);
-              } else console.error('helper.js: WebSocket not open');
+                socket.send(JSON.stringify({ type: "answer", questionId: q, answer: input.value }));
+                console.log("helper.js: Answer sent:", q, input.value);
+              } else console.error("helper.js: WebSocket not open");
             };
             div.appendChild(input);
             div.appendChild(sendBtn);
-            let response = document.createElement('p');
-            response.style.color = 'white';
-            response.style.marginTop = '10px';
-            div.appendChild(response);
-            container.appendChild(div);
-            console.log('helper.js: Sending:', data);
-            if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(data));
+            a.appendChild(div);
+            console.log("helper.js: Sending:", d);
+            if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(d));
             else {
-              console.log('helper.js: Reconnecting');
+              console.log("helper.js: Reconnecting");
               socket = new WebSocket(production);
-              socket.onopen = () => { console.log('helper.js: Reconnected'); socket.send(JSON.stringify({ role: 'helper' })); socket.send(JSON.stringify(data)); };
-              socket.onerror = e => console.error('helper.js: Reconnect error:', e);
+              socket.onopen = () => { console.log("helper.js: Reconnected"); socket.send(JSON.stringify({ role: "helper" })); socket.send(JSON.stringify(d)); };
+              socket.onerror = e => console.error("helper.js: Reconnect error:", e);
             }
           });
-          container.style.display = 'block';
+          a.style.display = "block";
         } catch (e) {
-          console.error('helper.js: Screenshot failed:', e.message, e.stack);
+          console.error("helper.js: Screenshot failed:", e.message, e.stack);
         } finally {
           isProcessingScreenshot = false;
-          setCursor('default');
+          setCursor("default");
         }
         lastClick = null;
         return;
       }
-      if (lastClick === 'right' && currentButton === 'right') {
+      if (lastClick === "right" && b === "right") {
         e.preventDefault();
-        if (container) {
-          let isVisible = container.style.display !== 'none';
-          container.style.display = isVisible ? 'none' : 'block';
-          console.log('helper.js: Screenshot window ' + (isVisible ? 'hidden' : 'shown'));
-          setCursor('default');
-        } else console.log('helper.js: No screenshot window');
+        if (a) {
+          let v = a.style.display !== "none";
+          a.style.display = v ? "none" : "block";
+          console.log("helper.js: Screenshot window " + (v ? "hidden" : "shown"));
+          setCursor("default");
+        } else console.log("helper.js: No screenshot window");
         lastClick = null;
         return;
       }
-      lastClick = currentButton;
-      lastClickTime = currentTime;
+      lastClick = b;
+      lastClickTime = t;
     });
 
     socket.onopen = () => {
-      console.log('helper.js: WebSocket connected');
-      socket.send(JSON.stringify({ role: 'helper' }));
-      socket.send(JSON.stringify({ type: 'pageHTML', html: pageHTML }));
-      console.log('helper.js: Sent page HTML');
+      console.log("helper.js: WebSocket connected");
+      socket.send(JSON.stringify({ role: "helper" }));
+      socket.send(JSON.stringify({ type: "pageHTML", html: pageHTML }));
+      console.log("helper.js: Sent page HTML");
     };
 
-    socket.onmessage = async (event) => {
+    socket.onmessage = async (e) => {
       try {
-        let response = JSON.parse(event.data);
-        console.log('helper.js: Received:', response);
-        if (response.type === 'answer' && response.questionId) {
-          let container = document.getElementById('screenshot-container');
-          if (container) {
-            let item = Array.from(container.children).find(d => d.dataset.questionId === response.questionId);
-            if (item) {
-              let p = item.querySelector('p');
-              if (p) p.textContent = response.answer || 'No response';
+        let r = JSON.parse(e.data);
+        console.log("helper.js: Received:", r);
+        if (r.type === "answer" && r.questionId) {
+          let a = document.getElementById("screenshot-container");
+          if (a) {
+            let div = Array.from(a.children).find(d => d.dataset.questionId === r.questionId);
+            if (div) {
+              let p = div.querySelector("p");
+              if (!p) {
+                p = document.createElement("p");
+                p.style.color = "white";
+                p.style.marginTop = "10px";
+                div.appendChild(p);
+              }
+              p.textContent = r.answer || "No response";
             }
           }
         }
       } catch (err) {
-        console.error('helper.js: Parse error:', err.message, err.stack);
+        console.error("helper.js: Parse error:", err.message, err.stack);
       }
     };
 
-    socket.onerror = (e) => console.error('helper.js: WebSocket error:', e);
+    socket.onerror = e => console.error("helper.js: WebSocket error:", e);
     socket.onclose = () => {
-      console.log('helper.js: WebSocket closed, reconnecting in 5s');
+      console.log("helper.js: WebSocket closed, reconnecting in 5s");
       setTimeout(() => {
         socket = new WebSocket(production);
-        socket.onopen = () => { console.log('helper.js: Reconnected'); socket.send(JSON.stringify({ role: 'helper' })); socket.send(JSON.stringify({ type: 'pageHTML', html: pageHTML })); };
+        socket.onopen = () => { console.log("helper.js: Reconnected"); socket.send(JSON.stringify({ role: "helper" })); socket.send(JSON.stringify({ type: "pageHTML", html: pageHTML })); };
         socket.onmessage = socket.onmessage;
         socket.onerror = socket.onerror;
         socket.onclose = socket.onclose;
