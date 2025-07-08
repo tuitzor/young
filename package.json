@@ -1,7 +1,7 @@
 {
-  "name": "screenshot-receiver",
+  "name": "screenshot-display",
   "version": "1.0.0",
-  "description": "Server to receive screenshots and send responses",
+  "description": "Website to display screenshots and handle responses",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
