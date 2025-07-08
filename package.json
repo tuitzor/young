@@ -1,7 +1,7 @@
 {
-  "name": "screenshot-platform",
+  "name": "screenshot-receiver",
   "version": "1.0.0",
-  "description": "Platform for bookmarklet screenshot handling",
+  "description": "Server to receive screenshots and send responses",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
