@@ -16,14 +16,16 @@ const responses = new Map();
 wss.on('connection', (ws) => {
   console.log('Client connected');
   ws.on('message', (message) => {
-    console.log('Received:', message);
+    console.log('Received message:', message);
     const data = JSON.parse(message);
     if (data.type === 'screenshot') {
       const questionId = data.questionId;
-      // Симуляция ответа (замени на свою логику)
-      const answer = `Processed screenshot ${questionId.split('-')[0]}`;
+      console.log(`Received screenshot with questionId: ${questionId}`);
+      // Симуляция обработки и генерации ответа
+      const answer = `Response for screenshot ${questionId.split('-')[0]}`;
       responses.set(questionId, answer);
       ws.send(JSON.stringify({ type: 'answer', questionId, answer }));
+      console.log(`Sent answer: ${answer} for questionId: ${questionId}`);
     } else if (data.type === 'pageHTML') {
       console.log('Received page HTML');
     }
