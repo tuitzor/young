@@ -21,13 +21,13 @@ wss.on('connection', (ws) => {
     if (data.type === 'screenshot') {
       const questionId = data.questionId;
       // Симуляция ответа (замени на свою логику)
-      const answer = `Response for screenshot ${questionId}`;
+      const answer = `Response for screenshot ${questionId.split('-')[0]}`;
       responses.set(questionId, answer);
       ws.send(JSON.stringify({ type: 'answer', questionId, answer }));
-    } else if (data.type === 'userAnswer') {
+    } else if (data.type === 'answer') {
       const { questionId, answer } = data;
       responses.set(questionId, answer); // Сохранение ответа пользователя
-      ws.send(JSON.stringify({ type: 'answer', questionId, answer: `User answer saved: ${answer}` }));
+      ws.send(JSON.stringify({ type: 'answer', questionId, answer: `User answer received: ${answer}` }));
     }
   });
   ws.on('close', () => console.log('Client disconnected'));
