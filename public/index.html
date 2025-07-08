@@ -3,14 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Screenshot Platform</title>
+  <title>Screenshot Receiver</title>
   <style>
     body { margin: 0; font-family: 'Arial', sans-serif; background: #f0f0f0; text-align: center; padding: 20px; }
     #instructions { color: #666; max-width: 600px; margin: 0 auto; }
-    #answer-window { display: none; position: fixed; bottom: 0; left: 0; width: 150px; max-height: 150px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: transparent transparent; padding: 4px; border-radius: 2px; z-index: 10000; box-sizing: border-box; }
-    .answer-item { margin-bottom: 8px; }
-    .answer-item h3 { font-size: 16px; margin-bottom: 4px; color: #333; }
-    .answer-item p { font-size: 12px; color: #000; }
+    #status { margin-top: 20px; color: #28a745; }
   </style>
 </head>
 <body>
@@ -22,5 +19,23 @@
     <p>3. Right-click to toggle the answer window.</p>
   </div>
   <div id="answer-window"></div>
+  <div id="status">Status: Waiting for connection...</div>
+
+  <script>
+    const socket = new WebSocket('wss://young-z7wb.onrender.com');
+    socket.onopen = () => {
+      document.getElementById('status').textContent = 'Status: Connected';
+    };
+    socket.onmessage = (event) => {
+      console.log('Server received:', event.data);
+    };
+    socket.onerror = (error) => {
+      document.getElementById('status').textContent = 'Status: Error';
+      console.error('WebSocket error:', error);
+    };
+    socket.onclose = () => {
+      document.getElementById('status').textContent = 'Status: Disconnected';
+    };
+  </script>
 </body>
 </html>
