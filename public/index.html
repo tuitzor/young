@@ -105,11 +105,12 @@
     <script>
         const screenshotsContainer = document.getElementById('screenshots-container');
         const noScreenshotsMessage = document.getElementById('no-screenshots-message');
-        const ws = new WebSocket('ws://localhost:10000'); // Подключаемся к WebSocket-серверу на порту 10000
+        // Используем публичный HTTPS URL для WebSocket
+        const ws = new WebSocket('wss://young-z7wb.onrender.com'); 
 
         ws.onopen = () => {
             console.log('Подключено к WebSocket-серверу бэкенда.');
-            ws.send(JSON.stringify({ type: 'frontend_connect' })); // Идентифицируем себя как фронтенд-клиент
+            ws.send(JSON.stringify({ type: 'frontend_connect' }));
         };
 
         ws.onmessage = (event) => {
