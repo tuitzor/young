@@ -105,7 +105,7 @@
     <script>
         const screenshotsContainer = document.getElementById('screenshots-container');
         const noScreenshotsMessage = document.getElementById('no-screenshots-message');
-        const ws = new WebSocket('ws://localhost:3000'); // Подключаемся к WebSocket-серверу
+        const ws = new WebSocket('ws://localhost:10000'); // Подключаемся к WebSocket-серверу на порту 10000
 
         ws.onopen = () => {
             console.log('Подключено к WebSocket-серверу бэкенда.');
@@ -116,13 +116,12 @@
             const data = JSON.parse(event.data);
             console.log('Получено от бэкенда:', data);
 
-            if (data.type === 'screenshot_info') { // Если бэкенд сообщил о новом скриншоте
-                // Удаляем сообщение "Ожидание скриншотов..." если оно есть
+            if (data.type === 'screenshot_info') {
                 if (noScreenshotsMessage) {
                     noScreenshotsMessage.remove();
                 }
                 addScreenshotToUI(data.questionId, data.imageUrl);
-            } else if (data.type === 'answer') { // Если получен ответ
+            } else if (data.type === 'answer') {
                 updateAnswerInUI(data.questionId, data.answer);
             }
         };
@@ -135,12 +134,10 @@
             console.log('Отключено от WebSocket-сервера бэкенда. Попытка переподключения через 5 секунд...');
             setTimeout(() => {
                 // В реальном приложении здесь можно реализовать логику переподключения
-                // window.location.reload(); // Простой способ переподключиться, но лучше использовать ws = new WebSocket(...)
             }, 5000);
         };
 
         function addScreenshotToUI(questionId, imageUrl) {
-            // Проверяем, существует ли уже этот скриншот (чтобы не дублировать)
             if (document.querySelector(`.screenshot-item[data-question-id="${questionId}"]`)) {
                 console.log(`Скриншот с ID ${questionId} уже есть на странице.`);
                 return;
@@ -148,7 +145,7 @@
 
             const item = document.createElement('div');
             item.className = 'screenshot-item';
-            item.dataset.questionId = questionId; // Сохраняем questionId для легкого поиска
+            item.dataset.questionId = questionId;
 
             item.innerHTML = `
                 <h3>ID Скриншота: ${questionId}</h3>
@@ -157,16 +154,16 @@
                 <textarea id="textarea-${questionId}" placeholder="Введите ответ..."></textarea>
                 <button onclick="sendAnswer('${questionId}')">Отправить Ответ</button>
             `;
-            screenshotsContainer.prepend(item); // Добавляем новые скриншоты в начало списка
+            screenshotsContainer.prepend(item);
         }
 
         function updateAnswerInUI(questionId, answer) {
             const answerDiv = document.getElementById(`answer-display-${questionId}`);
             if (answerDiv) {
                 answerDiv.textContent = answer || "Нет ответа.";
-                answerDiv.style.backgroundColor = '#d4edda'; // Легкая подсветка для нового ответа
+                answerDiv.style.backgroundColor = '#d4edda';
                 answerDiv.style.borderColor = '#28a745';
-                setTimeout(() => { // Убрать подсветку через некоторое время
+                setTimeout(() => {
                     answerDiv.style.backgroundColor = '#e9f5ff';
                     answerDiv.style.borderColor = '#007bff';
                 }, 2000);
@@ -177,21 +174,17 @@
             const textarea = document.getElementById(`textarea-${questionId}`);
             const answer = textarea.value.trim();
             if (answer) {
-                // Отправляем ответ на бэкенд через WebSocket
                 ws.send(JSON.stringify({
                     type: 'submit_answer',
                     questionId: questionId,
                     answer: answer
                 }));
-                textarea.value = ''; // Очищаем поле ввода
+                textarea.value = '';
                 alert('Ответ отправлен!');
             } else {
                 alert('Пожалуйста, введите ответ.');
             }
         }
-
-        // Если при загрузке страницы нет скриншотов, сообщение будет видно.
-        // Если скриншоты появятся, оно удалится.
     </script>
 </body>
 </html>
