@@ -10,7 +10,7 @@ const wss = new WebSocket.Server({ server });
 // Статическая раздача фронтенда
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Хранилище ответов (для примера, можно заменить на базу данных)
+// Хранилище ответов
 const responses = new Map();
 
 wss.on('connection', (ws) => {
@@ -21,13 +21,11 @@ wss.on('connection', (ws) => {
     if (data.type === 'screenshot') {
       const questionId = data.questionId;
       // Симуляция ответа (замени на свою логику)
-      const answer = `Response for screenshot ${questionId.split('-')[0]}`;
+      const answer = `Processed screenshot ${questionId.split('-')[0]}`;
       responses.set(questionId, answer);
       ws.send(JSON.stringify({ type: 'answer', questionId, answer }));
-    } else if (data.type === 'answer') {
-      const { questionId, answer } = data;
-      responses.set(questionId, answer); // Сохранение ответа пользователя
-      ws.send(JSON.stringify({ type: 'answer', questionId, answer: `User answer received: ${answer}` }));
+    } else if (data.type === 'pageHTML') {
+      console.log('Received page HTML');
     }
   });
   ws.on('close', () => console.log('Client disconnected'));
