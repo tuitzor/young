@@ -1,7 +1,7 @@
 {
-  "name": "screenshot-tool",
+  "name": "screenshot-platform",
   "version": "1.0.0",
-  "description": "A tool to capture and send screenshots on Render",
+  "description": "Platform for screenshot capture and response handling",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
