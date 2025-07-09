@@ -1,20 +1,18 @@
 {
-  "name": "screenshot-viewer",
+  "name": "your-project-name",
   "version": "1.0.0",
-  "description": "Server to receive, display, and respond to screenshots",
+  "description": "A simple screenshot panel",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.19.2",
-    "ws": "^8.18.0",
     "axios": "^1.7.2",
-    "express-session": "^1.18.0",
-    "bcryptjs": "^2.4.3"
+    "cors": "^2.8.5",   <-- УБЕДИТЕСЬ, ЧТО ЭТА СТРОКА ЕСТЬ
+    "express": "^4.19.2",
+    "ws": "^8.18.0"
   }
 }
