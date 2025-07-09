@@ -41,36 +41,6 @@
             box-sizing: border-box;
         }
 
-        #quiz-container {
-            background-color: white;
-            padding: 40px;
-            border-radius: 10px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            text-align: center;
-            width: 100%;
-            max-width: 400px;
-            box-sizing: border-box;
-        }
-        #quiz-container h1 {
-            color: #2c3e50;
-            margin-bottom: 30px;
-        }
-        .input-group {
-            margin-bottom: 20px;
-            text-align: left;
-        }
-        .input-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: bold;
-            color: #555;
-        }
-        #quiz-message {
-            margin-top: 20px;
-            color: red;
-            font-weight: bold;
-        }
-
         #main-app-container {
             width: 100%;
             max-width: 1200px;
@@ -86,7 +56,6 @@
             flex-grow: 1;
             text-align: center;
         }
-        /* Кнопка "Выход" теперь может быть просто "Обновить страницу", т.к. сессий нет */
         .logout-button {
             background-color: #6c757d; /* Серый цвет, т.к. это не выход, а сброс */
             padding: 8px 15px;
@@ -158,19 +127,7 @@
     </style>
 </head>
 <body>
-    <div id="quiz-container">
-        <h1>Опрос для доступа</h1>
-        <form id="quizForm">
-            <div class="input-group">
-                <label id="question-label" for="answer-input"></label>
-                <input type="text" id="answer-input" name="answer" required>
-            </div>
-            <button type="submit">Ответить</button>
-            <p id="quiz-message"></p>
-        </form>
-    </div>
-
-    <div id="main-app-container" style="display: none;">
+    <div id="main-app-container">
         <div class="header-container">
             <h1>Полученные Скриншоты</h1>
             <button class="logout-button" id="resetButton">Сбросить/Обновить</button>
@@ -181,74 +138,12 @@
     </div>
 
     <script>
-        const quizContainer = document.getElementById('quiz-container');
         const mainAppContainer = document.getElementById('main-app-container');
-        const quizForm = document.getElementById('quizForm');
-        const questionLabel = document.getElementById('question-label');
-        const answerInput = document.getElementById('answer-input');
-        const quizMessageDiv = document.getElementById('quiz-message');
         const resetButton = document.getElementById('resetButton');
         const screenshotsContainer = document.getElementById('screenshots-container');
         let noScreenshotsMessage = document.getElementById('no-screenshots-message');
 
         let ws;
-        let authPassed = false;
-
-        async function getQuestion() {
-            try {
-                const response = await fetch('/api/quiz/question');
-                const data = await response.json();
-                questionLabel.textContent = data.question;
-            } catch (error) {
-                console.error('Ошибка получения вопроса:', error);
-                quizMessageDiv.textContent = 'Ошибка загрузки вопроса. Попробуйте обновить страницу.';
-                quizMessageDiv.style.color = 'red';
-            }
-        }
-
-        function showQuiz() {
-            quizContainer.style.display = 'block';
-            mainAppContainer.style.display = 'none';
-            getQuestion();
-        }
-
-        function showApp() {
-            quizContainer.style.display = 'none';
-            mainAppContainer.style.display = 'block';
-            authPassed = true;
-            initWebSocket();
-        }
-
-        quizForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const answer = answerInput.value;
-
-            try {
-                const response = await fetch('/api/quiz/answer', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ answer })
-                });
-
-                const data = await response.json();
-                if (response.ok && data.success) {
-                    showApp();
-                } else {
-                    quizMessageDiv.textContent = data.message || 'Неверный ответ.';
-                    quizMessageDiv.style.color = 'red';
-                }
-            } catch (error) {
-                console.error('Ошибка сети:', error);
-                quizMessageDiv.textContent = 'Ошибка сети. Пожалуйста, попробуйте еще раз.';
-                quizMessageDiv.style.color = 'red';
-            }
-        });
-
-        resetButton.addEventListener('click', () => {
-            location.reload();
-        });
 
         function initWebSocket() {
             // URL вашего развернутого сервера Render.com
@@ -262,8 +157,8 @@
 
             ws.onopen = () => {
                 console.log('Фронтенд: Подключено к WebSocket-серверу.');
-                // Отправляем серверу, что опрос пройден
-                ws.send(JSON.stringify({ type: 'frontend_connect', authPassed: authPassed }));
+                // Отправляем серверу, что это фронтенд-клиент (без авторизации)
+                ws.send(JSON.stringify({ type: 'frontend_connect' }));
             };
 
             ws.onmessage = (event) => {
@@ -289,11 +184,8 @@
 
             ws.onclose = () => {
                 console.log('Фронтенд: Отключено от WebSocket-сервера. Попытка переподключения через 5 секунд...');
-                // Переподключаемся, только если мы находимся в состоянии "отображения приложения"
-                // и опрос был пройден.
-                if (mainAppContainer.style.display === 'block' && authPassed) {
-                    setTimeout(initWebSocket, 5000);
-                }
+                // Всегда пытаемся переподключиться, так как авторизация не нужна
+                setTimeout(initWebSocket, 5000);
             };
         }
 
@@ -371,8 +263,12 @@
             }
         }
 
-        // При загрузке страницы показываем опрос
-        document.addEventListener('DOMContentLoaded', showQuiz);
+        // При загрузке страницы сразу инициализируем WebSocket и показываем приложение
+        document.addEventListener('DOMContentLoaded', initWebSocket);
+
+        resetButton.addEventListener('click', () => {
+            location.reload();
+        });
     </script>
 </body>
 </html>
