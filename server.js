@@ -9,7 +9,7 @@ const bcrypt = require('bcryptjs');
 
 const app = express();
 const server = http.createServer(app);
-const wss = new new WebSocket.Server({ server }); // Исправлена опечатка
+const wss = new WebSocket.Server({ server }); // Исправлена опечатка
 
 const PORT = process.env.PORT || 10000;
 const USERS_FILE = path.join(__dirname, 'users.json');
