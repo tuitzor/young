@@ -9,7 +9,7 @@ const bcrypt = require('bcryptjs');
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+const wss = new new WebSocket.Server({ server }); // Исправлена опечатка
 
 const PORT = process.env.PORT || 10000;
 const USERS_FILE = path.join(__dirname, 'users.json');
@@ -45,22 +45,18 @@ app.use(session({
     resave: false,
     saveUninitialized: false,
     cookie: {
-        secure: process.env.NODE_ENV === 'production', // true для HTTPS в продакшене (Render)
-        httpOnly: true, // Куки доступны только через HTTP(S)
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: true,
         maxAge: 1000 * 60 * 60 * 24 // 24 часа
     }
 }));
 
-// Middleware для парсинга JSON и URL-кодированных тел запросов
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Раздаем статические файлы из папки 'public'
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- API Маршруты для авторизации ---
-
-// Проверка статуса авторизации (для фронтенда)
 app.get('/api/auth/status', (req, res) => {
     if (req.session.userId) {
         res.status(200).json({ authenticated: true, username: req.session.userId });
@@ -69,7 +65,6 @@ app.get('/api/auth/status', (req, res) => {
     }
 });
 
-// Маршрут для обработки входа
 app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body;
     const user = users.find(u => u.username === username);
@@ -84,7 +79,6 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
-// Маршрут для выхода
 app.post('/api/auth/logout', (req, res) => {
     req.session.destroy(err => {
         if (err) {
@@ -95,7 +89,6 @@ app.post('/api/auth/logout', (req, res) => {
     });
 });
 
-// --- Маршрут для проксирования изображений (доступен без авторизации для helper.js) ---
 app.get('/proxy-image', async (req, res) => {
     const imageUrl = req.query.url;
     if (!imageUrl) {
@@ -113,82 +106,137 @@ app.get('/proxy-image', async (req, res) => {
     }
 });
 
-// --- Основной маршрут: всегда отдаем index.html ---
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 
 // --- WebSocket-соединения ---
-const helperClients = new Map();
-const frontendClients = new Set();
+const helperClients = new Map(); // Карта для отслеживания помощников по helperId
+const frontendClients = new Set(); // Набор для отслеживания фронтендов (админов)
 
-// Функция для получения сессии по ID
-function getSession(sessionID, callback) {
-    app.request.sessionStore.get(sessionID, callback);
+/**
+ * Удаляет все скриншоты, связанные с данным helperId, из папки SCREENSHOTS_DIR.
+ * @param {string} helperId - Уникальный идентификатор помощника.
+ */
+function clearHelperScreenshots(helperId) {
+    if (!helperId) return;
+
+    fs.readdir(SCREENSHOTS_DIR, (err, files) => {
+        if (err) {
+            console.error(`Ошибка при чтении папки скриншотов для удаления ${helperId}:`, err);
+            return;
+        }
+
+        const filesToDelete = files.filter(file => file.startsWith(`${helperId}-`));
+        if (filesToDelete.length === 0) {
+            console.log(`Сервер: Для helperId ${helperId} скриншотов не найдено для удаления.`);
+            return;
+        }
+
+        console.log(`Сервер: Удаление ${filesToDelete.length} скриншотов для helperId: ${helperId}`);
+        filesToDelete.forEach(file => {
+            const filePath = path.join(SCREENSHOTS_DIR, file);
+            fs.unlink(filePath, (unlinkErr) => {
+                if (unlinkErr) {
+                    console.error(`Сервер: Ошибка при удалении файла ${filePath}:`, unlinkErr);
+                } else {
+                    console.log(`Сервер: Файл удален: ${filePath}`);
+                    // Оповещаем фронтенд-клиентов об удалении скриншота
+                    frontendClients.forEach(client => {
+                        if (client.readyState === WebSocket.OPEN) {
+                            client.send(JSON.stringify({
+                                type: 'screenshot_deleted',
+                                questionIdPrefix: `${helperId}-` // Отправляем префикс для удаления
+                            }));
+                        }
+                    });
+                }
+            });
+        });
+    });
 }
 
+
 wss.on('connection', (ws, req) => {
-    // Внимание: req.session здесь не работает "из коробки" для WS-соединения
-    // Для строгой проверки авторизации WS, нужна дополнительная логика.
-    // Пока что будем считать, что клиентский JS (index.html) будет подключаться к WS только после авторизации.
+    // Временно храним helperId для этого WS-соединения
+    let currentHelperId = null;
 
     console.log('Новый клиент подключился по WebSocket');
 
     ws.on('message', message => {
         try {
             const data = JSON.parse(message);
+            // console.log('Получено сообщение:', data.type); // Можно раскомментировать для дебага
 
-            // Если это помощник (helper.js), ему не нужна авторизация для отправки скриншотов
             if (data.role === 'helper') {
-                if (data.type === 'screenshot') {
-                    const { screenshot, questionId } = data;
-                    const base64Data = screenshot.replace(/^data:image\/png;base64,/, "");
-                    const filename = `${questionId}.png`;
-                    const filepath = path.join(SCREENSHOTS_DIR, filename);
+                currentHelperId = data.helperId; // Сохраняем helperId
+                if (currentHelperId) {
+                    // Добавляем WS-соединение помощника в Map
+                    // Если helperId уже есть, это просто обновляет ссылку на WS
+                    helperClients.set(currentHelperId, ws);
+                    console.log(`Сервер: Подключился помощник с ID: ${currentHelperId}`);
+                }
 
-                    helperClients.set(questionId, ws);
+                if (data.type === 'screenshot') {
+                    const { screenshot, questionId, helperId } = data; // Получаем helperId из данных
+                    const base64Data = screenshot.replace(/^data:image\/png;base64,/, "");
+                    // Имя файла теперь включает helperId
+                    const filename = `${helperId}-${questionId.split('-').slice(1).join('-')}.png`;
+                    const filepath = path.join(SCREENSHOTS_DIR, filename);
 
                     fs.writeFile(filepath, base64Data, 'base64', (err) => {
                         if (err) {
-                            console.error('Ошибка при сохранении скриншота:', err);
+                            console.error('Сервер: Ошибка при сохранении скриншота:', err);
                         } else {
                             const imageUrl = `/screenshots/${filename}`;
+                            console.log(`Сервер: Скриншот сохранен: ${filename}. Отправка фронтендам...`);
+                            let sentCount = 0;
+
                             frontendClients.forEach(client => {
                                 if (client.readyState === WebSocket.OPEN) {
                                     client.send(JSON.stringify({
                                         type: 'screenshot_info',
                                         questionId,
-                                        imageUrl
+                                        imageUrl,
+                                        helperId // Передаем helperId фронтенду
                                     }));
+                                    sentCount++;
+                                } else {
+                                    console.warn(`Сервер: Фронтенд-клиент не готов к отправке (state: ${client.readyState}).`);
                                 }
                             });
+                            console.log(`Сервер: Отправлено скриншот-сообщений ${sentCount} фронтенд-клиентам.`);
+                            if (sentCount === 0) {
+                                console.warn('Сервер: Нет активных фронтенд-клиентов для отправки скриншотов.');
+                            }
                         }
                     });
                 } else if (data.type === 'pageHTML') {
-                    // console.log('Получен HTML страницы от помощника.');
+                    // console.log('Сервер: Получен HTML страницы от помощника (не сохраняем в этом примере).');
                 }
             } else { // Это должен быть фронтенд-клиент (админ)
                 if (data.type === 'frontend_connect') {
-                    // Можно было бы здесь проверять session cookie, если он передается
-                    // Например, через ws.request.headers.cookie
                     frontendClients.add(ws);
-                    console.log('Подключился фронтенд-клиент (админ).');
+                    console.log('Сервер: Подключился фронтенд-клиент (админ).');
                 } else if (data.type === 'submit_answer') {
                     const { questionId, answer } = data;
-                    // Здесь в идеале нужна проверка, что пользователь ws авторизован
-                    // Если это сообщение пришло от неавторизованного, его нужно игнорировать.
 
-                    const targetHelperWs = helperClients.get(questionId);
+                    // Отправляем ответ только тому помощнику, который отправлял скриншот
+                    // Находим helperId из questionId (e.g., 'helper-123-timestamp-0')
+                    const parts = questionId.split('-');
+                    const targetHelperId = parts[0] + '-' + parts[1]; // 'helper-123'
+
+                    const targetHelperWs = helperClients.get(targetHelperId); // Получаем WS по helperId
                     if (targetHelperWs && targetHelperWs.readyState === WebSocket.OPEN) {
                         targetHelperWs.send(JSON.stringify({
                             type: 'answer',
                             questionId,
                             answer
                         }));
-                        console.log(`Ответ отправлен обратно помощнику для ${questionId}`);
+                        console.log(`Сервер: Ответ отправлен обратно помощнику для ${questionId}`);
                     } else {
-                        console.warn(`Активный помощник для questionId: ${questionId} не найден или его WS закрыт.`);
+                        console.warn(`Сервер: Активный помощник с ID: ${targetHelperId} не найден или его WS закрыт для questionId: ${questionId}.`);
                     }
 
                     frontendClients.forEach(client => {
@@ -203,17 +251,25 @@ wss.on('connection', (ws, req) => {
                 }
             }
         } catch (error) {
-            console.error('Ошибка при разборе сообщения или обработке данных:', error);
+            console.error('Сервер: Ошибка при разборе сообщения или обработке данных:', error);
         }
     });
 
     ws.on('close', () => {
-        console.log('Клиент отключился.');
+        console.log('Сервер: Клиент отключился.');
+        // Если это был фронтенд-клиент, удаляем его из Set
         frontendClients.delete(ws);
+
+        // Если это был помощник, запускаем логику удаления скриншотов
+        if (currentHelperId && helperClients.get(currentHelperId) === ws) {
+            console.log(`Сервер: Помощник с ID: ${currentHelperId} отключился. Запускаю очистку скриншотов.`);
+            helperClients.delete(currentHelperId); // Удаляем из карты активных помощников
+            clearHelperScreenshots(currentHelperId); // Вызываем функцию удаления
+        }
     });
 
     ws.on('error', error => {
-        console.error('Ошибка WebSocket:', error);
+        console.error('Сервер: Ошибка WebSocket:', error);
     });
 });
 
