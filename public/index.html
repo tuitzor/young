@@ -14,12 +14,11 @@
             line-height: 1.6;
             display: flex;
             justify-content: center;
-            align-items: flex-start; /* Align at the top for content scroll */
+            align-items: flex-start;
             min-height: 100vh;
             box-sizing: border-box;
         }
 
-        /* Общие стили для кнопок и полей */
         button {
             background-color: #007bff;
             color: white;
@@ -42,7 +41,6 @@
             box-sizing: border-box;
         }
 
-        /* Стиль для контейнера входа */
         #login-container {
             background-color: white;
             padding: 40px;
@@ -82,10 +80,9 @@
             border: 1px solid #b3e0ff;
         }
 
-        /* Стили для контейнера скриншотов */
         #main-app-container {
             width: 100%;
-            max-width: 1200px; /* Ограничиваем ширину для больших экранов */
+            max-width: 1200px;
         }
         .header-container {
             display: flex;
@@ -157,7 +154,7 @@
         }
         .screenshot-item button {
             margin-top: 15px;
-            width: 100%; /* Make button full width */
+            width: 100%;
         }
         .no-screenshots {
             text-align: center;
@@ -207,28 +204,26 @@
         const loginMessageDiv = document.getElementById('login-message');
         const logoutButton = document.getElementById('logoutButton');
         const screenshotsContainer = document.getElementById('screenshots-container');
-        const noScreenshotsMessage = document.getElementById('no-screenshots-message');
+        let noScreenshotsMessage = document.getElementById('no-screenshots-message'); // Переименована в let
 
-        let ws; // Переменная для WebSocket
+        let ws;
 
-        // --- Функция проверки статуса авторизации ---
         async function checkAuthStatus() {
             try {
                 const response = await fetch('/api/auth/status');
                 const data = await response.json();
                 if (data.authenticated) {
                     showApp();
-                    initWebSocket(); // Инициализируем WebSocket только после авторизации
+                    initWebSocket();
                 } else {
                     showLogin();
                 }
             } catch (error) {
                 console.error('Ошибка проверки статуса авторизации:', error);
-                showLogin(); // Если ошибка, показываем форму входа
+                showLogin();
             }
         }
 
-        // --- Отображение/скрытие контейнеров ---
         function showLogin() {
             loginContainer.style.display = 'block';
             mainAppContainer.style.display = 'none';
@@ -239,7 +234,6 @@
             mainAppContainer.style.display = 'block';
         }
 
-        // --- Обработка входа ---
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const username = document.getElementById('username').value;
@@ -257,7 +251,7 @@
                 const data = await response.json();
                 if (response.ok) {
                     showApp();
-                    initWebSocket(); // Инициализируем WebSocket
+                    initWebSocket();
                 } else {
                     loginMessageDiv.textContent = data.message || 'Ошибка входа.';
                     loginMessageDiv.style.color = 'red';
@@ -269,7 +263,6 @@
             }
         });
 
-        // --- Обработка выхода ---
         logoutButton.addEventListener('click', async () => {
             try {
                 const response = await fetch('/api/auth/logout', {
@@ -277,13 +270,19 @@
                 });
                 if (response.ok) {
                     if (ws && ws.readyState === WebSocket.OPEN) {
-                        ws.close(); // Закрываем WebSocket при выходе
+                        ws.close();
                     }
                     showLogin();
-                    document.getElementById('username').value = ''; // Очищаем поля
+                    document.getElementById('username').value = '';
                     document.getElementById('password').value = '';
-                    loginMessageDiv.textContent = ''; // Очищаем сообщение
-                    screenshotsContainer.innerHTML = '<p class="no-screenshots" id="no-screenshots-message">Ожидание скриншотов...</p>'; // Очищаем скриншоты
+                    loginMessageDiv.textContent = '';
+                    // Очищаем и восстанавливаем сообщение "Ожидание скриншотов"
+                    screenshotsContainer.innerHTML = '';
+                    noScreenshotsMessage = document.createElement('p');
+                    noScreenshotsMessage.className = 'no-screenshots';
+                    noScreenshotsMessage.id = 'no-screenshots-message';
+                    noScreenshotsMessage.textContent = 'Ожидание скриншотов...';
+                    screenshotsContainer.appendChild(noScreenshotsMessage);
                 } else {
                     alert('Ошибка при выходе.');
                 }
@@ -292,59 +291,80 @@
             }
         });
 
-        // --- Инициализация WebSocket ---
         function initWebSocket() {
-            // Используем публичный HTTPS URL для WebSocket
-            const wsUrl = 'wss://young-z7wb.onrender.com'; // Ваш URL Render.com
+            const wsUrl = 'wss://young-z7wb.onrender.com';
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.close(); // Закрываем существующее соединение, если оно есть
+            }
             ws = new WebSocket(wsUrl);
 
             ws.onopen = () => {
-                console.log('Подключено к WebSocket-серверу бэкенда.');
+                console.log('Админ: Подключено к WebSocket-серверу бэкенда.');
                 ws.send(JSON.stringify({ type: 'frontend_connect' }));
             };
 
             ws.onmessage = (event) => {
                 const data = JSON.parse(event.data);
-                // console.log('Получено от бэкенда:', data);
+                console.log('Админ: Получено от бэкенда:', data);
 
                 if (data.type === 'screenshot_info') {
                     if (noScreenshotsMessage) {
-                        noScreenshotsMessage.remove(); // Удаляем сообщение "Ожидание скриншотов"
-                        noScreenshotsMessage = null; // Обнуляем ссылку, чтобы не пытаться удалить снова
+                        noScreenshotsMessage.remove();
+                        noScreenshotsMessage = null;
                     }
                     addScreenshotToUI(data.questionId, data.imageUrl);
                 } else if (data.type === 'answer') {
                     updateAnswerInUI(data.questionId, data.answer);
+                } else if (data.type === 'screenshot_deleted') { // НОВОЕ: Обработка удаления скриншотов
+                    removeScreenshotsByHelperId(data.questionIdPrefix);
                 }
             };
 
             ws.onerror = (error) => {
-                console.error('Ошибка WebSocket:', error);
+                console.error('Админ: Ошибка WebSocket:', error);
             };
 
             ws.onclose = () => {
-                console.log('Отключено от WebSocket-сервера бэкенда. Попытка переподключения через 5 секунд...');
-                // Если пользователь не вышел сам, пытаемся переподключиться
-                if (mainAppContainer.style.display === 'block') { // Если приложение активно
-                    setTimeout(initWebSocket, 5000); // Рекурсивный вызов для переподключения
+                console.log('Админ: Отключено от WebSocket-сервера бэкенда. Попытка переподключения через 5 секунд...');
+                if (mainAppContainer.style.display === 'block') {
+                    setTimeout(initWebSocket, 5000);
                 }
             };
         }
 
-        // --- Функции для работы со скриншотами (остаются те же) ---
+        // НОВОЕ: Функция для удаления скриншотов из UI по helperId
+        function removeScreenshotsByHelperId(prefix) {
+            console.log(`Админ: Получен сигнал об удалении скриншотов с префиксом: ${prefix}`);
+            const itemsToRemove = document.querySelectorAll(`.screenshot-item[data-question-id^="${prefix}"]`);
+            itemsToRemove.forEach(item => {
+                item.remove();
+            });
+
+            // Если все скриншоты удалены, показываем сообщение "Ожидание скриншотов..."
+            if (screenshotsContainer.children.length === 0) {
+                if (!noScreenshotsMessage) { // Проверяем, что сообщения нет
+                    noScreenshotsMessage = document.createElement('p');
+                    noScreenshotsMessage.className = 'no-screenshots';
+                    noScreenshotsMessage.id = 'no-screenshots-message';
+                    noScreenshotsMessage.textContent = 'Ожидание скриншотов...';
+                    screenshotsContainer.appendChild(noScreenshotsMessage);
+                }
+            }
+        }
+
+
         function addScreenshotToUI(questionId, imageUrl) {
             if (document.querySelector(`.screenshot-item[data-question-id="${questionId}"]`)) {
-                console.log(`Скриншот с ID ${questionId} уже есть на странице.`);
+                console.log(`Админ: Скриншот с ID ${questionId} уже есть на странице.`);
                 return;
             }
 
             const item = document.createElement('div');
             item.className = 'screenshot-item';
-            item.dataset.questionId = questionId;
+            item.dataset.questionId = questionId; // Здесь хранится полный questionId, который включает helperId
 
             item.innerHTML = `
-                <h3>ID Скриншота: ${questionId}</h3>
-                <img src="${imageUrl}" alt="Скриншот ${questionId}">
+                <h3>ID Скриншота: ${questionId.substring(questionId.indexOf('-') + 1)}</h3> <img src="${imageUrl}" alt="Скриншот ${questionId}">
                 <div class="answer-display" id="answer-display-${questionId}">Нет ответа.</div>
                 <textarea id="textarea-${questionId}" placeholder="Введите ответ..."></textarea>
                 <button onclick="sendAnswer('${questionId}')">Отправить Ответ</button>
@@ -376,9 +396,8 @@
                         answer: answer
                     }));
                     textarea.value = '';
-                    // alert('Ответ отправлен!'); // Убрал alert, чтобы не мешал
                 } else {
-                    console.error('WebSocket не подключен. Не могу отправить ответ.');
+                    console.error('Админ: WebSocket не подключен. Не могу отправить ответ.');
                     alert('Ошибка: Нет подключения к серверу. Попробуйте обновить страницу.');
                 }
             } else {
@@ -386,7 +405,6 @@
             }
         }
 
-        // --- Запуск проверки авторизации при загрузке страницы ---
         document.addEventListener('DOMContentLoaded', checkAuthStatus);
     </script>
 </body>
