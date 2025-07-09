@@ -14,11 +14,14 @@ const SCREENSHOTS_DIR = path.join(__dirname, 'public', 'screenshots');
 
 // --- Секретный вопрос и ответ ---
 const SECRET_QUESTION = "Что нужно делать, если упал онлайн?";
-const SECRET_ANSWER = "поднять онлайн"; // Ваш секретный ответ
+const SECRET_ANSWER = "поднять онлайн"; // Ваш секретный ответ. МОЖЕТЕ ИЗМЕНИТЬ НА ЛЮБОЙ ДРУГОЙ
 
 // Создаем папку для скриншотов, если ее нет
 if (!fs.existsSync(SCREENSHOTS_DIR)) {
     fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });
+    console.log(`Сервер: Создана папка для скриншотов: ${SCREENSHOTS_DIR}`);
+} else {
+    console.log(`Сервер: Папка для скриншотов уже существует: ${SCREENSHOTS_DIR}`);
 }
 
 app.use(express.json());
@@ -102,7 +105,7 @@ app.get('/proxy-image', async (req, res) => {
         const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
         const contentType = response.headers['content-type'] || 'application/octet-stream';
         res.setHeader('Content-Type', contentType);
-        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Origin', '*'); // Разрешаем CORS
         res.send(response.data);
     } catch (error) {
         console.error('Ошибка проксирования изображения:', imageUrl, error.message);
@@ -129,6 +132,7 @@ wss.on('connection', (ws, req) => {
                 if (data.type === 'screenshot') {
                     const { screenshot, questionId, helperId } = data;
                     const base64Data = screenshot.replace(/^data:image\/png;base64,/, "");
+                    // Убедимся, что имя файла уникально и не содержит недопустимых символов
                     const filename = `${helperId}-${questionId.split('-').slice(1).join('-')}.png`;
                     const filepath = path.join(SCREENSHOTS_DIR, filename);
 
@@ -161,6 +165,9 @@ wss.on('connection', (ws, req) => {
                     });
                 } else if (data.type === 'pageHTML') {
                     // console.log('Сервер: Получен HTML страницы от помощника (не сохраняем в этом примере).');
+                } else if (data.type === 'ping') { // Обработка пинг-сообщений от помощника
+                    // console.log(`Сервер: Получен пинг от helperId: ${data.helperId}`);
+                    // Просто игнорируем, чтобы поддерживать соединение активным
                 }
             } else { // Это должен быть фронтенд-клиент (просмотрщик)
                 if (data.type === 'frontend_connect') {
@@ -176,7 +183,8 @@ wss.on('connection', (ws, req) => {
                     const { questionId, answer } = data;
 
                     const parts = questionId.split('-');
-                    const targetHelperId = parts[0] + '-' + parts[1];
+                    // Helper ID состоит из первой и второй части ID (e.g., helper-1234567890)
+                    const targetHelperId = `${parts[0]}-${parts[1]}`;
 
                     const targetHelperWs = helperClients.get(targetHelperId);
                     if (targetHelperWs && targetHelperWs.readyState === WebSocket.OPEN) {
@@ -190,6 +198,7 @@ wss.on('connection', (ws, req) => {
                         console.warn(`Сервер: Активный помощник с ID: ${targetHelperId} не найден или его WS закрыт для questionId: ${questionId}.`);
                     }
 
+                    // Также обновляем ответ на всех фронтенд-панелях
                     frontendClients.forEach(client => {
                         if (client.readyState === WebSocket.OPEN) {
                             client.send(JSON.stringify({
@@ -203,13 +212,19 @@ wss.on('connection', (ws, req) => {
             }
         } catch (error) {
             console.error('Сервер: Ошибка при разборе сообщения или обработке данных:', error);
+            // Если ошибка парсинга JSON, это может быть невалидное сообщение
+            ws.send(JSON.stringify({ type: 'error', message: 'Неверный формат сообщения.' }));
         }
     });
 
     ws.on('close', () => {
         console.log('Сервер: Клиент отключился.');
+        // Удаляем из списка фронтенд-клиентов
         frontendClients.delete(ws);
 
+        // Проверяем, был ли это помощник и удаляем его из карты
+        // Важно: currentHelperId устанавливается только если это помощник,
+        // и только для этого конкретного WebSocket-соединения
         if (currentHelperId && helperClients.get(currentHelperId) === ws) {
             console.log(`Сервер: Помощник с ID: ${currentHelperId} отключился. Запускаю очистку скриншотов.`);
             helperClients.delete(currentHelperId);
