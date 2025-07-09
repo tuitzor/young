@@ -4,6 +4,7 @@ const http = require('http');
 const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
+const cors = require('cors');
 
 const app = express();
 const server = http.createServer(app);
