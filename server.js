@@ -4,7 +4,7 @@ const http = require('http');
 const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
-const cors = require('cors');
+const cors = require('cors'); // <-- ДОБАВЛЕНО: Импорт модуля cors
 
 const app = express();
 const server = http.createServer(app);
@@ -12,6 +12,15 @@ const wss = new WebSocket.Server({ server });
 
 const PORT = process.env.PORT || 10000;
 const SCREENSHOTS_DIR = path.join(__dirname, 'public', 'screenshots');
+
+// --- НАСТРОЙКИ CORS (ОЧЕНЬ ВАЖНО ДЛЯ РЕШЕНИЯ ВАШЕЙ ПРОБЛЕМЫ) ---
+const corsOptions = {
+    origin: 'https://papaya-speculoos-1311a6.netlify.app', // Разрешаем запросы ТОЛЬКО с этого домена Netlify
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true,
+    optionsSuccessStatus: 204
+};
+app.use(cors(corsOptions)); // Применяем middleware CORS ко всем маршрутам
 
 // Создаем папку для скриншотов, если ее нет
 if (!fs.existsSync(SCREENSHOTS_DIR)) {
@@ -31,7 +40,6 @@ app.get('/', (req, res) => {
 });
 
 // --- API-маршрут для проксирования изображений ---
-// Этот прокси-сервер должен быть доступен helper.js
 app.get('/proxy-image', async (req, res) => {
     const imageUrl = req.query.url;
     if (!imageUrl) {
@@ -41,7 +49,7 @@ app.get('/proxy-image', async (req, res) => {
         const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
         const contentType = response.headers['content-type'] || 'application/octet-stream';
         res.setHeader('Content-Type', contentType);
-        res.setHeader('Access-Control-Allow-Origin', '*'); // Разрешаем CORS
+        res.setHeader('Access-Control-Allow-Origin', '*'); // Разрешаем CORS для проксирования, если нужно
         res.send(response.data);
     } catch (error) {
         if (error.response && error.response.status === 404) {
@@ -54,7 +62,6 @@ app.get('/proxy-image', async (req, res) => {
 });
 
 // --- API-маршрут для загрузки скриншотов через HTTP POST ---
-// helper.js использует этот маршрут для отправки скриншотов
 app.post('/api/upload-screenshot', (req, res) => {
     const { type, screenshot, questionId, helperId } = req.body;
 
@@ -63,7 +70,6 @@ app.post('/api/upload-screenshot', (req, res) => {
     }
 
     const base64Data = screenshot.replace(/^data:image\/png;base64,/, "");
-    // Убедимся, что имя файла уникально и не содержит недопустимых символов
     const filename = `${helperId}-${questionId.split('-').slice(1).join('-')}.png`;
     const filepath = path.join(SCREENSHOTS_DIR, filename);
 
@@ -146,9 +152,6 @@ function clearHelperScreenshots(helperId) {
 
 wss.on('connection', (ws, req) => {
     let currentHelperId = null;
-    // Определяем тип клиента по его первому сообщению или по запросу
-    // В данном упрощенном случае, фронтенд сразу добавляется в frontendClients
-    // Хелпер идентифицирует себя сообщением { role: 'helper' }
 
     console.log('Сервер: Новый клиент подключился по WebSocket');
 
@@ -162,15 +165,13 @@ wss.on('connection', (ws, req) => {
                     helperClients.set(currentHelperId, ws);
                     console.log(`Сервер: Подключился помощник с ID: ${currentHelperId}`);
                 }
-
+                // Проксируем HTML, если это нужно для логирования или дальнейшей обработки
                 if (data.type === 'pageHTML') {
                     // console.log('Сервер: Получен HTML страницы от помощника (не сохраняем в этом примере).');
-                } else if (data.type === 'ping') { // Обработка пинг-сообщений от помощника
+                } else if (data.type === 'ping') {
                     // console.log(`Сервер: Получен пинг от helperId: ${data.helperId}`);
                 }
             } else { // Это фронтенд-клиент (просмотрщик)
-                // Если фронтенд отправляет любое сообщение (например, submit_answer), добавляем его в набор
-                // Это предполагает, что фронтенд-клиенты НЕ будут отправлять 'role: helper'
                 if (!frontendClients.has(ws)) {
                     frontendClients.add(ws);
                     console.log('Сервер: Фронтенд-клиент идентифицирован и добавлен.');
@@ -189,7 +190,7 @@ wss.on('connection', (ws, req) => {
                             questionId,
                             answer
                         }));
-                        console.log(`Сервер: Ответ отправлен обратно помощнику для ${questionId}`);
+                        console.log(`Сервер: Ответ "${answer}" отправлен обратно помощнику для ${questionId}`);
                     } else {
                         console.warn(`Сервер: Активный помощник с ID: ${targetHelperId} не найден или его WS закрыт для questionId: ${questionId}.`);
                     }
@@ -206,8 +207,9 @@ wss.on('connection', (ws, req) => {
                     });
                 } else if (data.type === 'delete_screenshot') {
                     const { questionId } = data;
-                    const filename = questionId.split('/').pop(); // Извлечь имя файла из questionId
-                    const filepath = path.join(SCREENSHOTS_DIR, filename + '.png'); // Добавляем .png
+                    // Извлечь имя файла из questionId. QuestionId приходит как /screenshots/helper-<id>-<timestamp>-<index>.png
+                    const filenameWithExt = questionId.split('/').pop();
+                    const filepath = path.join(SCREENSHOTS_DIR, filenameWithExt);
 
                     fs.unlink(filepath, (err) => {
                         if (err) {
@@ -220,7 +222,7 @@ wss.on('connection', (ws, req) => {
                                 if (client.readyState === WebSocket.OPEN) {
                                     client.send(JSON.stringify({
                                         type: 'screenshot_deleted_specific',
-                                        questionId: questionId // Отправляем полный questionId
+                                        questionId: questionId // Отправляем полный questionId, чтобы фронтенд знал, какой элемент удалить
                                     }));
                                 }
                             });
