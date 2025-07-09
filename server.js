@@ -4,107 +4,43 @@ const http = require('http');
 const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
-const session = require('express-session');
-const bcrypt = require('bcryptjs');
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server }); // Исправлена опечатка
+const wss = new WebSocket.Server({ server });
 
 const PORT = process.env.PORT || 10000;
-const USERS_FILE = path.join(__dirname, 'users.json');
 const SCREENSHOTS_DIR = path.join(__dirname, 'public', 'screenshots');
+
+// --- Секретный вопрос и ответ ---
+const SECRET_QUESTION = "Что нужно делать, если упал онлайн?";
+const SECRET_ANSWER = "поднять онлайн"; // Ваш секретный ответ
 
 // Создаем папку для скриншотов, если ее нет
 if (!fs.existsSync(SCREENSHOTS_DIR)) {
     fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });
 }
 
-// Загрузка пользователей из файла или создание пустого массива
-let users = [];
-if (fs.existsSync(USERS_FILE)) {
-    try {
-        users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
-    } catch (e) {
-        console.error('Ошибка чтения users.json:', e);
-    }
-}
-
-// Проверяем, есть ли администраторы. Если нет, создаем пользователя по умолчанию.
-if (users.length === 0) {
-    console.log('Администраторы не найдены. Создаю администратора по умолчанию (admin/password).');
-    const defaultPassword = bcrypt.hashSync('password', 10);
-    users.push({ username: 'admin', password: defaultPassword });
-    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), 'utf8');
-}
-
-
-// --- Настройка сессий ---
-app.use(session({
-    secret: 'super_secret_key_for_session', // ОБЯЗАТЕЛЬНО ИЗМЕНИТЬ В PROD!
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-        secure: process.env.NODE_ENV === 'production',
-        httpOnly: true,
-        maxAge: 1000 * 60 * 60 * 24 // 24 часа
-    }
-}));
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// --- API Маршруты для авторизации ---
-app.get('/api/auth/status', (req, res) => {
-    if (req.session.userId) {
-        res.status(200).json({ authenticated: true, username: req.session.userId });
+// --- API Маршрут для ответа на опрос ---
+app.post('/api/quiz/answer', (req, res) => {
+    const { answer } = req.body;
+    if (answer && answer.toLowerCase().trim() === SECRET_ANSWER.toLowerCase().trim()) {
+        res.status(200).json({ success: true, message: 'Доступ разрешен' });
     } else {
-        res.status(200).json({ authenticated: false });
+        res.status(401).json({ success: false, message: 'Неверный ответ' });
     }
 });
 
-app.post('/api/auth/login', async (req, res) => {
-    const { username, password } = req.body;
-    const user = users.find(u => u.username === username);
-
-    if (user && await bcrypt.compare(password, user.password)) {
-        req.session.userId = user.username;
-        console.log(`Пользователь ${username} успешно вошел.`);
-        res.status(200).json({ message: 'Авторизован', username: user.username });
-    } else {
-        console.log(`Попытка входа с неверными данными: ${username}`);
-        res.status(401).json({ message: 'Неверный логин или пароль' });
-    }
+// Маршрут для получения вопроса
+app.get('/api/quiz/question', (req, res) => {
+    res.status(200).json({ question: SECRET_QUESTION });
 });
 
-app.post('/api/auth/logout', (req, res) => {
-    req.session.destroy(err => {
-        if (err) {
-            console.error('Ошибка выхода:', err);
-            return res.status(500).json({ message: 'Не удалось выйти' });
-        }
-        res.status(200).json({ message: 'Выход выполнен' });
-    });
-});
-
-app.get('/proxy-image', async (req, res) => {
-    const imageUrl = req.query.url;
-    if (!imageUrl) {
-        return res.status(400).send('URL изображения не предоставлен.');
-    }
-    try {
-        const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-        const contentType = response.headers['content-type'] || 'application/octet-stream';
-        res.setHeader('Content-Type', contentType);
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.send(response.data);
-    } catch (error) {
-        console.error('Ошибка проксирования изображения:', imageUrl, error.message);
-        res.status(500).send('Не удалось загрузить изображение.');
-    }
-});
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -113,7 +49,7 @@ app.get('/', (req, res) => {
 
 // --- WebSocket-соединения ---
 const helperClients = new Map(); // Карта для отслеживания помощников по helperId
-const frontendClients = new Set(); // Набор для отслеживания фронтендов (админов)
+const frontendClients = new Set(); // Набор для отслеживания фронтендов (админов/просмотрщиков)
 
 /**
  * Удаляет все скриншоты, связанные с данным helperId, из папки SCREENSHOTS_DIR.
@@ -147,7 +83,7 @@ function clearHelperScreenshots(helperId) {
                         if (client.readyState === WebSocket.OPEN) {
                             client.send(JSON.stringify({
                                 type: 'screenshot_deleted',
-                                questionIdPrefix: `${helperId}-` // Отправляем префикс для удаления
+                                questionIdPrefix: `${helperId}-`
                             }));
                         }
                     });
@@ -157,31 +93,42 @@ function clearHelperScreenshots(helperId) {
     });
 }
 
+app.get('/proxy-image', async (req, res) => {
+    const imageUrl = req.query.url;
+    if (!imageUrl) {
+        return res.status(400).send('URL изображения не предоставлен.');
+    }
+    try {
+        const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+        const contentType = response.headers['content-type'] || 'application/octet-stream';
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.send(response.data);
+    } catch (error) {
+        console.error('Ошибка проксирования изображения:', imageUrl, error.message);
+        res.status(500).send('Не удалось загрузить изображение.');
+    }
+});
+
 
 wss.on('connection', (ws, req) => {
-    // Временно храним helperId для этого WS-соединения
     let currentHelperId = null;
-
     console.log('Новый клиент подключился по WebSocket');
 
     ws.on('message', message => {
         try {
             const data = JSON.parse(message);
-            // console.log('Получено сообщение:', data.type); // Можно раскомментировать для дебага
 
             if (data.role === 'helper') {
-                currentHelperId = data.helperId; // Сохраняем helperId
+                currentHelperId = data.helperId;
                 if (currentHelperId) {
-                    // Добавляем WS-соединение помощника в Map
-                    // Если helperId уже есть, это просто обновляет ссылку на WS
                     helperClients.set(currentHelperId, ws);
                     console.log(`Сервер: Подключился помощник с ID: ${currentHelperId}`);
                 }
 
                 if (data.type === 'screenshot') {
-                    const { screenshot, questionId, helperId } = data; // Получаем helperId из данных
+                    const { screenshot, questionId, helperId } = data;
                     const base64Data = screenshot.replace(/^data:image\/png;base64,/, "");
-                    // Имя файла теперь включает helperId
                     const filename = `${helperId}-${questionId.split('-').slice(1).join('-')}.png`;
                     const filepath = path.join(SCREENSHOTS_DIR, filename);
 
@@ -199,7 +146,7 @@ wss.on('connection', (ws, req) => {
                                         type: 'screenshot_info',
                                         questionId,
                                         imageUrl,
-                                        helperId // Передаем helperId фронтенду
+                                        helperId
                                     }));
                                     sentCount++;
                                 } else {
@@ -215,19 +162,23 @@ wss.on('connection', (ws, req) => {
                 } else if (data.type === 'pageHTML') {
                     // console.log('Сервер: Получен HTML страницы от помощника (не сохраняем в этом примере).');
                 }
-            } else { // Это должен быть фронтенд-клиент (админ)
+            } else { // Это должен быть фронтенд-клиент (просмотрщик)
                 if (data.type === 'frontend_connect') {
-                    frontendClients.add(ws);
-                    console.log('Сервер: Подключился фронтенд-клиент (админ).');
+                    // Проверяем, что клиент отправил правильный ответ на опрос
+                    if (data.authPassed) { // Фронтенд отправляет authPassed: true, если опрос пройден
+                        frontendClients.add(ws);
+                        console.log('Сервер: Подключился фронтенд-клиент (опрос пройден).');
+                    } else {
+                        console.warn('Сервер: Фронтенд-клиент попытался подключиться без прохождения опроса. Отклонено.');
+                        ws.close(); // Закрываем соединение, если опрос не пройден
+                    }
                 } else if (data.type === 'submit_answer') {
                     const { questionId, answer } = data;
 
-                    // Отправляем ответ только тому помощнику, который отправлял скриншот
-                    // Находим helperId из questionId (e.g., 'helper-123-timestamp-0')
                     const parts = questionId.split('-');
-                    const targetHelperId = parts[0] + '-' + parts[1]; // 'helper-123'
+                    const targetHelperId = parts[0] + '-' + parts[1];
 
-                    const targetHelperWs = helperClients.get(targetHelperId); // Получаем WS по helperId
+                    const targetHelperWs = helperClients.get(targetHelperId);
                     if (targetHelperWs && targetHelperWs.readyState === WebSocket.OPEN) {
                         targetHelperWs.send(JSON.stringify({
                             type: 'answer',
@@ -257,14 +208,12 @@ wss.on('connection', (ws, req) => {
 
     ws.on('close', () => {
         console.log('Сервер: Клиент отключился.');
-        // Если это был фронтенд-клиент, удаляем его из Set
         frontendClients.delete(ws);
 
-        // Если это был помощник, запускаем логику удаления скриншотов
         if (currentHelperId && helperClients.get(currentHelperId) === ws) {
             console.log(`Сервер: Помощник с ID: ${currentHelperId} отключился. Запускаю очистку скриншотов.`);
-            helperClients.delete(currentHelperId); // Удаляем из карты активных помощников
-            clearHelperScreenshots(currentHelperId); // Вызываем функцию удаления
+            helperClients.delete(currentHelperId);
+            clearHelperScreenshots(currentHelperId);
         }
     });
 
