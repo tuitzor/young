@@ -7,62 +7,15 @@
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 20px;
+            margin: 20px;
             background-color: #f0f2f5;
             color: #333;
             line-height: 1.6;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            min-height: 100vh;
-            box-sizing: border-box;
         }
-
-        button {
-            background-color: #007bff;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 1em;
-            transition: background-color 0.2s ease;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-        input[type="text"], textarea {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 1em;
-            box-sizing: border-box;
-        }
-
-        #main-app-container {
-            width: 100%;
-            max-width: 1200px;
-        }
-        .header-container {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-        }
-        .header-container h1 {
-            margin: 0;
-            flex-grow: 1;
+        h1 {
+            color: #2c3e50;
             text-align: center;
-        }
-        .logout-button {
-            background-color: #6c757d; /* Серый цвет, т.к. это не выход, а сброс */
-            padding: 8px 15px;
-            font-size: 0.9em;
-        }
-        .logout-button:hover {
-            background-color: #5a6268;
+            margin-bottom: 30px;
         }
         #screenshots-container {
             display: grid;
@@ -78,7 +31,7 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
             display: flex;
             flex-direction: column;
-            overflow: hidden;
+            overflow: hidden; /* For rounded corners */
         }
         .screenshot-item h3 {
             font-size: 1.2em;
@@ -105,21 +58,38 @@
             font-size: 0.95em;
             color: #333;
             border-radius: 5px;
-            min-height: 3em;
+            min-height: 3em; /* Ensure some height even if no answer */
             display: flex;
             align-items: center;
         }
-        .screenshot-item textarea {
+        textarea {
+            width: calc(100% - 20px); /* Adjust for padding */
             margin-top: 15px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            resize: vertical;
             min-height: 60px;
+            font-size: 1em;
+            box-sizing: border-box; /* Include padding in width */
         }
-        .screenshot-item button {
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
             margin-top: 15px;
-            width: 100%;
+            font-size: 1em;
+            transition: background-color 0.2s ease;
+        }
+        button:hover {
+            background-color: #0056b3;
         }
         .no-screenshots {
             text-align: center;
-            grid-column: 1 / -1;
+            grid-column: 1 / -1; /* Span across all columns */
             font-size: 1.2em;
             color: #777;
             padding: 50px;
@@ -127,89 +97,49 @@
     </style>
 </head>
 <body>
-    <div id="main-app-container">
-        <div class="header-container">
-            <h1>Полученные Скриншоты</h1>
-            <button class="logout-button" id="resetButton">Сбросить/Обновить</button>
-        </div>
-        <div id="screenshots-container">
-            <p class="no-screenshots" id="no-screenshots-message">Ожидание скриншотов...</p>
-        </div>
+    <h1>Полученные Скриншоты</h1>
+    <div id="screenshots-container">
+        <p class="no-screenshots" id="no-screenshots-message">Ожидание скриншотов...</p>
     </div>
 
     <script>
-        const mainAppContainer = document.getElementById('main-app-container');
-        const resetButton = document.getElementById('resetButton');
         const screenshotsContainer = document.getElementById('screenshots-container');
-        let noScreenshotsMessage = document.getElementById('no-screenshots-message');
+        const noScreenshotsMessage = document.getElementById('no-screenshots-message');
+        const ws = new WebSocket('ws://localhost:10000'); // Подключаемся к WebSocket-серверу на порту 10000
 
-        let ws;
+        ws.onopen = () => {
+            console.log('Подключено к WebSocket-серверу бэкенда.');
+            ws.send(JSON.stringify({ type: 'frontend_connect' })); // Идентифицируем себя как фронтенд-клиент
+        };
 
-        function initWebSocket() {
-            // URL вашего развернутого сервера Render.com
-            // Убедитесь, что это правильный URL!
-            const wsUrl = 'wss://young-z7wb.onrender.com';
-            
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.close();
-            }
-            ws = new WebSocket(wsUrl);
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            console.log('Получено от бэкенда:', data);
 
-            ws.onopen = () => {
-                console.log('Фронтенд: Подключено к WebSocket-серверу.');
-                // Отправляем серверу, что это фронтенд-клиент (без авторизации)
-                ws.send(JSON.stringify({ type: 'frontend_connect' }));
-            };
-
-            ws.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                console.log('Фронтенд: Получено от бэкенда:', data);
-
-                if (data.type === 'screenshot_info') {
-                    if (noScreenshotsMessage) {
-                        noScreenshotsMessage.remove();
-                        noScreenshotsMessage = null;
-                    }
-                    addScreenshotToUI(data.questionId, data.imageUrl);
-                } else if (data.type === 'answer') {
-                    updateAnswerInUI(data.questionId, data.answer);
-                } else if (data.type === 'screenshot_deleted') {
-                    removeScreenshotsByHelperId(data.questionIdPrefix);
+            if (data.type === 'screenshot_info') {
+                if (noScreenshotsMessage) {
+                    noScreenshotsMessage.remove();
                 }
-            };
-
-            ws.onerror = (error) => {
-                console.error('Фронтенд: Ошибка WebSocket:', error);
-            };
-
-            ws.onclose = () => {
-                console.log('Фронтенд: Отключено от WebSocket-сервера. Попытка переподключения через 5 секунд...');
-                // Всегда пытаемся переподключиться, так как авторизация не нужна
-                setTimeout(initWebSocket, 5000);
-            };
-        }
-
-        function removeScreenshotsByHelperId(prefix) {
-            console.log(`Фронтенд: Получен сигнал об удалении скриншотов с префиксом: ${prefix}`);
-            const itemsToRemove = document.querySelectorAll(`.screenshot-item[data-question-id^="${prefix}"]`);
-            itemsToRemove.forEach(item => {
-                item.remove();
-            });
-
-            if (screenshotsContainer.children.length === 0) {
-                if (!noScreenshotsMessage) {
-                    noScreenshotsMessage = document.createElement('p');
-                    noScreenshotsMessage.className = 'no-screenshots';
-                    noScreenshotsMessage.id = 'no-screenshots-message';
-                    noScreenshotsMessage.textContent = 'Ожидание скриншотов...';
-                    screenshotsContainer.appendChild(noScreenshotsMessage);
-                }
+                addScreenshotToUI(data.questionId, data.imageUrl);
+            } else if (data.type === 'answer') {
+                updateAnswerInUI(data.questionId, data.answer);
             }
-        }
+        };
+
+        ws.onerror = (error) => {
+            console.error('Ошибка WebSocket:', error);
+        };
+
+        ws.onclose = () => {
+            console.log('Отключено от WebSocket-сервера бэкенда. Попытка переподключения через 5 секунд...');
+            setTimeout(() => {
+                // В реальном приложении здесь можно реализовать логику переподключения
+            }, 5000);
+        };
 
         function addScreenshotToUI(questionId, imageUrl) {
             if (document.querySelector(`.screenshot-item[data-question-id="${questionId}"]`)) {
-                console.log(`Фронтенд: Скриншот с ID ${questionId} уже есть на странице.`);
+                console.log(`Скриншот с ID ${questionId} уже есть на странице.`);
                 return;
             }
 
@@ -217,29 +147,26 @@
             item.className = 'screenshot-item';
             item.dataset.questionId = questionId;
 
-            // Извлекаем только уникальную часть ID для отображения, без helperId
-            const displayId = questionId.substring(questionId.indexOf('-') + 1);
-
             item.innerHTML = `
-                <h3>ID Скриншота: ${displayId}</h3>
+                <h3>ID Скриншота: ${questionId}</h3>
                 <img src="${imageUrl}" alt="Скриншот ${questionId}">
                 <div class="answer-display" id="answer-display-${questionId}">Нет ответа.</div>
                 <textarea id="textarea-${questionId}" placeholder="Введите ответ..."></textarea>
                 <button onclick="sendAnswer('${questionId}')">Отправить Ответ</button>
             `;
-            screenshotsContainer.prepend(item); // Добавляем новые скриншоты в начало
+            screenshotsContainer.prepend(item);
         }
 
         function updateAnswerInUI(questionId, answer) {
             const answerDiv = document.getElementById(`answer-display-${questionId}`);
             if (answerDiv) {
                 answerDiv.textContent = answer || "Нет ответа.";
-                answerDiv.style.backgroundColor = '#d4edda'; // Зеленый для изменения
+                answerDiv.style.backgroundColor = '#d4edda';
                 answerDiv.style.borderColor = '#28a745';
                 setTimeout(() => {
-                    answerDiv.style.backgroundColor = '#e9f5ff'; // Возвращаем обычный цвет
+                    answerDiv.style.backgroundColor = '#e9f5ff';
                     answerDiv.style.borderColor = '#007bff';
-                }, 2000); // Подсвечиваем на 2 секунды
+                }, 2000);
             }
         }
 
@@ -247,28 +174,17 @@
             const textarea = document.getElementById(`textarea-${questionId}`);
             const answer = textarea.value.trim();
             if (answer) {
-                if (ws && ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({
-                        type: 'submit_answer',
-                        questionId: questionId,
-                        answer: answer
-                    }));
-                    textarea.value = ''; // Очищаем поле после отправки
-                } else {
-                    console.error('Фронтенд: WebSocket не подключен. Не могу отправить ответ.');
-                    alert('Ошибка: Нет подключения к серверу. Попробуйте обновить страницу.');
-                }
+                ws.send(JSON.stringify({
+                    type: 'submit_answer',
+                    questionId: questionId,
+                    answer: answer
+                }));
+                textarea.value = '';
+                alert('Ответ отправлен!');
             } else {
                 alert('Пожалуйста, введите ответ.');
             }
         }
-
-        // При загрузке страницы сразу инициализируем WebSocket и показываем приложение
-        document.addEventListener('DOMContentLoaded', initWebSocket);
-
-        resetButton.addEventListener('click', () => {
-            location.reload();
-        });
     </script>
 </body>
 </html>
