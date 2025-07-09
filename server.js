@@ -24,8 +24,8 @@ if (!fs.existsSync(SCREENSHOTS_DIR)) {
     console.log(`Сервер: Папка для скриншотов уже существует: ${SCREENSHOTS_DIR}`);
 }
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' })); // Увеличиваем лимит размера JSON для больших скриншотов
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -44,9 +44,71 @@ app.get('/api/quiz/question', (req, res) => {
     res.status(200).json({ question: SECRET_QUESTION });
 });
 
-
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// --- API-маршрут для проксирования изображений (если картинки на сайте не загружаются) ---
+app.get('/proxy-image', async (req, res) => {
+    const imageUrl = req.query.url;
+    if (!imageUrl) {
+        return res.status(400).send('URL изображения не предоставлен.');
+    }
+    try {
+        const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+        const contentType = response.headers['content-type'] || 'application/octet-stream';
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Access-Control-Allow-Origin', '*'); // Разрешаем CORS
+        res.send(response.data);
+    } catch (error) {
+        console.error('Ошибка проксирования изображения:', imageUrl, error.message);
+        res.status(500).send('Не удалось загрузить изображение.');
+    }
+});
+
+// --- НОВЫЙ API-маршрут для загрузки скриншотов через HTTP POST ---
+app.post('/api/upload-screenshot', (req, res) => {
+    const { type, screenshot, questionId, helperId } = req.body;
+
+    if (type !== 'screenshot' || !screenshot || !questionId || !helperId) {
+        return res.status(400).json({ success: false, message: 'Неверные данные скриншота.' });
+    }
+
+    const base64Data = screenshot.replace(/^data:image\/png;base64,/, "");
+    // Убедимся, что имя файла уникально и не содержит недопустимых символов
+    const filename = `${helperId}-${questionId.split('-').slice(1).join('-')}.png`;
+    const filepath = path.join(SCREENSHOTS_DIR, filename);
+
+    fs.writeFile(filepath, base64Data, 'base64', (err) => {
+        if (err) {
+            console.error('Сервер (POST): Ошибка при сохранении скриншота:', err);
+            return res.status(500).json({ success: false, message: 'Ошибка сервера при сохранении скриншота.' });
+        } else {
+            const imageUrl = `/screenshots/${filename}`;
+            console.log(`Сервер (POST): Скриншот сохранен: ${filename}. Отправка фронтендам через WebSocket...`);
+            let sentCount = 0;
+
+            // Отправляем информацию о скриншоте фронтендам через WebSocket
+            frontendClients.forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                    client.send(JSON.stringify({
+                        type: 'screenshot_info',
+                        questionId,
+                        imageUrl,
+                        helperId
+                    }));
+                    sentCount++;
+                } else {
+                    console.warn(`Сервер (POST): Фронтенд-клиент не готов к отправке (state: ${client.readyState}).`);
+                }
+            });
+            console.log(`Сервер (POST): Отправлено скриншот-сообщений ${sentCount} фронтенд-клиентам.`);
+            if (sentCount === 0) {
+                console.warn('Сервер (POST): Нет активных фронтенд-клиентов для отправки скриншотов.');
+            }
+            return res.status(200).json({ success: true, message: 'Скриншот успешно загружен.' });
+        }
+    });
 });
 
 
@@ -96,24 +158,6 @@ function clearHelperScreenshots(helperId) {
     });
 }
 
-app.get('/proxy-image', async (req, res) => {
-    const imageUrl = req.query.url;
-    if (!imageUrl) {
-        return res.status(400).send('URL изображения не предоставлен.');
-    }
-    try {
-        const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-        const contentType = response.headers['content-type'] || 'application/octet-stream';
-        res.setHeader('Content-Type', contentType);
-        res.setHeader('Access-Control-Allow-Origin', '*'); // Разрешаем CORS
-        res.send(response.data);
-    } catch (error) {
-        console.error('Ошибка проксирования изображения:', imageUrl, error.message);
-        res.status(500).send('Не удалось загрузить изображение.');
-    }
-});
-
-
 wss.on('connection', (ws, req) => {
     let currentHelperId = null;
     console.log('Новый клиент подключился по WebSocket');
@@ -129,41 +173,10 @@ wss.on('connection', (ws, req) => {
                     console.log(`Сервер: Подключился помощник с ID: ${currentHelperId}`);
                 }
 
-                if (data.type === 'screenshot') {
-                    const { screenshot, questionId, helperId } = data;
-                    const base64Data = screenshot.replace(/^data:image\/png;base64,/, "");
-                    // Убедимся, что имя файла уникально и не содержит недопустимых символов
-                    const filename = `${helperId}-${questionId.split('-').slice(1).join('-')}.png`;
-                    const filepath = path.join(SCREENSHOTS_DIR, filename);
+                // *** ВНИМАНИЕ: БЛОК 'screenshot' УДАЛЕН ИЗ WEBSOCKET-ОБРАБОТЧИКА ***
+                // Теперь скриншоты приходят через HTTP POST /api/upload-screenshot
 
-                    fs.writeFile(filepath, base64Data, 'base64', (err) => {
-                        if (err) {
-                            console.error('Сервер: Ошибка при сохранении скриншота:', err);
-                        } else {
-                            const imageUrl = `/screenshots/${filename}`;
-                            console.log(`Сервер: Скриншот сохранен: ${filename}. Отправка фронтендам...`);
-                            let sentCount = 0;
-
-                            frontendClients.forEach(client => {
-                                if (client.readyState === WebSocket.OPEN) {
-                                    client.send(JSON.stringify({
-                                        type: 'screenshot_info',
-                                        questionId,
-                                        imageUrl,
-                                        helperId
-                                    }));
-                                    sentCount++;
-                                } else {
-                                    console.warn(`Сервер: Фронтенд-клиент не готов к отправке (state: ${client.readyState}).`);
-                                }
-                            });
-                            console.log(`Сервер: Отправлено скриншот-сообщений ${sentCount} фронтенд-клиентам.`);
-                            if (sentCount === 0) {
-                                console.warn('Сервер: Нет активных фронтенд-клиентов для отправки скриншотов.');
-                            }
-                        }
-                    });
-                } else if (data.type === 'pageHTML') {
+                if (data.type === 'pageHTML') {
                     // console.log('Сервер: Получен HTML страницы от помощника (не сохраняем в этом примере).');
                 } else if (data.type === 'ping') { // Обработка пинг-сообщений от помощника
                     // console.log(`Сервер: Получен пинг от helperId: ${data.helperId}`);
@@ -223,8 +236,6 @@ wss.on('connection', (ws, req) => {
         frontendClients.delete(ws);
 
         // Проверяем, был ли это помощник и удаляем его из карты
-        // Важно: currentHelperId устанавливается только если это помощник,
-        // и только для этого конкретного WebSocket-соединения
         if (currentHelperId && helperClients.get(currentHelperId) === ws) {
             console.log(`Сервер: Помощник с ID: ${currentHelperId} отключился. Запускаю очистку скриншотов.`);
             helperClients.delete(currentHelperId);
