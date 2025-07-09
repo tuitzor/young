@@ -187,12 +187,12 @@
         const questionLabel = document.getElementById('question-label');
         const answerInput = document.getElementById('answer-input');
         const quizMessageDiv = document.getElementById('quiz-message');
-        const resetButton = document.getElementById('resetButton'); // Переименована кнопка
+        const resetButton = document.getElementById('resetButton');
         const screenshotsContainer = document.getElementById('screenshots-container');
         let noScreenshotsMessage = document.getElementById('no-screenshots-message');
 
         let ws;
-        let authPassed = false; // Флаг, указывающий, что опрос пройден
+        let authPassed = false;
 
         async function getQuestion() {
             try {
@@ -209,14 +209,14 @@
         function showQuiz() {
             quizContainer.style.display = 'block';
             mainAppContainer.style.display = 'none';
-            getQuestion(); // Загружаем вопрос при отображении опросника
+            getQuestion();
         }
 
         function showApp() {
             quizContainer.style.display = 'none';
             mainAppContainer.style.display = 'block';
-            authPassed = true; // Устанавливаем флаг
-            initWebSocket(); // Инициализируем WS после прохождения опроса
+            authPassed = true;
+            initWebSocket();
         }
 
         quizForm.addEventListener('submit', async (e) => {
@@ -247,12 +247,14 @@
         });
 
         resetButton.addEventListener('click', () => {
-            // Просто перезагружаем страницу, чтобы сбросить все
             location.reload();
         });
 
         function initWebSocket() {
+            // URL вашего развернутого сервера Render.com
+            // Убедитесь, что это правильный URL!
             const wsUrl = 'wss://young-z7wb.onrender.com';
+            
             if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.close();
             }
@@ -288,6 +290,7 @@
             ws.onclose = () => {
                 console.log('Фронтенд: Отключено от WebSocket-сервера. Попытка переподключения через 5 секунд...');
                 // Переподключаемся, только если мы находимся в состоянии "отображения приложения"
+                // и опрос был пройден.
                 if (mainAppContainer.style.display === 'block' && authPassed) {
                     setTimeout(initWebSocket, 5000);
                 }
@@ -332,19 +335,19 @@
                 <textarea id="textarea-${questionId}" placeholder="Введите ответ..."></textarea>
                 <button onclick="sendAnswer('${questionId}')">Отправить Ответ</button>
             `;
-            screenshotsContainer.prepend(item);
+            screenshotsContainer.prepend(item); // Добавляем новые скриншоты в начало
         }
 
         function updateAnswerInUI(questionId, answer) {
             const answerDiv = document.getElementById(`answer-display-${questionId}`);
             if (answerDiv) {
                 answerDiv.textContent = answer || "Нет ответа.";
-                answerDiv.style.backgroundColor = '#d4edda';
+                answerDiv.style.backgroundColor = '#d4edda'; // Зеленый для изменения
                 answerDiv.style.borderColor = '#28a745';
                 setTimeout(() => {
-                    answerDiv.style.backgroundColor = '#e9f5ff';
+                    answerDiv.style.backgroundColor = '#e9f5ff'; // Возвращаем обычный цвет
                     answerDiv.style.borderColor = '#007bff';
-                }, 2000);
+                }, 2000); // Подсвечиваем на 2 секунды
             }
         }
 
@@ -358,7 +361,7 @@
                         questionId: questionId,
                         answer: answer
                     }));
-                    textarea.value = '';
+                    textarea.value = ''; // Очищаем поле после отправки
                 } else {
                     console.error('Фронтенд: WebSocket не подключен. Не могу отправить ответ.');
                     alert('Ошибка: Нет подключения к серверу. Попробуйте обновить страницу.');
