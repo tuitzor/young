@@ -44,7 +44,6 @@
         #main-app-container {
             width: 100%;
             max-width: 1200px;
-            /* display: block; Оставляем его видимым по умолчанию, так как авторизации нет */
         }
         .header-container {
             display: flex;
@@ -174,7 +173,6 @@
                     updateAnswer(data.questionId, data.answer);
                 } else if (data.type === 'screenshot_deleted') {
                     // Сервер сообщил, что все скриншоты для helperId были удалены
-                    // Здесь мы можем просто удалить все скриншоты, начинающиеся с этого префикса
                     const prefix = data.questionIdPrefix;
                     const items = screenshotsContainer.querySelectorAll('.screenshot-item');
                     items.forEach(item => {
@@ -215,7 +213,8 @@
 
                 // Заголовок (можно изменить, если не нужен "Вопрос:")
                 const h3 = document.createElement('h3');
-                h3.textContent = `Скриншот: ${questionId.substring(questionId.lastIndexOf('-') + 1)}`; // Показываем только последнюю часть ID
+                // Извлекаем последнюю часть questionId, например, '1712345678900-0'
+                h3.textContent = `Скриншот: ${questionId.substring(questionId.lastIndexOf('-') + 1)}`;
 
                 const img = document.createElement('img');
                 img.src = imageUrl;
@@ -304,7 +303,7 @@
         }
 
         function checkNoScreenshots() {
-            if (screenshotsContainer.children.length === 0) {
+            if (screenshotsContainer.children.length === 0 || (screenshotsContainer.children.length === 1 && screenshotsContainer.children[0].id === 'no-screenshots-message')) {
                 if (!noScreenshotsMessage) {
                     noScreenshotsMessage = document.createElement('p');
                     noScreenshotsMessage.className = 'no-screenshots';
