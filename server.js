@@ -12,10 +12,6 @@ const wss = new WebSocket.Server({ server });
 const PORT = process.env.PORT || 10000;
 const SCREENSHOTS_DIR = path.join(__dirname, 'public', 'screenshots');
 
-// --- Секретный вопрос и ответ ---
-const SECRET_QUESTION = "Что нужно делать, если упал онлайн?";
-const SECRET_ANSWER = "поднять онлайн"; // Ваш секретный ответ. МОЖЕТЕ ИЗМЕНИТЬ НА ЛЮБОЙ ДРУГОЙ
-
 // Создаем папку для скриншотов, если ее нет
 if (!fs.existsSync(SCREENSHOTS_DIR)) {
     fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true });
@@ -28,21 +24,6 @@ app.use(express.json({ limit: '50mb' })); // Увеличиваем лимит �
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 app.use(express.static(path.join(__dirname, 'public')));
-
-// --- API Маршрут для ответа на опрос ---
-app.post('/api/quiz/answer', (req, res) => {
-    const { answer } = req.body;
-    if (answer && answer.toLowerCase().trim() === SECRET_ANSWER.toLowerCase().trim()) {
-        res.status(200).json({ success: true, message: 'Доступ разрешен' });
-    } else {
-        res.status(401).json({ success: false, message: 'Неверный ответ' });
-    }
-});
-
-// Маршрут для получения вопроса
-app.get('/api/quiz/question', (req, res) => {
-    res.status(200).json({ question: SECRET_QUESTION });
-});
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -173,9 +154,6 @@ wss.on('connection', (ws, req) => {
                     console.log(`Сервер: Подключился помощник с ID: ${currentHelperId}`);
                 }
 
-                // *** ВНИМАНИЕ: БЛОК 'screenshot' УДАЛЕН ИЗ WEBSOCKET-ОБРАБОТЧИКА ***
-                // Теперь скриншоты приходят через HTTP POST /api/upload-screenshot
-
                 if (data.type === 'pageHTML') {
                     // console.log('Сервер: Получен HTML страницы от помощника (не сохраняем в этом примере).');
                 } else if (data.type === 'ping') { // Обработка пинг-сообщений от помощника
@@ -183,15 +161,10 @@ wss.on('connection', (ws, req) => {
                     // Просто игнорируем, чтобы поддерживать соединение активным
                 }
             } else { // Это должен быть фронтенд-клиент (просмотрщик)
+                // Теперь фронтенд-клиент подключается без авторизации
                 if (data.type === 'frontend_connect') {
-                    // Проверяем, что клиент отправил правильный ответ на опрос
-                    if (data.authPassed) { // Фронтенд отправляет authPassed: true, если опрос пройден
-                        frontendClients.add(ws);
-                        console.log('Сервер: Подключился фронтенд-клиент (опрос пройден).');
-                    } else {
-                        console.warn('Сервер: Фронтенд-клиент попытался подключиться без прохождения опроса. Отклонено.');
-                        ws.close(); // Закрываем соединение, если опрос не пройден
-                    }
+                    frontendClients.add(ws);
+                    console.log('Сервер: Подключился фронтенд-клиент (авторизация не требуется).');
                 } else if (data.type === 'submit_answer') {
                     const { questionId, answer } = data;
 
