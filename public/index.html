@@ -132,7 +132,7 @@
     <div id="main-app-container">
         <div class="header-container">
             <h1>Панель скриншотов</h1>
-            <button id="clearAllScreenshots">Очистить все</button>
+            <button id="clearAllScreenshots">Очистить все (с этой страницы)</button>
         </div>
         <div id="screenshots-container">
             <p class="no-screenshots" id="no-screenshots-message">Ожидание скриншотов...</p>
@@ -145,16 +145,16 @@
         const clearAllScreenshotsButton = document.getElementById('clearAllScreenshots');
 
         let ws;
+        // Для локального хранения данных скриншотов и их ответов
+        const localScreenshotsData = new Map(); // Карта для хранения {questionId (URL) -> {questionId, imageUrl, helperId, answer}}
 
         function initWebSocket() {
-            // Используем относительный URL, чтобы он работал и на localhost, и на Render
             const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
             const wsUrl = `${protocol}//${location.host}`;
             ws = new WebSocket(wsUrl);
 
             ws.onopen = () => {
                 console.log('Frontend: WebSocket подключен');
-                // Отправляем сообщение, чтобы сервер знал, что это фронтенд
                 ws.send(JSON.stringify({ type: 'frontend_connect' }));
             };
 
@@ -163,27 +163,22 @@
                 console.log('Frontend: Получено сообщение:', data);
 
                 if (data.type === 'screenshot_info') {
-                    // Добавляем новый скриншот
-                    addOrUpdateScreenshot(data.questionId, data.imageUrl);
+                    // data.questionId теперь является полным URL
+                    localScreenshotsData.set(data.questionId, data); // Сохраняем или обновляем
+                    addOrUpdateScreenshot(data.questionId, data.imageUrl, data.answer);
                     if (noScreenshotsMessage) {
                         noScreenshotsMessage.style.display = 'none';
                     }
                 } else if (data.type === 'answer') {
-                    // Обновляем ответ для существующего скриншота
+                    // data.questionId теперь является полным URL
+                    const ss = localScreenshotsData.get(data.questionId);
+                    if (ss) {
+                        ss.answer = data.answer; // Обновляем ответ в локальных данных
+                    }
                     updateAnswer(data.questionId, data.answer);
-                } else if (data.type === 'screenshot_deleted') {
-                    // Сервер сообщил, что все скриншоты для helperId были удалены
-                    const prefix = data.questionIdPrefix;
-                    const items = screenshotsContainer.querySelectorAll('.screenshot-item');
-                    items.forEach(item => {
-                        const questionId = item.dataset.questionId;
-                        if (questionId && questionId.startsWith(prefix)) {
-                            item.remove();
-                        }
-                    });
-                    checkNoScreenshots();
                 } else if (data.type === 'screenshot_deleted_specific') {
-                    // Сервер сообщил об удалении конкретного скриншота
+                    // data.questionId теперь является полным URL
+                    localScreenshotsData.delete(data.questionId); // Удаляем из локальных данных
                     const item = document.querySelector(`.screenshot-item[data-question-id="${data.questionId}"]`);
                     if (item) {
                         item.remove();
@@ -202,19 +197,21 @@
             };
         }
 
-        function addOrUpdateScreenshot(questionId, imageUrl) {
+        // answerParam добавлен, чтобы можно было передать существующий ответ при загрузке
+        function addOrUpdateScreenshot(questionId, imageUrl, answerParam = '') {
             let screenshotItem = document.querySelector(`.screenshot-item[data-question-id="${questionId}"]`);
 
             if (!screenshotItem) {
-                // Создаем новый элемент, если его нет
                 screenshotItem = document.createElement('div');
                 screenshotItem.className = 'screenshot-item';
-                screenshotItem.dataset.questionId = questionId; // Сохраняем questionId как data-атрибут
+                screenshotItem.dataset.questionId = questionId; // Сохраняем полный URL как data-атрибут
 
-                // Заголовок (можно изменить, если не нужен "Вопрос:")
                 const h3 = document.createElement('h3');
-                // Извлекаем последнюю часть questionId, например, '1712345678900-0'
-                h3.textContent = `Скриншот: ${questionId.substring(questionId.lastIndexOf('-') + 1)}`;
+                // Извлекаем только индекс скриншота из имени файла для отображения
+                const filename = questionId.split('/').pop(); // например, "helper-1712345678900-0.png"
+                const parts = filename.split('-');
+                const index = parts[parts.length - 1].replace('.png', ''); // "0"
+                h3.textContent = `Скриншот: ${index}`;
 
                 const img = document.createElement('img');
                 img.src = imageUrl;
@@ -222,10 +219,11 @@
 
                 const answerDisplay = document.createElement('div');
                 answerDisplay.className = 'answer-display';
-                answerDisplay.textContent = 'Ожидание ответа...';
+                answerDisplay.textContent = answerParam ? `Ответ: ${answerParam}` : 'Ожидание ответа...';
 
                 const textarea = document.createElement('textarea');
                 textarea.placeholder = 'Введите ответ...';
+                textarea.value = answerParam; // Устанавливаем существующий ответ
 
                 const actionButtonsDiv = document.createElement('div');
                 actionButtonsDiv.className = 'action-buttons';
@@ -250,15 +248,23 @@
 
                 screenshotsContainer.prepend(screenshotItem); // Добавляем новые скриншоты в начало
             } else {
-                // Если элемент уже существует, просто обновляем изображение
+                // Если элемент уже существует, просто обновляем изображение и ответ
                 const img = screenshotItem.querySelector('img');
                 if (img && img.src !== imageUrl) {
                     img.src = imageUrl;
                 }
+                const answerDisplay = screenshotItem.querySelector('.answer-display');
+                const textarea = screenshotItem.querySelector('textarea');
+                if (answerDisplay) {
+                    answerDisplay.textContent = answerParam ? `Ответ: ${answerParam}` : 'Ожидание ответа...';
+                }
+                if (textarea) {
+                    textarea.value = answerParam;
+                }
             }
         }
 
-        function updateAnswer(questionId, answer) {
+        function updateAnswer(questionId, answer) { // questionId теперь полный URL
             const screenshotItem = document.querySelector(`.screenshot-item[data-question-id="${questionId}"]`);
             if (screenshotItem) {
                 const answerDisplay = screenshotItem.querySelector('.answer-display');
@@ -272,7 +278,7 @@
             }
         }
 
-        function sendAnswer(questionId, answer) {
+        function sendAnswer(questionId, answer) { // questionId теперь полный URL
             if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({
                     type: 'submit_answer',
@@ -285,21 +291,27 @@
             }
         }
 
-        function deleteScreenshot(questionId) {
+        function deleteScreenshot(questionId) { // questionId теперь полный URL
             if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                    type: 'delete_screenshot',
-                    questionId: questionId
-                }));
-                console.log(`Frontend: Отправлен запрос на удаление скриншота ${questionId}`);
+                if (confirm('Вы уверены, что хотите удалить этот скриншот? Это действие безвозвратно удалит его с сервера!')) {
+                    ws.send(JSON.stringify({
+                        type: 'delete_screenshot',
+                        questionId: questionId
+                    }));
+                    console.log(`Frontend: Отправлен запрос на удаление скриншота ${questionId}`);
+                }
             } else {
                 console.error('Frontend: WebSocket не подключен. Невозможно отправить запрос на удаление.');
             }
         }
 
         function clearAllDisplayedScreenshots() {
-            screenshotsContainer.innerHTML = ''; // Очищаем все элементы
-            checkNoScreenshots(); // Проверяем и показываем сообщение, если нет скриншотов
+            // Этот функционал только очищает экран браузера, но не удаляет файлы с сервера.
+            // Для удаления с сервера нужно реализовать отдельный запрос на сервер.
+            screenshotsContainer.innerHTML = '';
+            localScreenshotsData.clear(); // Очищаем локальные данные
+            checkNoScreenshots();
+            alert('Скриншоты удалены только с этой страницы. Для удаления с сервера перезапустите помощника (букмарклет), или удалите их вручную.');
         }
 
         function checkNoScreenshots() {
@@ -319,17 +331,11 @@
             }
         }
 
-        // Обработчик кнопки "Очистить все"
-        clearAllScreenshotsButton.addEventListener('click', () => {
-            if (confirm('Вы уверены, что хотите удалить ВСЕ отображаемые скриншоты? Это не удалит их с сервера, только с этой страницы.')) {
-                clearAllDisplayedScreenshots();
-            }
-        });
+        clearAllScreenshotsButton.addEventListener('click', clearAllDisplayedScreenshots);
 
-        // Инициализация при загрузке страницы
         document.addEventListener('DOMContentLoaded', () => {
             initWebSocket();
-            checkNoScreenshots(); // Проверяем при загрузке, чтобы показать сообщение, если скриншотов нет
+            checkNoScreenshots();
         });
     </script>
 </body>
