@@ -3,25 +3,23 @@ const http = require('http');
 const WebSocket = require('ws');
 const jwt = require('jsonwebtoken');
 const path = require('path');
-const cors = require('cors'); // Импортируем cors
 
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-const PORT = process.env.PORT || 1000; // Используем порт 1000, как вы указали
-const JWT_SECRET = process.env.JWT_SECRET || 'your_super_secret_jwt_key_for_exam_monitoring'; // !!! ВАЖНО: В продакшене используйте переменную окружения и ОЧЕНЬ надежный ключ
+// Порт, на котором будет работать сервер. Используем переменную окружения для Render.com
+const PORT = process.env.PORT || 3000;
+// Секретный ключ для JWT. ОЧЕНЬ ВАЖНО: используйте сложный ключ и храните его в переменных окружения на продакшене!
+const JWT_SECRET = process.env.JWT_SECRET || 'your_super_secret_jwt_key_please_change_me';
+// Учетные данные администратора. ОЧЕНЬ ВАЖНО: используйте переменные окружения на продакшене!
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'securepassword123'; // !!! ВАЖНО: В продакшене используйте переменную окружения и ОЧЕНЬ надежный пароль
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'secure_password_123';
 
-// Middleware для обработки JSON-запросов (например, для логина)
+// Для обработки JSON-запросов (например, для логина)
 app.use(express.json());
 
-// Разрешаем CORS для всех запросов
-app.use(cors());
-
-// Отдача статических файлов (HTML, JS, CSS)
-// Убедитесь, что index.html, exam.js, style.css находятся в этой же директории
+// Отдача статических файлов (HTML, JS, CSS) из текущей директории
 app.use(express.static(path.join(__dirname)));
 
 // Временное хранилище для подключенных клиентов (helper.js) и их данных
@@ -41,38 +39,38 @@ app.post('/login', (req, res) => {
     }
 });
 
-// Middleware для проверки JWT-токена для WebSocket-соединений панели управления
+// Middleware (функция-помощник) для проверки JWT-токена для WebSocket-соединений панели управления
 function authenticateWebSocket(token) {
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
         return decoded.role === 'admin';
     } catch (error) {
-        console.error("Ошибка верификации JWT:", error.message);
+        // Токен недействителен (просрочен, изменен и т.д.)
         return false;
     }
 }
 
 // WebSocket логика
 wss.on('connection', (ws, req) => {
-    console.log('Новое WebSocket соединение.');
+    console.log('Новое WebSocket соединение установлено.');
 
     ws.on('message', (message) => {
         let parsedMessage;
         try {
             parsedMessage = JSON.parse(message);
         } catch (e) {
-            console.error('Неверный JSON формат:', message);
-            ws.send(JSON.stringify({ type: 'error', message: 'Неверный формат сообщения.' }));
+            console.error('Ошибка парсинга JSON сообщения:', message);
+            ws.send(JSON.stringify({ type: 'error', message: 'Неверный формат сообщения JSON.' }));
             return;
         }
 
-        const { type, token, helperSessionId, screenshot, html } = parsedMessage;
+        const { type, token, helperSessionId, screenshot, html, action, message: clientMessage } = parsedMessage;
 
+        // 1. Авторизация панели управления (exam.js)
         if (type === 'auth_panel' && token) {
-            // Это панель управления (exam.js), пытается авторизоваться
             if (authenticateWebSocket(token)) {
                 ws.isAuthenticated = true; // Отмечаем соединение как авторизованное
-                ws.send(JSON.stringify({ type: 'auth_success', message: 'Авторизация панели управления успешна.' }));
+                ws.send(JSON.stringify({ type: 'auth_success', message: 'Панель управления успешно авторизована.' }));
                 console.log('Панель управления успешно авторизована.');
 
                 // Отправляем текущие данные всех активных помощников новой авторизованной панели
@@ -81,25 +79,29 @@ wss.on('connection', (ws, req) => {
                         type: 'client_update',
                         clientId: id,
                         screenshot: helperData.latestScreenshot,
-                        html: helperData.latestHtml
+                        html: helperData.latestHtml,
+                        // Добавляем флаг, что это начальная загрузка данных клиента
+                        initialLoad: true 
                     }));
                 });
-
             } else {
                 ws.isAuthenticated = false;
-                ws.send(JSON.stringify({ type: 'auth_error', message: 'Недействительный токен.' }));
+                ws.send(JSON.stringify({ type: 'auth_error', message: 'Недействительный токен авторизации.' }));
                 ws.close(); // Закрываем соединение, если токен недействителен
                 console.log('Попытка авторизации панели управления с недействительным токеном.');
             }
-        } else if (type === 'helper_data' && helperSessionId) {
-            // Это клиент (helper.js), отправляющий данные (скриншот/HTML)
+        } 
+        // 2. Получение данных от клиента (helper.js)
+        else if (type === 'helper_data' && helperSessionId) {
             let helperData = activeHelpers.get(helperSessionId);
-            if (!helperData) {
-                // Если это новый helper, добавляем его и уведомляем панели
+            const isNewClient = !helperData;
+
+            if (isNewClient) {
                 helperData = { ws: ws, latestScreenshot: null, latestHtml: null };
                 activeHelpers.set(helperSessionId, helperData);
                 console.log(`Новый клиент подключился: ${helperSessionId}`);
 
+                // Уведомляем все авторизованные панели о новом клиенте
                 wss.clients.forEach(client => {
                     if (client.readyState === WebSocket.OPEN && client.isAuthenticated) {
                         client.send(JSON.stringify({
@@ -109,7 +111,7 @@ wss.on('connection', (ws, req) => {
                     }
                 });
             } else {
-                // Если helper уже существует, обновляем его WebSocket-объект (на случай переподключения)
+                 // Обновляем ссылку на WebSocket, если клиент переподключился
                 helperData.ws = ws; 
             }
             
@@ -127,42 +129,62 @@ wss.on('connection', (ws, req) => {
                     client.send(JSON.stringify({
                         type: 'client_update',
                         clientId: helperSessionId,
-                        screenshot: screenshot, // Отправляем только те данные, которые были отправлены helper'ом
-                        html: html              // Чтобы избежать отправки null
+                        screenshot: screenshot, 
+                        html: html
                     }));
                 }
             });
-            console.log(`Данные получены от клиента ${helperSessionId}`);
+            console.log(`Данные получены от клиента ${helperSessionId}.`);
+        }
+        // 3. Отправка команд клиентам (например, "отключить")
+        else if (type === 'command_to_client' && ws.isAuthenticated) {
+            const targetClientId = parsedMessage.clientId;
+            const command = parsedMessage.command; // Например, 'disconnect'
 
-        } else if (type === 'get_client_data' && parsedMessage.clientId) {
-            // Панель управления запрашивает последние данные конкретного клиента
-            if (ws.isAuthenticated) {
-                const requestedId = parsedMessage.clientId;
-                const helperData = activeHelpers.get(requestedId);
-                if (helperData) {
-                    ws.send(JSON.stringify({
-                        type: 'client_update',
-                        clientId: requestedId,
-                        screenshot: helperData.latestScreenshot,
-                        html: helperData.latestHtml
-                    }));
-                } else {
-                    ws.send(JSON.stringify({ type: 'error', message: `Клиент ${requestedId} не найден.` }));
-                }
+            const targetHelperData = activeHelpers.get(targetClientId);
+            if (targetHelperData && targetHelperData.ws && targetHelperData.ws.readyState === WebSocket.OPEN) {
+                targetHelperData.ws.send(JSON.stringify({
+                    type: 'server_command',
+                    command: command,
+                    message: clientMessage || 'Команда от администратора.'
+                }));
+                console.log(`Команда '${command}' отправлена клиенту ${targetClientId}.`);
             } else {
-                ws.send(JSON.stringify({ type: 'error', message: 'Не авторизован для получения данных.' }));
+                console.warn(`Не удалось отправить команду клиенту ${targetClientId}: клиент не найден или неактивен.`);
+                ws.send(JSON.stringify({ type: 'error', message: `Клиент ${targetClientId} не найден или неактивен.` }));
             }
-        } else {
-            console.warn('Неизвестный тип сообщения или неполные данные:', parsedMessage);
-            ws.send(JSON.stringify({ type: 'error', message: 'Неизвестный тип сообщения или неполные данные.' }));
+        }
+        // 4. Запрос панели управления на последние данные конкретного клиента
+        else if (type === 'get_client_data' && parsedMessage.clientId && ws.isAuthenticated) {
+            const requestedId = parsedMessage.clientId;
+            const helperData = activeHelpers.get(requestedId);
+            if (helperData) {
+                ws.send(JSON.stringify({
+                    type: 'client_update',
+                    clientId: requestedId,
+                    screenshot: helperData.latestScreenshot,
+                    html: helperData.latestHtml
+                }));
+            } else {
+                ws.send(JSON.stringify({ type: 'error', message: `Клиент ${requestedId} не найден.` }));
+            }
+        }
+        else {
+            console.warn('Получено неизвестное или неполное сообщение:', parsedMessage);
+            if (!ws.isAuthenticated) {
+                 ws.send(JSON.stringify({ type: 'error', message: 'Не авторизовано. Пожалуйста, авторизуйтесь.' }));
+            } else {
+                 ws.send(JSON.stringify({ type: 'error', message: 'Неизвестный тип сообщения или неполные данные.' }));
+            }
+           
         }
     });
 
     ws.on('close', () => {
-        // Если это helper.js, удаляем его из списка активных
+        // Ищем и удаляем helper из activeHelpers, если его WebSocket закрылся
         let closedHelperId = null;
         for (const [id, helperData] of activeHelpers.entries()) {
-            if (helperData.ws === ws) { // Ищем helper по его WebSocket-объекту
+            if (helperData.ws === ws) {
                 closedHelperId = id;
                 activeHelpers.delete(id);
                 console.log(`Клиент отключился: ${id}`);
@@ -182,7 +204,7 @@ wss.on('connection', (ws, req) => {
         if (!closedHelperId && ws.isAuthenticated) {
             console.log('Панель управления отключилась.');
         } else if (!closedHelperId) {
-            console.log('Неавторизованное WebSocket соединение закрыто.');
+             console.log('Неавторизованное соединение закрыто.');
         }
     });
 
@@ -193,5 +215,6 @@ wss.on('connection', (ws, req) => {
 
 server.listen(PORT, () => {
     console.log(`Сервер запущен на порту ${PORT}`);
-    console.log(`Доступ к панели управления (локально): http://localhost:${PORT}`);
+    console.log(`Доступ к панели управления: http://localhost:${PORT}`);
+    console.log('Для запуска сервера на Render.com убедитесь, что переменные окружения JWT_SECRET, ADMIN_USERNAME и ADMIN_PASSWORD установлены.');
 });
