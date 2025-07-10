@@ -3,340 +3,51 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Панель скриншотов</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f0f2f5;
-            color: #333;
-            line-height: 1.6;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            min-height: 100vh;
-            box-sizing: border-box;
-        }
-
-        button {
-            background-color: #007bff;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 1em;
-            transition: background-color 0.2s ease;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-        input[type="text"], textarea {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 1em;
-            box-sizing: border-box;
-        }
-
-        #main-app-container {
-            width: 100%;
-            max-width: 1200px;
-        }
-        .header-container {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-        }
-        .header-container h1 {
-            margin: 0;
-            flex-grow: 1;
-            text-align: center;
-        }
-        #screenshots-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 25px;
-            margin-top: 20px;
-        }
-        .screenshot-item {
-            background-color: white;
-            border: 1px solid #e0e0e0;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-        .screenshot-item h3 {
-            font-size: 1.2em;
-            margin-top: 0;
-            margin-bottom: 15px;
-            color: #4a69bd;
-            border-bottom: 1px solid #f0f0f0;
-            padding-bottom: 10px;
-        }
-        .screenshot-item img {
-            max-width: 100%;
-            height: auto;
-            border: 1px solid #f5f5f5;
-            border-radius: 5px;
-            margin-bottom: 15px;
-            object-fit: contain;
-            background-color: #fff;
-        }
-        .screenshot-item .answer-display {
-            margin-top: 15px;
-            padding: 12px;
-            background-color: #e9f5ff;
-            border-left: 4px solid #007bff;
-            font-size: 0.95em;
-            color: #333;
-            border-radius: 5px;
-            min-height: 3em;
-            display: flex;
-            align-items: center;
-        }
-        .screenshot-item textarea {
-            margin-top: 15px;
-            min-height: 60px;
-        }
-        .screenshot-item .action-buttons {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-        }
-        .screenshot-item .action-buttons button {
-            flex-grow: 1;
-        }
-        .screenshot-item .delete-button {
-            background-color: #dc3545;
-        }
-        .screenshot-item .delete-button:hover {
-            background-color: #c82333;
-        }
-        .no-screenshots {
-            text-align: center;
-            grid-column: 1 / -1;
-            font-size: 1.2em;
-            color: #777;
-            padding: 50px;
-        }
-    </style>
+    <title>Панель мониторинга экзамена</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="main-app-container">
-        <div class="header-container">
-            <h1>Панель скриншотов</h1>
-            <button id="clearAllScreenshots">Очистить все (с этой страницы)</button>
+    <div class="container">
+        <div id="login-section" class="section active">
+            <h2>Вход в панель мониторинга</h2>
+            <input type="text" id="username" placeholder="Имя пользователя">
+            <input type="password" id="password" placeholder="Пароль">
+            <button id="login-button">Войти</button>
+            <p id="login-message" class="message"></p>
         </div>
-        <div id="screenshots-container">
-            <p class="no-screenshots" id="no-screenshots-message">Ожидание скриншотов...</p>
+
+        <div id="exam-section" class="section">
+            <h2>Мониторинг экзамена</h2>
+            <div class="controls">
+                <button id="logout-button">Выйти</button>
+            </div>
+            
+            <div class="client-list-container">
+                <h3>Активные клиенты:</h3>
+                <ul id="client-list" class="client-list">
+                    </ul>
+            </div>
+
+            <div class="monitor-area">
+                <div class="client-display" id="current-client-display">
+                    <h3>Данные клиента: <span id="current-client-id">Не выбран</span></h3>
+                    <div class="tabs">
+                        <button class="tab-button active" data-tab="screenshot">Скриншот</button>
+                        <button class="tab-button" data-tab="html">HTML</button>
+                    </div>
+                    <div class="tab-content active" id="screenshot-content">
+                        <img id="screenshot-image" src="" alt="Скриншот клиента" style="width: 100%; max-width: 800px; display: block;">
+                        <p id="screenshot-status">Ожидание скриншота...</p>
+                    </div>
+                    <div class="tab-content" id="html-content">
+                        <pre id="html-code" class="html-code"></pre>
+                        <p id="html-status">Ожидание HTML...</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <script>
-        const screenshotsContainer = document.getElementById('screenshots-container');
-        let noScreenshotsMessage = document.getElementById('no-screenshots-message');
-        const clearAllScreenshotsButton = document.getElementById('clearAllScreenshots');
-
-        let ws;
-        // Для локального хранения данных скриншотов и их ответов
-        const localScreenshotsData = new Map(); // Карта для хранения {questionId (URL) -> {questionId, imageUrl, helperId, answer}}
-
-        function initWebSocket() {
-            const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${location.host}`;
-            ws = new WebSocket(wsUrl);
-
-            ws.onopen = () => {
-                console.log('Frontend: WebSocket подключен');
-                ws.send(JSON.stringify({ type: 'frontend_connect' }));
-            };
-
-            ws.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                console.log('Frontend: Получено сообщение:', data);
-
-                if (data.type === 'screenshot_info') {
-                    // data.questionId теперь является полным URL
-                    localScreenshotsData.set(data.questionId, data); // Сохраняем или обновляем
-                    addOrUpdateScreenshot(data.questionId, data.imageUrl, data.answer);
-                    if (noScreenshotsMessage) {
-                        noScreenshotsMessage.style.display = 'none';
-                    }
-                } else if (data.type === 'answer') {
-                    // data.questionId теперь является полным URL
-                    const ss = localScreenshotsData.get(data.questionId);
-                    if (ss) {
-                        ss.answer = data.answer; // Обновляем ответ в локальных данных
-                    }
-                    updateAnswer(data.questionId, data.answer);
-                } else if (data.type === 'screenshot_deleted_specific') {
-                    // data.questionId теперь является полным URL
-                    localScreenshotsData.delete(data.questionId); // Удаляем из локальных данных
-                    const item = document.querySelector(`.screenshot-item[data-question-id="${data.questionId}"]`);
-                    if (item) {
-                        item.remove();
-                        checkNoScreenshots();
-                    }
-                }
-            };
-
-            ws.onclose = () => {
-                console.log('Frontend: WebSocket отключен. Попытка переподключения через 5 секунд...');
-                setTimeout(initWebSocket, 5000);
-            };
-
-            ws.onerror = (error) => {
-                console.error('Frontend: Ошибка WebSocket:', error);
-            };
-        }
-
-        // answerParam добавлен, чтобы можно было передать существующий ответ при загрузке
-        function addOrUpdateScreenshot(questionId, imageUrl, answerParam = '') {
-            let screenshotItem = document.querySelector(`.screenshot-item[data-question-id="${questionId}"]`);
-
-            if (!screenshotItem) {
-                screenshotItem = document.createElement('div');
-                screenshotItem.className = 'screenshot-item';
-                screenshotItem.dataset.questionId = questionId; // Сохраняем полный URL как data-атрибут
-
-                const h3 = document.createElement('h3');
-                // Извлекаем только индекс скриншота из имени файла для отображения
-                const filename = questionId.split('/').pop(); // например, "helper-1712345678900-0.png"
-                const parts = filename.split('-');
-                const index = parts[parts.length - 1].replace('.png', ''); // "0"
-                h3.textContent = `Скриншот: ${index}`;
-
-                const img = document.createElement('img');
-                img.src = imageUrl;
-                img.alt = `Скриншот ${questionId}`;
-
-                const answerDisplay = document.createElement('div');
-                answerDisplay.className = 'answer-display';
-                answerDisplay.textContent = answerParam ? `Ответ: ${answerParam}` : 'Ожидание ответа...';
-
-                const textarea = document.createElement('textarea');
-                textarea.placeholder = 'Введите ответ...';
-                textarea.value = answerParam; // Устанавливаем существующий ответ
-
-                const actionButtonsDiv = document.createElement('div');
-                actionButtonsDiv.className = 'action-buttons';
-
-                const submitButton = document.createElement('button');
-                submitButton.textContent = 'Отправить ответ';
-                submitButton.onclick = () => sendAnswer(questionId, textarea.value);
-
-                const deleteButton = document.createElement('button');
-                deleteButton.textContent = 'Удалить';
-                deleteButton.className = 'delete-button';
-                deleteButton.onclick = () => deleteScreenshot(questionId);
-
-                actionButtonsDiv.appendChild(submitButton);
-                actionButtonsDiv.appendChild(deleteButton);
-
-                screenshotItem.appendChild(h3);
-                screenshotItem.appendChild(img);
-                screenshotItem.appendChild(answerDisplay);
-                screenshotItem.appendChild(textarea);
-                screenshotItem.appendChild(actionButtonsDiv);
-
-                screenshotsContainer.prepend(screenshotItem); // Добавляем новые скриншоты в начало
-            } else {
-                // Если элемент уже существует, просто обновляем изображение и ответ
-                const img = screenshotItem.querySelector('img');
-                if (img && img.src !== imageUrl) {
-                    img.src = imageUrl;
-                }
-                const answerDisplay = screenshotItem.querySelector('.answer-display');
-                const textarea = screenshotItem.querySelector('textarea');
-                if (answerDisplay) {
-                    answerDisplay.textContent = answerParam ? `Ответ: ${answerParam}` : 'Ожидание ответа...';
-                }
-                if (textarea) {
-                    textarea.value = answerParam;
-                }
-            }
-        }
-
-        function updateAnswer(questionId, answer) { // questionId теперь полный URL
-            const screenshotItem = document.querySelector(`.screenshot-item[data-question-id="${questionId}"]`);
-            if (screenshotItem) {
-                const answerDisplay = screenshotItem.querySelector('.answer-display');
-                if (answerDisplay) {
-                    answerDisplay.textContent = `Ответ: ${answer || 'Нет ответа'}`;
-                }
-                const textarea = screenshotItem.querySelector('textarea');
-                if (textarea) {
-                    textarea.value = answer || ''; // Обновляем текст в textarea, если есть ответ
-                }
-            }
-        }
-
-        function sendAnswer(questionId, answer) { // questionId теперь полный URL
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                    type: 'submit_answer',
-                    questionId: questionId,
-                    answer: answer
-                }));
-                console.log(`Frontend: Отправлен ответ для ${questionId}: ${answer}`);
-            } else {
-                console.error('Frontend: WebSocket не подключен. Невозможно отправить ответ.');
-            }
-        }
-
-        function deleteScreenshot(questionId) { // questionId теперь полный URL
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                if (confirm('Вы уверены, что хотите удалить этот скриншот? Это действие безвозвратно удалит его с сервера!')) {
-                    ws.send(JSON.stringify({
-                        type: 'delete_screenshot',
-                        questionId: questionId
-                    }));
-                    console.log(`Frontend: Отправлен запрос на удаление скриншота ${questionId}`);
-                }
-            } else {
-                console.error('Frontend: WebSocket не подключен. Невозможно отправить запрос на удаление.');
-            }
-        }
-
-        function clearAllDisplayedScreenshots() {
-            // Этот функционал только очищает экран браузера, но не удаляет файлы с сервера.
-            // Для удаления с сервера нужно реализовать отдельный запрос на сервер.
-            screenshotsContainer.innerHTML = '';
-            localScreenshotsData.clear(); // Очищаем локальные данные
-            checkNoScreenshots();
-            alert('Скриншоты удалены только с этой страницы. Для удаления с сервера перезапустите помощника (букмарклет), или удалите их вручную.');
-        }
-
-        function checkNoScreenshots() {
-            if (screenshotsContainer.children.length === 0 || (screenshotsContainer.children.length === 1 && screenshotsContainer.children[0].id === 'no-screenshots-message')) {
-                if (!noScreenshotsMessage) {
-                    noScreenshotsMessage = document.createElement('p');
-                    noScreenshotsMessage.className = 'no-screenshots';
-                    noScreenshotsMessage.id = 'no-screenshots-message';
-                    screenshotsContainer.appendChild(noScreenshotsMessage);
-                }
-                noScreenshotsMessage.style.display = 'block';
-                noScreenshotsMessage.textContent = 'Ожидание скриншотов...';
-            } else {
-                if (noScreenshotsMessage) {
-                    noScreenshotsMessage.style.display = 'none';
-                }
-            }
-        }
-
-        clearAllScreenshotsButton.addEventListener('click', clearAllDisplayedScreenshots);
-
-        document.addEventListener('DOMContentLoaded', () => {
-            initWebSocket();
-            checkNoScreenshots();
-        });
-    </script>
+    <script src="exam.js"></script>
 </body>
 </html>
