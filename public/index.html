@@ -230,7 +230,7 @@
             flex-direction: column; /* Вертикальное расположение */
             gap: 30px; /* Отступ между скриншотами */
             width: 100%;
-            max-width: 95vw; /* **ИЗМЕНЕНО:** Увеличена максимальная ширина до 95% от ширины вьюпорта */
+            max-width: 1000px; /* **ИЗМЕНЕНО:** Установлена фиксированная максимальная ширина (можно поменять на 90vw если нужно больше) */
             margin: 0 auto; /* Центрируем контейнер */
             padding-bottom: 50px; /* Отступ снизу для прокрутки */
             box-sizing: border-box;
@@ -259,11 +259,12 @@
         }
         #modal-screenshots-container .screenshot-item img {
             max-width: 100%; /* Гарантируем, что изображение не выходит за ширину родителя */
-            max-height: 90vh; /* **ИЗМЕНЕНО:** Ограничиваем высоту до 90% от высоты вьюпорта */
+            max-height: calc(100vh - 250px); /* **ИЗМЕНЕНО:** Динамически вычисляем максимальную высоту */
             height: auto; /* Сохраняем пропорции */
+            display: block; /* Центрируем изображение */
+            margin: 0 auto 15px auto; /* Центрируем и добавляем отступ снизу */
             border: 1px solid #f5f5f5;
             border-radius: 5px;
-            margin-bottom: 15px;
             object-fit: contain; /* Масштабирует изображение так, чтобы оно полностью поместилось в контейнер, сохраняя пропорции. */
             background-color: #fff;
         }
@@ -780,7 +781,7 @@
             alert('Отображение всех скриншотов очищено. Это не удаляет файлы с сервера. Для удаления с сервера перезапустите помощника (букмарклет), или удалите их вручную.');
         }
 
-        clearAllScreenshotsButton.addEventListener('click', clearAllDisplayedScreenshots);
+        clearAllScreenshotsButton.addEventListener('click', clearAllScreenshots);
 
         document.addEventListener('DOMContentLoaded', () => {
             showPage('error'); // При загрузке показываем страницу ошибки
