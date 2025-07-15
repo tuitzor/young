@@ -13,9 +13,9 @@ const wss = new WebSocket.Server({ server });
 const PORT = process.env.PORT || 10000;
 const SCREENSHOTS_DIR = path.join(__dirname, 'public', 'screenshots');
 
-// Массив для хранения данных о скриншотах, которые будут отправляться клиентам
-// questionId теперь будет полным URL к скриншоту, чтобы он был уникальным и удобным для фронтенда
-const screenshotsData = [];
+// Изменено: Мап для хранения данных о скриншотах, сгруппированных по helperId.
+// Ключ: helperId, Значение: Массив объектов скриншотов [{ questionId, imageUrl, answer }]
+const screenshotsByHelper = new Map(); // Key: helperId, Value: Array of {questionId, imageUrl, answer}
 
 // --- НАСТРОЙКИ CORS ---
 const corsOptions = {
@@ -75,8 +75,6 @@ app.post('/api/upload-screenshot', (req, res) => {
     }
 
     const base64Data = screenshot.replace(/^data:image\/png;base64,/, "");
-    // Имя файла будет helperId-<timestamp>-<index>.png
-    // TempQuestionId приходит как helper-<timestamp>-<index>
     const filename = `${tempQuestionId}.png`;
     const filepath = path.join(SCREENSHOTS_DIR, filename);
 
@@ -86,20 +84,22 @@ app.post('/api/upload-screenshot', (req, res) => {
             return res.status(500).json({ success: false, message: 'Ошибка сервера при сохранении скриншота.' });
         } else {
             const imageUrl = `/screenshots/${filename}`;
-            // Для questionId используем полный URL, чтобы он был уникальным и соответствовал imageUrl
             const questionId = imageUrl; // Используем imageUrl как уникальный ID для фронтенда
-            console.log(`Сервер (POST): Скриншот сохранен: ${filename}. QuestionId (для фронтенда): ${questionId}`);
 
-            // Добавляем новый скриншот в наш массив данных
-            screenshotsData.push({ questionId, imageUrl, helperId });
+            // Добавляем новый скриншот в Map
+            if (!screenshotsByHelper.has(helperId)) {
+                screenshotsByHelper.set(helperId, []);
+            }
+            screenshotsByHelper.get(helperId).push({ questionId, imageUrl, helperId, answer: '' }); // Добавляем пустой ответ
 
             let sentCount = 0;
-            // Отправляем информацию о скриншоте всем подключенным фронтенд-клиентам
+            // Отправляем информацию о новом скриншоте всем фронтенд-клиентам
+            // Отправляем информацию о новом скриншоте и helperId
             frontendClients.forEach(client => {
                 if (client.readyState === WebSocket.OPEN) {
                     client.send(JSON.stringify({
                         type: 'screenshot_info',
-                        questionId, // Теперь это URL
+                        questionId,
                         imageUrl,
                         helperId
                     }));
@@ -115,14 +115,13 @@ app.post('/api/upload-screenshot', (req, res) => {
     });
 });
 
-
 // --- WebSocket-соединения ---
 const helperClients = new Map();
 const frontendClients = new Set();
 
 /**
  * Загружает информацию о существующих скриншотах из директории SCREENSHOTS_DIR.
- * Заполняет массив screenshotsData.
+ * Заполняет Map screenshotsByHelper.
  */
 function loadExistingScreenshots() {
     if (!fs.existsSync(SCREENSHOTS_DIR)) {
@@ -137,31 +136,36 @@ function loadExistingScreenshots() {
             return;
         }
 
-        // Отсортируем файлы по имени, чтобы новые были в конце (или начале, как удобнее)
-        files.sort((a, b) => {
-            // Предполагаем формат helper-<timestamp>-<index>.png
-            const timeA = parseInt(a.split('-')[1]);
-            const timeB = parseInt(b.split('-')[1]);
-            return timeA - timeB; // Сортировка по возрастанию времени
-        });
+        // Очищаем Map перед загрузкой, чтобы избежать дублирования
+        screenshotsByHelper.clear();
 
-        screenshotsData.length = 0; // Очищаем массив на случай повторного вызова
-        files.forEach(file => {
-            if (file.endsWith('.png')) {
-                const parts = file.split('-');
-                const helperId = `${parts[0]}-${parts[1]}`; // helper-<timestamp>
-                const imageUrl = `/screenshots/${file}`;
-                const questionId = imageUrl; // Используем URL как уникальный ID для фронтенда
+        const screenshotFiles = files.filter(file => file.endsWith('.png'));
 
-                screenshotsData.push({ questionId, imageUrl, helperId });
+        // Сортируем файлы, чтобы сохранить порядок (например, по имени, которое содержит timestamp)
+        screenshotFiles.sort();
+
+        screenshotFiles.forEach(file => {
+            const parts = file.split('-');
+            // helperId теперь будет "helper-<timestamp>" из имени файла
+            const helperIdPart = parts[0]; // "helper"
+            const timestampPart = parts[1]; // "<timestamp>"
+            const helperId = `${helperIdPart}-${timestampPart}`; // "helper-<timestamp>"
+
+            const imageUrl = `/screenshots/${file}`;
+            const questionId = imageUrl; // Используем URL как уникальный ID
+
+            if (!screenshotsByHelper.has(helperId)) {
+                screenshotsByHelper.set(helperId, []);
             }
+            screenshotsByHelper.get(helperId).push({ questionId, imageUrl, helperId, answer: '' });
         });
-        console.log(`Сервер: Загружено ${screenshotsData.length} существующих скриншотов.`);
+        console.log(`Сервер: Загружено ${screenshotFiles.length} существующих скриншотов для ${screenshotsByHelper.size} помощников.`);
     });
 }
 
+
 /**
- * Удаляет все скриншоты, связанные с данным helperId, из папки SCREENSHOTS_DIR и из screenshotsData.
+ * Удаляет все скриншоты, связанные с данным helperId, из папки SCREENSHOTS_DIR и из screenshotsByHelper.
  * @param {string} helperId - Уникальный идентификатор помощника.
  */
 function clearHelperScreenshots(helperId) {
@@ -189,16 +193,28 @@ function clearHelperScreenshots(helperId) {
                     console.log(`Сервер: Файл удален: ${filePath}`);
                     const deletedImageUrl = `/screenshots/${file}`;
 
-                    // Удаляем из screenshotsData
-                    const initialLength = screenshotsData.length;
-                    screenshotsData.splice(0, screenshotsData.length, ...screenshotsData.filter(
-                        s => s.imageUrl !== deletedImageUrl
-                    ));
-                    if (initialLength > screenshotsData.length) {
-                        console.log(`Сервер: Удален 1 элемент из screenshotsData.`);
+                    // Удаляем из screenshotsByHelper
+                    if (screenshotsByHelper.has(helperId)) {
+                        const helperScreenshots = screenshotsByHelper.get(helperId);
+                        const initialLength = helperScreenshots.length;
+                        screenshotsByHelper.set(helperId, helperScreenshots.filter(
+                            s => s.imageUrl !== deletedImageUrl
+                        ));
+                        if (screenshotsByHelper.get(helperId).length === 0) {
+                            screenshotsByHelper.delete(helperId); // Удаляем helperId, если нет скриншотов
+                            // Оповещаем фронтенд о том, что helperId больше не существует
+                            frontendClients.forEach(client => {
+                                if (client.readyState === WebSocket.OPEN) {
+                                    client.send(JSON.stringify({
+                                        type: 'helper_deleted',
+                                        helperId: helperId
+                                    }));
+                                }
+                            });
+                        }
                     }
 
-                    // Оповещаем фронтенд-клиентов об удалении скриншота
+                    // Оповещаем фронтенд-клиентов об удалении конкретного скриншота
                     frontendClients.forEach(client => {
                         if (client.readyState === WebSocket.OPEN) {
                             client.send(JSON.stringify({
@@ -239,54 +255,74 @@ wss.on('connection', (ws, req) => {
                     frontendClients.add(ws);
                     console.log('Сервер: Фронтенд-клиент идентифицирован и добавлен.');
 
-                    // --- ОТПРАВЛЯЕМ ВСЕ СУЩЕСТВУЮЩИЕ СКРИНШОТЫ НОВОМУ ФРОНТЕНД-КЛИЕНТУ ---
-                    screenshotsData.forEach(screenshot => {
-                        ws.send(JSON.stringify({
-                            type: 'screenshot_info',
-                            questionId: screenshot.questionId, // Это уже полный URL
-                            imageUrl: screenshot.imageUrl,
-                            helperId: screenshot.helperId
-                        }));
+                    // --- ОТПРАВЛЯЕМ ВСЕ СУЩЕСТВУЮЩИЕ helperId И ИХ ПОСЛЕДНИЕ СКРИНШОТЫ НОВОМУ ФРОНТЕНД-КЛИЕНТУ ---
+                    const initialData = [];
+                    screenshotsByHelper.forEach((screenshots, helperId) => {
+                        if (screenshots.length > 0) {
+                            // Отправляем только последний скриншот для предпросмотра
+                            const latestScreenshot = screenshots[screenshots.length - 1];
+                            initialData.push({
+                                helperId: helperId,
+                                latestScreenshotUrl: latestScreenshot.imageUrl,
+                                hasAnswer: !!latestScreenshot.answer // Если есть ответ, то помечаем
+                            });
+                        }
                     });
-                    console.log(`Сервер: Отправлено ${screenshotsData.length} существующих скриншотов новому фронтенд-клиенту.`);
+                    ws.send(JSON.stringify({
+                        type: 'initial_data',
+                        data: initialData
+                    }));
+                    console.log(`Сервер: Отправлено ${initialData.length} helperId и их последние скриншоты новому фронтенд-клиенту.`);
                 }
 
                 if (data.type === 'submit_answer') {
                     const { questionId, answer } = data; // questionId теперь это imageUrl
 
-                    // Находим соответствующий скриншот в screenshotsData и обновляем его ответ
-                    const screenshot = screenshotsData.find(s => s.questionId === questionId);
-                    if (screenshot) {
-                        screenshot.answer = answer; // Сохраняем ответ в данных
+                    // Находим соответствующий скриншот в Map и обновляем его ответ
+                    let foundScreenshot = null;
+                    let targetHelperId = null;
+                    for (const [hId, screenshots] of screenshotsByHelper) {
+                        foundScreenshot = screenshots.find(s => s.questionId === questionId);
+                        if (foundScreenshot) {
+                            foundScreenshot.answer = answer; // Сохраняем ответ в данных
+                            targetHelperId = hId;
+                            break;
+                        }
                     }
 
-                    // Извлекаем helperId из questionId (который является URL изображения)
-                    const filename = questionId.split('/').pop(); // "helper-1234567890-0.png"
-                    const parts = filename.split('-');
-                    const targetHelperId = `${parts[0]}-${parts[1]}`; // "helper-1234567890"
-
-                    const targetHelperWs = helperClients.get(targetHelperId);
-                    if (targetHelperWs && targetHelperWs.readyState === WebSocket.OPEN) {
-                        targetHelperWs.send(JSON.stringify({
-                            type: 'answer',
-                            questionId, // Это уже полный URL
-                            answer
-                        }));
-                        console.log(`Сервер: Ответ "${answer}" отправлен обратно помощнику для ${questionId}`);
-                    } else {
-                        console.warn(`Сервер: Активный помощник с ID: ${targetHelperId} не найден или его WS закрыт для questionId: ${questionId}.`);
-                    }
-
-                    // Также обновляем ответ на всех фронтенд-панелях
-                    frontendClients.forEach(client => {
-                        if (client.readyState === WebSocket.OPEN) {
-                            client.send(JSON.stringify({
+                    if (foundScreenshot && targetHelperId) {
+                        const targetHelperWs = helperClients.get(targetHelperId);
+                        if (targetHelperWs && targetHelperWs.readyState === WebSocket.OPEN) {
+                            targetHelperWs.send(JSON.stringify({
                                 type: 'answer',
                                 questionId, // Это уже полный URL
                                 answer
                             }));
+                            console.log(`Сервер: Ответ "${answer}" отправлен обратно помощнику для ${questionId}`);
+                        } else {
+                            console.warn(`Сервер: Активный помощник с ID: ${targetHelperId} не найден или его WS закрыт для questionId: ${questionId}.`);
                         }
-                    });
+
+                        // Также обновляем ответ на всех фронтенд-панелях (для HelperCard и для FullScreen)
+                        frontendClients.forEach(client => {
+                            if (client.readyState === WebSocket.OPEN) {
+                                client.send(JSON.stringify({
+                                    type: 'answer',
+                                    questionId, // Это уже полный URL
+                                    answer
+                                }));
+                                // Если ответ отправлен, также обновим hasAnswer для HelperCard
+                                client.send(JSON.stringify({
+                                    type: 'update_helper_card',
+                                    helperId: targetHelperId,
+                                    hasAnswer: !!answer
+                                }));
+                            }
+                        });
+                    } else {
+                        console.warn(`Сервер: Скриншот с questionId ${questionId} не найден для обновления ответа.`);
+                    }
+
                 } else if (data.type === 'delete_screenshot') {
                     const { questionId } = data; // questionId здесь это полный URL /screenshots/filename.png
                     const filenameWithExt = questionId.split('/').pop();
@@ -299,26 +335,62 @@ wss.on('connection', (ws, req) => {
                         } else {
                             console.log(`Сервер: Файл скриншота удален: ${filepath}`);
 
-                            // Удаляем из screenshotsData
-                            const initialLength = screenshotsData.length;
-                            screenshotsData.splice(0, screenshotsData.length, ...screenshotsData.filter(
-                                s => s.questionId !== questionId // Сравниваем по полному URL
-                            ));
-                            if (initialLength > screenshotsData.length) {
-                                console.log(`Сервер: Удален 1 элемент из screenshotsData.`);
+                            // Удаляем из screenshotsByHelper
+                            let helperIdOfDeletedScreenshot = null;
+                            for (const [hId, screenshots] of screenshotsByHelper) {
+                                const initialLength = screenshots.length;
+                                screenshotsByHelper.set(hId, screenshots.filter(s => s.questionId !== questionId));
+                                if (screenshotsByHelper.get(hId).length < initialLength) { // Если что-то удалили
+                                    helperIdOfDeletedScreenshot = hId;
+                                    if (screenshotsByHelper.get(hId).length === 0) {
+                                        screenshotsByHelper.delete(hId); // Удаляем helperId, если нет скриншотов
+                                        // Оповещаем фронтенд о том, что helperId больше не существует (карточка должна исчезнуть)
+                                        frontendClients.forEach(client => {
+                                            if (client.readyState === WebSocket.OPEN) {
+                                                client.send(JSON.stringify({
+                                                    type: 'helper_deleted',
+                                                    helperId: hId
+                                                }));
+                                            }
+                                        });
+                                    } else {
+                                        // Если helperId остался, но скриншот удален, обновим latestScreenshotUrl на карточке
+                                        const newLatestScreenshot = screenshotsByHelper.get(hId)[screenshotsByHelper.get(hId).length - 1];
+                                        frontendClients.forEach(client => {
+                                            if (client.readyState === WebSocket.OPEN) {
+                                                client.send(JSON.stringify({
+                                                    type: 'update_helper_card',
+                                                    helperId: hId,
+                                                    latestScreenshotUrl: newLatestScreenshot.imageUrl,
+                                                    hasAnswer: !!newLatestScreenshot.answer
+                                                }));
+                                            }
+                                        });
+                                    }
+                                    break; // Нашли и удалили, выходим
+                                }
                             }
 
-                            // Оповещаем все фронтенд-панели об удалении скриншота
+                            // Оповещаем все фронтенд-панели об удалении конкретного скриншота
                             frontendClients.forEach(client => {
                                 if (client.readyState === WebSocket.OPEN) {
                                     client.send(JSON.stringify({
                                         type: 'screenshot_deleted_specific',
-                                        questionId: questionId // Отправляем полный URL, чтобы фронтенд знал, какой элемент удалить
+                                        questionId: questionId // Отправляем полный URL
                                     }));
                                 }
                             });
                         }
                     });
+                } else if (data.type === 'request_helper_screenshots') { // НОВЫЙ ТИП СООБЩЕНИЯ
+                    const { helperId: requestedHelperId } = data;
+                    const screenshotsForHelper = screenshotsByHelper.get(requestedHelperId) || [];
+                    console.log(`Сервер: Отправка ${screenshotsForHelper.length} скриншотов для helperId ${requestedHelperId} фронтенду.`);
+                    ws.send(JSON.stringify({
+                        type: 'screenshots_by_helperId',
+                        helperId: requestedHelperId,
+                        screenshots: screenshotsForHelper
+                    }));
                 }
             }
         } catch (error) {
@@ -333,10 +405,11 @@ wss.on('connection', (ws, req) => {
             frontendClients.delete(ws);
         }
 
+        // Если отключился помощник, очищаем его скриншоты и удаляем его из списка
         if (currentHelperId && helperClients.get(currentHelperId) === ws) {
             console.log(`Сервер: Помощник с ID: ${currentHelperId} отключился. Запускаю очистку скриншотов.`);
             helperClients.delete(currentHelperId);
-            clearHelperScreenshots(currentHelperId);
+            clearHelperScreenshots(currentHelperId); // Эта функция также отправит helper_deleted на фронтенд
         }
     });
 
