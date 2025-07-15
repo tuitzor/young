@@ -87,16 +87,15 @@
         #main-app-content {
             background-color: #f0f2f5;
             color: #333;
-            /* Flex-direction column для основного содержимого */
             display: flex;
             flex-direction: column;
-            gap: 20px; /* Отступы между блоками, например, заголовком и карточками */
+            gap: 20px;
         }
         #main-app-content .header-container {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px; /* Уменьшил отступ */
+            margin-bottom: 20px;
         }
         #main-app-content .header-container h1 {
             margin: 0;
@@ -120,7 +119,7 @@
         /* Стили для контейнера карточек пользователей (пользователей-помощников) */
         #helper-cards-container {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); /* Чуть меньше для карточек без превью */
             gap: 20px;
         }
 
@@ -129,7 +128,7 @@
             background-color: white;
             border: 1px solid #e0e0e0;
             border-radius: 10px;
-            padding: 20px;
+            padding: 15px; /* Немного уменьшил padding */
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
             cursor: pointer;
             transition: transform 0.2s ease, box-shadow 0.2s ease;
@@ -143,20 +142,14 @@
             box-shadow: 0 6px 16px rgba(0,0,0,0.12);
         }
         .helper-card h3 {
-            font-size: 1.4em;
+            font-size: 1.2em; /* Немного уменьшил размер шрифта */
             margin-top: 0;
             margin-bottom: 10px;
             color: #4a69bd;
+            word-break: break-all; /* Для длинных ID */
         }
-        .helper-card img.latest-screenshot-preview {
-            max-width: 100%;
-            height: 150px; /* Фиксированная высота для превью */
-            object-fit: contain; /* Сохраняет пропорции */
-            border: 1px solid #f5f5f5;
-            border-radius: 5px;
-            margin-bottom: 15px;
-            background-color: #eee; /* Фон для пустого изображения */
-        }
+        /* Удалено: .helper-card img.latest-screenshot-preview */
+
         .helper-card .status-indicator {
             font-size: 0.9em;
             color: #666;
@@ -164,6 +157,7 @@
             display: flex;
             align-items: center;
             gap: 5px;
+            margin-top: 5px; /* Отступ от заголовка */
         }
         .helper-card .status-indicator.answered {
             color: #28a745; /* Зеленый для "Отвечено" */
@@ -205,17 +199,17 @@
             background-color: rgba(0, 0, 0, 0.9); /* Темный полупрозрачный фон */
             z-index: 1000;
             justify-content: center;
-            align-items: center;
-            flex-direction: column; /* Для размещения скриншотов и кнопки закрытия */
+            align-items: flex-start; /* Выравнивание сверху */
+            flex-direction: column;
             padding: 20px;
             box-sizing: border-box;
-            overflow-y: auto; /* Для прокрутки, если много скриншотов */
+            overflow-y: auto; /* Для прокрутки */
         }
 
         #modal-close-button {
-            position: fixed; /* Изменено на fixed */
-            top: 20px;
-            right: 20px;
+            position: sticky; /* Sticky, чтобы прокручивался вместе с контентом, но оставался наверху */
+            top: 0px; /* Отступ от верха, чтобы не перекрывать скроллбар */
+            align-self: flex-end; /* Выравнивание кнопки по правому краю */
             background-color: #dc3545;
             color: white;
             font-size: 1.2em;
@@ -223,22 +217,23 @@
             border: none;
             border-radius: 5px;
             cursor: pointer;
-            z-index: 1001; /* Поверх всего */
+            z-index: 1001;
             transition: background-color 0.2s ease;
+            margin-bottom: 20px; /* Отступ от скриншотов */
         }
         #modal-close-button:hover {
             background-color: #c82333;
         }
 
         #modal-screenshots-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 25px;
+            display: flex; /* Изменено на flex */
+            flex-direction: column; /* Вертикальное расположение */
+            gap: 30px; /* Отступ между скриншотами */
             width: 100%;
-            max-width: 100%; /* Убедимся, что занимает всю ширину модалки */
-            padding: 50px 0; /* Отступ сверху и снизу для кнопки и прокрутки */
+            max-width: 900px; /* Увеличена максимальная ширина для скриншотов */
+            margin: 0 auto; /* Центрируем контейнер */
+            padding-bottom: 50px; /* Отступ снизу для прокрутки */
             box-sizing: border-box;
-            justify-content: center; /* Центрируем скриншоты в сетке */
         }
 
         #modal-screenshots-container .screenshot-item {
@@ -250,6 +245,7 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            align-items: center; /* Центрируем содержимое скриншота */
         }
         #modal-screenshots-container .screenshot-item h3 {
             font-size: 1.2em;
@@ -258,6 +254,8 @@
             color: #4a69bd;
             border-bottom: 1px solid #f0f0f0;
             padding-bottom: 10px;
+            width: 100%; /* Заголовок на всю ширину */
+            text-align: left; /* Выравнивание заголовка */
         }
         #modal-screenshots-container .screenshot-item img {
             max-width: 100%;
@@ -279,16 +277,24 @@
             min-height: 3em;
             display: flex;
             align-items: center;
+            width: 100%; /* На всю ширину */
+            box-sizing: border-box;
         }
         #modal-screenshots-container .screenshot-item textarea {
             margin-top: 15px;
             min-height: 60px;
             width: 100%; /* Занимает всю доступную ширину */
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1em;
+            box-sizing: border-box;
         }
         #modal-screenshots-container .screenshot-item .action-buttons {
             display: flex;
             gap: 10px;
             margin-top: 15px;
+            width: 100%; /* Кнопки на всю ширину */
         }
         #modal-screenshots-container .screenshot-item .action-buttons button {
             flex-grow: 1;
@@ -301,7 +307,7 @@
         }
         #modal-screenshots-container .no-screenshots-for-helper {
             text-align: center;
-            grid-column: 1 / -1;
+            width: 100%;
             font-size: 1.2em;
             color: #ccc;
             padding: 50px;
@@ -358,7 +364,8 @@
 
         let ws;
         // Используем Map для хранения данных о помощниках и их скриншотах на фронтенде
-        // Key: helperId, Value: { latestScreenshotUrl, hasAnswer, screenshots: [] }
+        // Key: helperId, Value: { hasAnswer, screenshots: [] }
+        // latestScreenshotUrl больше не нужен для карточки, но оставим его в screenshotsByHelper на сервере
         const frontendHelperData = new Map();
         let currentOpenHelperId = null; // ID помощника, чьи скриншоты сейчас открыты в модалке
 
@@ -411,36 +418,44 @@
                     // При инициализации получаем данные обо всех helperId и их последних скриншотах
                     data.data.forEach(item => {
                         frontendHelperData.set(item.helperId, {
-                            latestScreenshotUrl: item.latestScreenshotUrl,
-                            hasAnswer: item.hasAnswer,
+                            hasAnswer: item.hasAnswer, // Статус ответа
                             screenshots: [] // Скриншоты для модалки будут загружены по запросу
                         });
-                        addOrUpdateHelperCard(item.helperId, item.latestScreenshotUrl, item.hasAnswer);
+                        addOrUpdateHelperCard(item.helperId, item.hasAnswer); // Передаем только helperId и статус
                     });
                     checkNoHelpers();
                 } else if (data.type === 'screenshot_info') {
                     // Новый скриншот или обновление существующего (для HelperCard)
-                    const { questionId, imageUrl, helperId } = data;
+                    const { questionId, imageUrl, helperId } = data; // imageUrl здесь пока не используется для карточки
                     const filename = questionId.split('/').pop();
                     const index = filename.split('-').pop().replace('.png', '');
 
                     let helperInfo = frontendHelperData.get(helperId);
                     if (!helperInfo) {
                         // Если helperId новый, создаем для него запись
-                        helperInfo = { latestScreenshotUrl: imageUrl, hasAnswer: false, screenshots: [] };
+                        helperInfo = { hasAnswer: false, screenshots: [] };
                         frontendHelperData.set(helperId, helperInfo);
                     } else {
-                        // Обновляем последний скриншот и статус ответа, если это новый скриншот
-                        helperInfo.latestScreenshotUrl = imageUrl;
-                        helperInfo.hasAnswer = false; // При новом скрине, ответ сбрасывается
+                        // При новом скрине, ответ сбрасывается для данной группы
+                        helperInfo.hasAnswer = false;
                     }
 
                     // Если модалка этого помощника открыта, добавляем скриншот и туда
                     if (currentOpenHelperId === helperId) {
-                        addOrUpdateScreenshotInModal(questionId, imageUrl, '', helperId, index);
+                        // Добавляем новый скриншот в список для этого helperId, если его там еще нет
+                        const existingScreenshot = helperInfo.screenshots.find(s => s.questionId === questionId);
+                        if (!existingScreenshot) {
+                            helperInfo.screenshots.push({ questionId, imageUrl, answer: '' });
+                            // Перерисовываем скриншоты в модалке, чтобы новый появился сверху (или обновляем)
+                            // Проще всего переоткрыть модалку или явно отсортировать и обновить
+                            openFullScreenModal(helperId); // Переоткрываем модалку для обновления
+                        } else {
+                             // Если скриншот уже есть, просто обновляем его в модалке (на случай если что-то изменится, хотя в этом сценарии это маловероятно)
+                            updateAnswerInModal(questionId, existingScreenshot.answer); // Обновляем текст ответа, если есть
+                        }
                     }
 
-                    addOrUpdateHelperCard(helperId, helperInfo.latestScreenshotUrl, helperInfo.hasAnswer);
+                    addOrUpdateHelperCard(helperId, helperInfo.hasAnswer); // Обновляем карточку
                     checkNoHelpers();
                 } else if (data.type === 'answer') {
                     // Ответ пришел для конкретного скриншота
@@ -451,8 +466,9 @@
                         const screenshot = helperInfo.screenshots.find(s => s.questionId === questionId);
                         if (screenshot) {
                             screenshot.answer = answer;
-                            helperInfo.hasAnswer = !!answer; // Обновляем статус карточки
-                            addOrUpdateHelperCard(helperId, helperInfo.latestScreenshotUrl, helperInfo.hasAnswer); // Обновляем карточку
+                            // Проверяем, есть ли ответы у ВСЕХ скриншотов этого помощника
+                            helperInfo.hasAnswer = helperInfo.screenshots.every(s => s.answer && s.answer.trim() !== '');
+                            addOrUpdateHelperCard(helperId, helperInfo.hasAnswer); // Обновляем карточку
                             break;
                         }
                     }
@@ -464,12 +480,11 @@
 
                 } else if (data.type === 'update_helper_card') {
                     // Обновление состояния карточки (например, изменился статус ответа)
-                    const { helperId, latestScreenshotUrl, hasAnswer } = data;
+                    const { helperId, hasAnswer } = data; // latestScreenshotUrl больше не используется для карточки
                     if (frontendHelperData.has(helperId)) {
                         const helperInfo = frontendHelperData.get(helperId);
-                        helperInfo.latestScreenshotUrl = latestScreenshotUrl || helperInfo.latestScreenshotUrl;
                         helperInfo.hasAnswer = hasAnswer !== undefined ? hasAnswer : helperInfo.hasAnswer;
-                        addOrUpdateHelperCard(helperId, helperInfo.latestScreenshotUrl, helperInfo.hasAnswer);
+                        addOrUpdateHelperCard(helperId, helperInfo.hasAnswer);
                     }
                 } else if (data.type === 'helper_deleted') {
                     // Помощник отключился, удаляем его карточку и данные
@@ -495,11 +510,9 @@
                                 deleteHelperCard(hId);
                                 frontendHelperData.delete(hId);
                             } else {
-                                // Если helperId остался, но скриншот удален, обновим latestScreenshotUrl на карточке
-                                const newLatestScreenshot = helperInfo.screenshots[helperInfo.screenshots.length - 1];
-                                helperInfo.latestScreenshotUrl = newLatestScreenshot.imageUrl;
-                                helperInfo.hasAnswer = !!newLatestScreenshot.answer; // Проверяем ответ нового последнего скрина
-                                addOrUpdateHelperCard(hId, helperInfo.latestScreenshotUrl, helperInfo.hasAnswer);
+                                // Если helperId остался, проверяем, есть ли ответы у ВСЕХ оставшихся скриншотов
+                                helperInfo.hasAnswer = helperInfo.screenshots.every(s => s.answer && s.answer.trim() !== '');
+                                addOrUpdateHelperCard(hId, helperInfo.hasAnswer);
                             }
                             break; // Нашли и удалили, выходим
                         }
@@ -508,17 +521,9 @@
 
                     // Если модалка этого помощника открыта, удаляем скриншот из нее
                     if (currentOpenHelperId === helperIdOfDeletedScreenshot) {
-                        const item = modalScreenshotsContainer.querySelector(`.screenshot-item[data-question-id="${questionId}"]`);
-                        if (item) {
-                            item.remove();
-                            if (modalScreenshotsContainer.children.length === 0) {
-                                // Если все скрины удалены в модалке, показываем сообщение
-                                const noScreenshotsMsg = document.createElement('p');
-                                noScreenshotsMsg.className = 'no-screenshots-for-helper';
-                                noScreenshotsMsg.textContent = 'Для этого пользователя пока нет скриншотов.';
-                                modalScreenshotsContainer.appendChild(noScreenshotsMsg);
-                            }
-                        }
+                        // Вместо удаления одного элемента, проще перерисовать всю модалку
+                        // Это гарантирует корректный порядок и обработку "нет скриншотов"
+                        openFullScreenModal(currentOpenHelperId);
                     }
                 } else if (data.type === 'screenshots_by_helperId') {
                     // Получены все скриншоты для запрошенного helperId
@@ -542,7 +547,7 @@
         }
 
         // --- Функции для управления карточками помощников ---
-        function addOrUpdateHelperCard(helperId, latestScreenshotUrl, hasAnswer) {
+        function addOrUpdateHelperCard(helperId, hasAnswer) {
             let card = document.querySelector(`.helper-card[data-helper-id="${helperId}"]`);
             if (!card) {
                 card = document.createElement('div');
@@ -554,10 +559,8 @@
                 h3.textContent = `Пользователь: ${helperId}`; // Можно обрезать ID для более короткого отображения
                 card.appendChild(h3);
 
-                const img = document.createElement('img');
-                img.className = 'latest-screenshot-preview';
-                img.alt = `Последний скриншот ${helperId}`;
-                card.appendChild(img);
+                // img.latest-screenshot-preview удален
+                // card.appendChild(img);
 
                 const statusDiv = document.createElement('div');
                 statusDiv.className = 'status-indicator';
@@ -569,10 +572,10 @@
                 }
             }
 
-            const img = card.querySelector('.latest-screenshot-preview');
-            if (img) {
-                img.src = latestScreenshotUrl;
-            }
+            // const img = card.querySelector('.latest-screenshot-preview'); // Эта строка больше не нужна
+            // if (img) { // Этот блок больше не нужен
+            //     img.src = latestScreenshotUrl;
+            // }
             const statusDiv = card.querySelector('.status-indicator');
             if (statusDiv) {
                 statusDiv.textContent = hasAnswer ? 'Отвечено' : 'Ожидание ответа';
@@ -589,7 +592,11 @@
         }
 
         function checkNoHelpers() {
-            if (helperCardsContainer.children.length === 0 || (helperCardsContainer.children.length === 1 && helperCardsContainer.children[0].id === 'no-helpers-message')) {
+            // Проверяем, есть ли дочерние элементы, кроме самого noHelpersMessage
+            const actualChildrenCount = helperCardsContainer.children.length;
+            const hasOnlyMessage = actualChildrenCount === 1 && helperCardsContainer.children[0].id === 'no-helpers-message';
+
+            if (actualChildrenCount === 0 || hasOnlyMessage) {
                 if (!noHelpersMessage) {
                     noHelpersMessage = document.createElement('p');
                     noHelpersMessage.className = 'no-helpers-message';
@@ -609,11 +616,18 @@
         function requestAndOpenHelperScreenshots(helperId) {
             currentOpenHelperId = helperId; // Устанавливаем текущего открытого помощника
             if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                    type: 'request_helper_screenshots',
-                    helperId: helperId
-                }));
-                console.log(`Frontend: Запрошены скриншоты для helperId: ${helperId}`);
+                // Если данные уже есть на клиенте, используем их, чтобы избежать задержки
+                const helperInfo = frontendHelperData.get(helperId);
+                if (helperInfo && helperInfo.screenshots.length > 0) {
+                    openFullScreenModal(helperId);
+                } else {
+                    // Иначе запрашиваем у сервера
+                    ws.send(JSON.stringify({
+                        type: 'request_helper_screenshots',
+                        helperId: helperId
+                    }));
+                    console.log(`Frontend: Запрошены скриншоты для helperId: ${helperId}`);
+                }
             } else {
                 console.error('Frontend: WebSocket не подключен. Невозможно запросить скриншоты.');
                 alert('Ошибка: Соединение с сервером не установлено. Попробуйте обновить страницу.');
@@ -632,11 +646,10 @@
                     return timeB - timeA; // Сортировка по убыванию времени (новые сверху)
                 });
 
-
                 helperInfo.screenshots.forEach(ss => {
                     const filename = ss.questionId.split('/').pop();
                     const parts = filename.split('-');
-                    const index = parts[parts.length - 1].replace('.png', ''); // Последняя часть после дефиса, без расширения
+                    const index = parts[parts.length - 1].replace('.png', '');
 
                     addOrUpdateScreenshotInModal(ss.questionId, ss.imageUrl, ss.answer, ss.helperId, index);
                 });
