@@ -251,7 +251,6 @@
             align-items: center;
             box-sizing: border-box;
 
-            /* **КЛЮЧЕВЫЕ ИЗМЕНЕНИЯ ЗДЕСЬ:** */
             width: 100%; /* Занимаем всю доступную ширину родителя */
             max-width: 800px; /* Ограничим ширину самого элемента скриншота для читаемости, можно настроить */
             max-height: calc(100vh - 200px); /* Высота на весь экран минус хедер, футер, отступы */
@@ -364,10 +363,10 @@
             background-color: rgba(0, 0, 0, 0.8);
         }
         #prev-screenshot-btn {
-            left: -50px; /* Отступ от края контейнера */
+            left: -60px; /* Отступ от края контейнера #modal-screenshots-container */
         }
         #next-screenshot-btn {
-            right: -50px; /* Отступ от края контейнера */
+            right: -60px; /* Отступ от края контейнера #modal-screenshots-container */
         }
         .nav-button:disabled {
             background-color: rgba(100, 100, 100, 0.5);
@@ -377,29 +376,38 @@
         @media (max-width: 768px) {
             #modal-screenshots-container {
                 max-width: 95vw;
+                flex-direction: column; /* Stack screenshot and buttons vertically */
             }
             .nav-button {
-                padding: 10px;
-                font-size: 1.5em;
-                left: 5px;
-                right: 5px;
-                top: auto;
-                bottom: 20px; /* Перемещаем кнопки вниз на мобильных */
+                position: static; /* Снимаем абсолютное позиционирование */
                 transform: none;
                 width: 45%; /* Чтобы разделить кнопки */
+                margin-top: 10px; /* Отступ между скриншотом и кнопками */
             }
             #prev-screenshot-btn {
-                left: 5px;
+                margin-right: 10px; /* Отступ между кнопками */
             }
             #next-screenshot-btn {
-                right: 5px;
+                margin-left: 10px;
+            }
+             #modal-screenshots-container .screenshot-item {
+                max-width: 100%; /* Занимаем всю ширину на мобильных */
+                max-height: calc(100vh - 250px); /* Больше места для хедера и кнопок снизу */
             }
             #modal-header {
                 flex-direction: column;
                 gap: 10px;
+                padding: 0;
             }
             #modal-header #modal-close-button {
                 align-self: flex-end;
+            }
+            /* Обертка для кнопок навигации на мобильных */
+            .nav-buttons-wrapper {
+                display: flex;
+                justify-content: center;
+                width: 100%;
+                margin-top: 10px; /* Отступ от скриншота */
             }
         }
 
@@ -533,7 +541,7 @@
                     } else {
                         helperInfo.hasAnswer = false; // Если новый скрин, сбрасываем статус ответа
                     }
-                    
+
                     // Добавляем новый скриншот в список, если его там еще нет
                     const existingScreenshot = helperInfo.screenshots.find(s => s.questionId === questionId);
                     if (!existingScreenshot) {
@@ -733,8 +741,8 @@
             if (!helperInfo || helperInfo.screenshots.length === 0) {
                 modalScreenshotsContainer.innerHTML = '<p class="no-screenshots-for-helper">Для этого пользователя пока нет скриншотов.</p>';
                 screenshotCounter.textContent = '';
-                prevScreenshotBtn.disabled = true;
-                nextScreenshotBtn.disabled = true;
+                prevScreenshotBtn.style.display = 'none';
+                nextScreenshotBtn.style.display = 'none';
             } else {
                 displayScreenshot(currentScreenshotIndex);
             }
@@ -772,8 +780,8 @@
             if (!helperInfo || helperInfo.screenshots.length === 0) {
                 modalScreenshotsContainer.innerHTML = '<p class="no-screenshots-for-helper">Для этого пользователя пока нет скриншотов.</p>';
                 screenshotCounter.textContent = '';
-                prevScreenshotBtn.disabled = true;
-                nextScreenshotBtn.disabled = true;
+                prevScreenshotBtn.style.display = 'none'; // Скрываем кнопки
+                nextScreenshotBtn.style.display = 'none';
                 return;
             }
 
@@ -846,13 +854,14 @@
             // Обновляем счетчик
             screenshotCounter.textContent = `${index + 1} из ${helperInfo.screenshots.length}`;
 
-            // Управление состоянием кнопок навигации (если не зацикливаем)
-            // prevScreenshotBtn.disabled = (index === 0);
-            // nextScreenshotBtn.disabled = (index === helperInfo.screenshots.length - 1);
-            
-            // Если зацикливание, то кнопки всегда активны (если скриншотов > 1)
-            prevScreenshotBtn.disabled = (helperInfo.screenshots.length <= 1);
-            nextScreenshotBtn.disabled = (helperInfo.screenshots.length <= 1);
+            // Управление видимостью кнопок
+            if (helperInfo.screenshots.length > 1) {
+                prevScreenshotBtn.style.display = 'block';
+                nextScreenshotBtn.style.display = 'block';
+            } else {
+                prevScreenshotBtn.style.display = 'none';
+                nextScreenshotBtn.style.display = 'none';
+            }
         }
 
 
