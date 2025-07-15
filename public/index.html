@@ -230,7 +230,7 @@
             flex-direction: column; /* Вертикальное расположение */
             gap: 30px; /* Отступ между скриншотами */
             width: 100%;
-            max-width: 900px; /* Увеличена максимальная ширина для скриншотов */
+            max-width: 95vw; /* **ИЗМЕНЕНО:** Увеличена максимальная ширина до 95% от ширины вьюпорта */
             margin: 0 auto; /* Центрируем контейнер */
             padding-bottom: 50px; /* Отступ снизу для прокрутки */
             box-sizing: border-box;
@@ -259,12 +259,12 @@
         }
         #modal-screenshots-container .screenshot-item img {
             max-width: 100%; /* Гарантируем, что изображение не выходит за ширину родителя */
-            max-height: 80vh; /* Ограничиваем высоту, чтобы оно не выходило за пределы видимой области */
+            max-height: 90vh; /* **ИЗМЕНЕНО:** Ограничиваем высоту до 90% от высоты вьюпорта */
             height: auto; /* Сохраняем пропорции */
             border: 1px solid #f5f5f5;
             border-radius: 5px;
             margin-bottom: 15px;
-            object-fit: contain; /* **КЛЮЧЕВОЕ ИЗМЕНЕНИЕ:** Масштабирует изображение так, чтобы оно полностью поместилось в контейнер, сохраняя пропорции. */
+            object-fit: contain; /* Масштабирует изображение так, чтобы оно полностью поместилось в контейнер, сохраняя пропорции. */
             background-color: #fff;
         }
         #modal-screenshots-container .screenshot-item .answer-display {
