@@ -5,20 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title id="page-title">502 Bad Gateway</title>
     <style>
-        /* Стили для общей разметки */
+        /* Общие стили для body и контейнеров страниц */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
-            padding: 0; /* Убираем padding здесь, чтобы контейнеры могли управлять им */
-            background-color: #000; /* Фон по умолчанию для страницы ошибки */
-            color: #fff; /* Цвет текста по умолчанию для страницы ошибки */
+            padding: 0;
             line-height: 1.6;
             display: flex;
             justify-content: center;
-            align-items: center;
+            align-items: flex-start; /* Изменено на flex-start для соответствия Screenshot Panel */
             min-height: 100vh;
             box-sizing: border-box;
-            transition: background-color 0.3s ease, color 0.3s ease; /* Плавный переход цвета фона и текста */
+            /* Начальные стили body соответствуют странице ошибки */
+            background-color: #000;
+            color: #fff;
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
 
         /* Стили для страницы 502 Bad Gateway */
@@ -28,12 +29,13 @@
             justify-content: center;
             align-items: center;
             height: 100vh;
-            width: 100%; /* Занимает всю ширину */
+            width: 100%;
             text-align: center;
-            padding: 20px; /* Добавляем padding для содержимого */
+            padding: 20px;
             box-sizing: border-box;
-            color: #fff; /* Уточняем цвет текста для страницы ошибки */
-            background-color: #000; /* Уточняем фон для страницы ошибки */
+            /* Стили, чтобы страница ошибки выглядела как на изображении */
+            background-color: #000;
+            color: #fff;
         }
         #error-page .error-code {
             font-size: 8em;
@@ -44,6 +46,17 @@
             font-size: 2em;
             margin-bottom: 30px;
         }
+        /* Стили для незаметной ссылки "Bad" */
+        #error-page .link.invisible-link {
+            color: inherit; /* Цвет текста будет таким же, как у родителя */
+            text-decoration: none; /* Убираем подчеркивание */
+            cursor: pointer; /* Курсор все еще будет указывать на кликабельность */
+        }
+        #error-page .link.invisible-link:hover {
+            text-decoration: none; /* Убираем подчеркивание при наведении */
+            color: inherit; /* Цвет остается таким же */
+        }
+
         #error-page .request-id {
             font-size: 1.2em;
             margin-bottom: 20px;
@@ -53,12 +66,12 @@
             font-size: 1em;
             margin-bottom: 10px;
         }
-        #error-page .link {
+        /* Стандартные ссылки на странице ошибки, чтобы они оставались синими и подчеркнутыми */
+        #error-page .info-text .link {
             color: #007bff;
             text-decoration: none;
-            cursor: pointer;
         }
-        #error-page .link:hover {
+        #error-page .info-text .link:hover {
             text-decoration: underline;
         }
         #error-page .powered-by {
@@ -68,15 +81,15 @@
             color: #777;
         }
 
-        /* Стили для панели скриншотов */
+        /* Стили для панели скриншотов (полностью ваши исходные стили) */
         #screenshot-panel {
             display: none; /* Изначально скрываем панель скриншотов */
             width: 100%;
             max-width: 1200px;
-            padding: 20px; /* Добавляем padding для содержимого */
+            padding: 20px;
             box-sizing: border-box;
-            background-color: #f0f2f5; /* Фон для панели скриншотов */
-            color: #333; /* Цвет текста для панели скриншотов */
+            background-color: #f0f2f5;
+            color: #333;
         }
         #screenshot-panel .header-container {
             display: flex;
@@ -189,7 +202,7 @@
     <div id="error-page">
         <div class="error-code">502</div>
         <div class="error-message">
-            <a href="#" class="link" id="bad-gateway-link">Bad</a> Gateway
+            <a href="#" class="link invisible-link" id="bad-gateway-link">Bad</a> Gateway
         </div>
         <div class="request-id">Request ID: 95fb249e39e5c6d9-PDX</div>
         <div class="info-text">Этот сервис в настоящее время недоступен. Пожалуйста, попробуйте снова через несколько минут.</div>
@@ -227,24 +240,25 @@
                 screenshotPanel.style.display = 'none';
                 document.body.style.backgroundColor = '#000';
                 document.body.style.color = '#fff';
+                document.body.style.alignItems = 'center'; /* Центрируем содержимое на странице ошибки */
                 pageTitle.textContent = '502 Bad Gateway';
             } else if (pageName === 'screenshot_panel') {
                 errorPage.style.display = 'none';
-                screenshotPanel.style.display = 'flex'; /* flex, чтобы контейнер мог быть отцентрирован */
+                screenshotPanel.style.display = 'flex';
                 document.body.style.backgroundColor = '#f0f2f5';
                 document.body.style.color = '#333';
+                document.body.style.alignItems = 'flex-start'; /* Возвращаем flex-start для панели скриншотов */
                 pageTitle.textContent = 'Панель скриншотов';
-                // При переходе на панель скриншотов, инициализируем WebSocket, если он еще не подключен
                 if (!ws || ws.readyState === WebSocket.CLOSED) {
                     initWebSocket();
                 }
-                checkNoScreenshots(); // Проверяем и отображаем сообщение "Ожидание скриншотов..."
+                checkNoScreenshots();
             }
         }
 
         // Обработчик нажатия на ссылку "Bad"
         badGatewayLink.addEventListener('click', (event) => {
-            event.preventDefault(); // Предотвращаем стандартное действие ссылки (перезагрузку страницы)
+            event.preventDefault();
             showPage('screenshot_panel');
         });
 
@@ -410,7 +424,6 @@
         function checkNoScreenshots() {
             if (screenshotsContainer.children.length === 0 || (screenshotsContainer.children.length === 1 && screenshotsContainer.children[0].id === 'no-screenshots-message')) {
                 if (!noScreenshotsMessage) {
-                    // Если сообщение уже есть, используем его, иначе создаем
                     noScreenshotsMessage = document.createElement('p');
                     noScreenshotsMessage.className = 'no-screenshots';
                     noScreenshotsMessage.id = 'no-screenshots-message';
@@ -425,13 +438,10 @@
             }
         }
 
-        // Привязываем обработчик к кнопке очистки
         clearAllScreenshotsButton.addEventListener('click', clearAllDisplayedScreenshots);
 
-        // Инициализация: показываем страницу ошибки при загрузке
         document.addEventListener('DOMContentLoaded', () => {
-            showPage('error');
-            // WebSocket не инициализируется сразу, только при переходе на панель скриншотов
+            showPage('error'); // При загрузке показываем страницу ошибки
         });
     </script>
 </body>
