@@ -9,11 +9,12 @@
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
-            padding: 0;
+            /* Важно: padding для body был 20px в оригинале панели скриншотов */
+            padding: 20px; /* Сохраняем исходный padding для body */
             line-height: 1.6;
             display: flex;
             justify-content: center;
-            align-items: flex-start; /* Изменено на flex-start для соответствия Screenshot Panel */
+            align-items: flex-start; /* ВСЕГДА flex-start, чтобы элементы начинались сверху */
             min-height: 100vh;
             box-sizing: border-box;
             /* Начальные стили body соответствуют странице ошибки */
@@ -26,12 +27,14 @@
         #error-page {
             display: flex; /* Изначально показываем страницу ошибки */
             flex-direction: column;
+            /* justify-content и align-items перемещаем на этот div, чтобы он центрировал свое содержимое */
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            height: calc(100vh - 40px); /* Учитываем 20px padding сверху и снизу body */
             width: 100%;
+            max-width: 1200px; /* Ограничиваем ширину, как у main-app-container */
             text-align: center;
-            padding: 20px;
+            /* Убираем padding здесь, так как он уже есть в body */
             box-sizing: border-box;
             /* Стили, чтобы страница ошибки выглядела как на изображении */
             background-color: #000;
@@ -75,8 +78,10 @@
             text-decoration: underline;
         }
         #error-page .powered-by {
-            position: absolute;
-            bottom: 20px;
+            /* Убираем absolute позиционирование, чтобы оно не мешало потоку */
+            /* Или сохраняем, но убеждаемся, что родитель #error-page имеет position: relative; */
+            /* Давайте уберем, чтобы все было в потоке для простоты */
+            margin-top: 20px; /* Добавим отступ сверху */
             font-size: 0.9em;
             color: #777;
         }
@@ -86,7 +91,7 @@
             display: none; /* Изначально скрываем панель скриншотов */
             width: 100%;
             max-width: 1200px;
-            padding: 20px;
+            /* padding: 20px; - Убрали, так как padding уже есть в body */
             box-sizing: border-box;
             background-color: #f0f2f5;
             color: #333;
@@ -240,14 +245,15 @@
                 screenshotPanel.style.display = 'none';
                 document.body.style.backgroundColor = '#000';
                 document.body.style.color = '#fff';
-                document.body.style.alignItems = 'center'; /* Центрируем содержимое на странице ошибки */
+                // Мы удаляем изменения align-items с body,
+                // так как body всегда flex-start, а центрирование происходит внутри #error-page
                 pageTitle.textContent = '502 Bad Gateway';
             } else if (pageName === 'screenshot_panel') {
                 errorPage.style.display = 'none';
                 screenshotPanel.style.display = 'flex';
                 document.body.style.backgroundColor = '#f0f2f5';
                 document.body.style.color = '#333';
-                document.body.style.alignItems = 'flex-start'; /* Возвращаем flex-start для панели скриншотов */
+                // body.style.alignItems остается flex-start
                 pageTitle.textContent = 'Панель скриншотов';
                 if (!ws || ws.readyState === WebSocket.CLOSED) {
                     initWebSocket();
