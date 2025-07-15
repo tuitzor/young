@@ -23,7 +23,7 @@
 
         /* КОНТЕЙНЕРЫ ДЛЯ СТРАНИЦ */
         #error-page-container,
-        #main-app-container { /* Переименовал screenshot-panel-container в main-app-container для ясности */
+        #main-app-container {
             width: 100%;
             max-width: 1200px;
             box-sizing: border-box;
@@ -50,7 +50,6 @@
             font-size: 2em;
             margin-bottom: 30px;
         }
-        /* Стили для незаметной ссылки "Bad" */
         #error-page-content .link.invisible-link {
             color: inherit;
             text-decoration: none;
@@ -119,7 +118,7 @@
         /* Стили для контейнера карточек пользователей (пользователей-помощников) */
         #helper-cards-container {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); /* Чуть меньше для карточек без превью */
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
             gap: 20px;
         }
 
@@ -128,7 +127,7 @@
             background-color: white;
             border: 1px solid #e0e0e0;
             border-radius: 10px;
-            padding: 15px; /* Немного уменьшил padding */
+            padding: 15px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
             cursor: pointer;
             transition: transform 0.2s ease, box-shadow 0.2s ease;
@@ -142,14 +141,12 @@
             box-shadow: 0 6px 16px rgba(0,0,0,0.12);
         }
         .helper-card h3 {
-            font-size: 1.2em; /* Немного уменьшил размер шрифта */
+            font-size: 1.2em;
             margin-top: 0;
             margin-bottom: 10px;
             color: #4a69bd;
-            word-break: break-all; /* Для длинных ID */
+            word-break: break-all;
         }
-        /* Удалено: .helper-card img.latest-screenshot-preview */
-
         .helper-card .status-indicator {
             font-size: 0.9em;
             color: #666;
@@ -157,13 +154,13 @@
             display: flex;
             align-items: center;
             gap: 5px;
-            margin-top: 5px; /* Отступ от заголовка */
+            margin-top: 5px;
         }
         .helper-card .status-indicator.answered {
-            color: #28a745; /* Зеленый для "Отвечено" */
+            color: #28a745;
         }
         .helper-card .status-indicator.pending {
-            color: #ffc107; /* Желтый для "Ожидание ответа" */
+            color: #ffc107;
         }
         .helper-card .status-indicator::before {
             content: '';
@@ -190,26 +187,26 @@
 
         /* Стили для полноэкранного модального окна */
         #full-screen-modal {
-            display: none; /* Скрыто по умолчанию */
+            display: none;
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.9); /* Темный полупрозрачный фон */
+            background-color: rgba(0, 0, 0, 0.9);
             z-index: 1000;
             justify-content: center;
-            align-items: flex-start; /* Выравнивание сверху */
+            align-items: flex-start;
             flex-direction: column;
             padding: 20px;
             box-sizing: border-box;
-            overflow-y: auto; /* Для прокрутки */
+            overflow-y: auto;
         }
 
         #modal-close-button {
-            position: sticky; /* Sticky, чтобы прокручивался вместе с контентом, но оставался наверху */
-            top: 0px; /* Отступ от верха, чтобы не перекрывать скроллбар */
-            align-self: flex-end; /* Выравнивание кнопки по правому краю */
+            position: sticky;
+            top: 0px;
+            align-self: flex-end;
             background-color: #dc3545;
             color: white;
             font-size: 1.2em;
@@ -219,20 +216,20 @@
             cursor: pointer;
             z-index: 1001;
             transition: background-color 0.2s ease;
-            margin-bottom: 20px; /* Отступ от скриншотов */
+            margin-bottom: 20px;
         }
         #modal-close-button:hover {
             background-color: #c82333;
         }
 
         #modal-screenshots-container {
-            display: flex; /* Изменено на flex */
-            flex-direction: column; /* Вертикальное расположение */
-            gap: 30px; /* Отступ между скриншотами */
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
             width: 100%;
-            max-width: 1000px; /* **ИЗМЕНЕНО:** Установлена фиксированная максимальная ширина (можно поменять на 90vw если нужно больше) */
-            margin: 0 auto; /* Центрируем контейнер */
-            padding-bottom: 50px; /* Отступ снизу для прокрутки */
+            max-width: 90vw; /* **ИЗМЕНЕНО:** Увеличен до 90% ширины вьюпорта */
+            margin: 0 auto;
+            padding-bottom: 50px;
             box-sizing: border-box;
         }
 
@@ -245,7 +242,7 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            align-items: center; /* Центрируем содержимое скриншота */
+            align-items: center;
         }
         #modal-screenshots-container .screenshot-item h3 {
             font-size: 1.2em;
@@ -254,19 +251,23 @@
             color: #4a69bd;
             border-bottom: 1px solid #f0f0f0;
             padding-bottom: 10px;
-            width: 100%; /* Заголовок на всю ширину */
-            text-align: left; /* Выравнивание заголовка */
+            width: 100%;
+            text-align: left;
         }
         #modal-screenshots-container .screenshot-item img {
-            max-width: 100%; /* Гарантируем, что изображение не выходит за ширину родителя */
-            max-height: calc(100vh - 250px); /* **ИЗМЕНЕНО:** Динамически вычисляем максимальную высоту */
-            height: auto; /* Сохраняем пропорции */
-            display: block; /* Центрируем изображение */
-            margin: 0 auto 15px auto; /* Центрируем и добавляем отступ снизу */
+            max-width: 100%;
+            /* max-height: calc(100vh - 250px); */ /* Закомментируем, чтобы изображение могло быть очень высоким */
+            height: auto;
+            display: block;
+            margin: 0 auto 15px auto;
             border: 1px solid #f5f5f5;
             border-radius: 5px;
-            object-fit: contain; /* Масштабирует изображение так, чтобы оно полностью поместилось в контейнер, сохраняя пропорции. */
+            object-fit: contain;
             background-color: #fff;
+            /* **НОВОЕ ДОБАВЛЕНИЕ:** Делаем изображение масштабируемым и перетаскиваемым */
+            cursor: grab; /* Изменяем курсор для интерактивности */
+            transform-origin: 0 0; /* Точка трансформации для зума */
+            transition: transform 0.1s ease-out; /* Плавность зума */
         }
         #modal-screenshots-container .screenshot-item .answer-display {
             margin-top: 15px;
@@ -279,13 +280,13 @@
             min-height: 3em;
             display: flex;
             align-items: center;
-            width: 100%; /* На всю ширину */
+            width: 100%;
             box-sizing: border-box;
         }
         #modal-screenshots-container .screenshot-item textarea {
             margin-top: 15px;
             min-height: 60px;
-            width: 100%; /* Занимает всю доступную ширину */
+            width: 100%;
             padding: 10px;
             border: 1px solid #ddd;
             border-radius: 5px;
@@ -296,7 +297,7 @@
             display: flex;
             gap: 10px;
             margin-top: 15px;
-            width: 100%; /* Кнопки на всю ширину */
+            width: 100%;
         }
         #modal-screenshots-container .screenshot-item .action-buttons button {
             flex-grow: 1;
@@ -365,42 +366,43 @@
         const modalScreenshotsContainer = document.getElementById('modal-screenshots-container');
 
         let ws;
-        // Используем Map для хранения данных о помощниках и их скриншотах на фронтенде
-        // Key: helperId, Value: { hasAnswer, screenshots: [] }
-        // latestScreenshotUrl больше не нужен для карточки, но оставим его в screenshotsByHelper на сервере
         const frontendHelperData = new Map();
-        let currentOpenHelperId = null; // ID помощника, чьи скриншоты сейчас открыты в модалке
+        let currentOpenHelperId = null;
+
+        // Переменные для зума и перетаскивания изображения
+        let currentZoom = 1;
+        let isDragging = false;
+        let startX, startY, currentX, currentY;
+        let translateX = 0, translateY = 0;
 
         // Функция для переключения между страницами
         function showPage(pageName) {
             if (pageName === 'error') {
                 errorPageContainer.style.display = 'flex';
                 mainAppContainer.style.display = 'none';
-                fullScreenModal.style.display = 'none'; // Убедимся, что модалка скрыта
+                fullScreenModal.style.display = 'none';
                 document.body.style.backgroundColor = '#000';
                 document.body.style.color = '#fff';
                 pageTitle.textContent = '502 Bad Gateway';
             } else if (pageName === 'main_app') {
                 errorPageContainer.style.display = 'none';
-                mainAppContainer.style.display = 'block'; // Block или flex, в зависимости от #main-app-content
-                fullScreenModal.style.display = 'none'; // Убедимся, что модалка скрыта
+                mainAppContainer.style.display = 'block';
+                fullScreenModal.style.display = 'none';
                 document.body.style.backgroundColor = '#f0f2f5';
                 document.body.style.color = '#333';
                 pageTitle.textContent = 'Панель скриншотов';
                 if (!ws || ws.readyState === WebSocket.CLOSED) {
                     initWebSocket();
                 }
-                checkNoHelpers(); // Проверяем и отображаем сообщение "Ожидание..."
+                checkNoHelpers();
             }
         }
 
-        // Обработчик нажатия на ссылку "Bad"
         badGatewayLink.addEventListener('click', (event) => {
             event.preventDefault();
             showPage('main_app');
         });
 
-        // --- WebSocket функции ---
         function initWebSocket() {
             const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
             const wsUrl = `${protocol}//${location.host}`;
@@ -408,7 +410,6 @@
 
             ws.onopen = () => {
                 console.log('Frontend: WebSocket подключен');
-                // Отправляем сообщение серверу, чтобы он знал, что это фронтенд
                 ws.send(JSON.stringify({ type: 'frontend_connect', role: 'frontend' }));
             };
 
@@ -417,123 +418,97 @@
                 console.log('Frontend: Получено сообщение:', data);
 
                 if (data.type === 'initial_data') {
-                    // При инициализации получаем данные обо всех helperId и их последних скриншотах
                     data.data.forEach(item => {
                         frontendHelperData.set(item.helperId, {
-                            hasAnswer: item.hasAnswer, // Статус ответа
-                            screenshots: [] // Скриншоты для модалки будут загружены по запросу
+                            hasAnswer: item.hasAnswer,
+                            screenshots: []
                         });
-                        addOrUpdateHelperCard(item.helperId, item.hasAnswer); // Передаем только helperId и статус
+                        addOrUpdateHelperCard(item.helperId, item.hasAnswer);
                     });
                     checkNoHelpers();
                 } else if (data.type === 'screenshot_info') {
-                    // Новый скриншот или обновление существующего (для HelperCard)
-                    const { questionId, imageUrl, helperId } = data; // imageUrl здесь пока не используется для карточки
+                    const { questionId, imageUrl, helperId } = data;
                     const filename = questionId.split('/').pop();
                     const index = filename.split('-').pop().replace('.png', '');
 
                     let helperInfo = frontendHelperData.get(helperId);
                     if (!helperInfo) {
-                        // Если helperId новый, создаем для него запись
                         helperInfo = { hasAnswer: false, screenshots: [] };
                         frontendHelperData.set(helperId, helperInfo);
                     } else {
-                        // При новом скрине, ответ сбрасывается для данной группы
                         helperInfo.hasAnswer = false;
                     }
 
-                    // Если модалка этого помощника открыта, добавляем скриншот и туда
                     if (currentOpenHelperId === helperId) {
-                        // Добавляем новый скриншот в список для этого helperId, если его там еще нет
                         const existingScreenshot = helperInfo.screenshots.find(s => s.questionId === questionId);
                         if (!existingScreenshot) {
                             helperInfo.screenshots.push({ questionId, imageUrl, answer: '' });
-                            // Перерисовываем скриншоты в модалке, чтобы новый появился сверху (или обновляем)
-                            // Проще всего переоткрыть модалку или явно отсортировать и обновить
-                            openFullScreenModal(helperId); // Переоткрываем модалку для обновления
+                            openFullScreenModal(helperId);
                         } else {
-                             // Если скриншот уже есть, просто обновляем его в модалке (на случай если что-то изменится, хотя в этом сценарии это маловероятно)
-                            updateAnswerInModal(questionId, existingScreenshot.answer); // Обновляем текст ответа, если есть
+                            updateAnswerInModal(questionId, existingScreenshot.answer);
                         }
                     }
 
-                    addOrUpdateHelperCard(helperId, helperInfo.hasAnswer); // Обновляем карточку
+                    addOrUpdateHelperCard(helperId, helperInfo.hasAnswer);
                     checkNoHelpers();
                 } else if (data.type === 'answer') {
-                    // Ответ пришел для конкретного скриншота
                     const { questionId, answer } = data;
-
-                    // Обновляем ответ в данных на фронтенде
                     for (const [helperId, helperInfo] of frontendHelperData.entries()) {
                         const screenshot = helperInfo.screenshots.find(s => s.questionId === questionId);
                         if (screenshot) {
                             screenshot.answer = answer;
-                            // Проверяем, есть ли ответы у ВСЕХ скриншотов этого помощника
                             helperInfo.hasAnswer = helperInfo.screenshots.every(s => s.answer && s.answer.trim() !== '');
-                            addOrUpdateHelperCard(helperId, helperInfo.hasAnswer); // Обновляем карточку
+                            addOrUpdateHelperCard(helperId, helperInfo.hasAnswer);
                             break;
                         }
                     }
-
-                    // Если модалка открыта, обновляем ответ в ней
                     if (fullScreenModal.style.display === 'flex') {
                         updateAnswerInModal(questionId, answer);
                     }
-
                 } else if (data.type === 'update_helper_card') {
-                    // Обновление состояния карточки (например, изменился статус ответа)
-                    const { helperId, hasAnswer } = data; // latestScreenshotUrl больше не используется для карточки
+                    const { helperId, hasAnswer } = data;
                     if (frontendHelperData.has(helperId)) {
                         const helperInfo = frontendHelperData.get(helperId);
                         helperInfo.hasAnswer = hasAnswer !== undefined ? hasAnswer : helperInfo.hasAnswer;
                         addOrUpdateHelperCard(helperId, helperInfo.hasAnswer);
                     }
                 } else if (data.type === 'helper_deleted') {
-                    // Помощник отключился, удаляем его карточку и данные
                     const { helperId } = data;
                     deleteHelperCard(helperId);
                     frontendHelperData.delete(helperId);
                     checkNoHelpers();
-                    // Если модалка этого помощника была открыта, закрываем ее
                     if (currentOpenHelperId === helperId) {
                         closeFullScreenModal();
                     }
                 } else if (data.type === 'screenshot_deleted_specific') {
-                    // Удаление конкретного скриншота
                     const { questionId } = data;
                     let helperIdOfDeletedScreenshot = null;
 
                     for (const [hId, helperInfo] of frontendHelperData.entries()) {
                         const initialLength = helperInfo.screenshots.length;
                         helperInfo.screenshots = helperInfo.screenshots.filter(s => s.questionId !== questionId);
-                        if (helperInfo.screenshots.length < initialLength) { // Если что-то удалили
+                        if (helperInfo.screenshots.length < initialLength) {
                             helperIdOfDeletedScreenshot = hId;
                             if (helperInfo.screenshots.length === 0) {
                                 deleteHelperCard(hId);
                                 frontendHelperData.delete(hId);
                             } else {
-                                // Если helperId остался, проверяем, есть ли ответы у ВСЕХ оставшихся скриншотов
                                 helperInfo.hasAnswer = helperInfo.screenshots.every(s => s.answer && s.answer.trim() !== '');
                                 addOrUpdateHelperCard(hId, helperInfo.hasAnswer);
                             }
-                            break; // Нашли и удалили, выходим
+                            break;
                         }
                     }
                     checkNoHelpers();
-
-                    // Если модалка этого помощника открыта, удаляем скриншот из нее
                     if (currentOpenHelperId === helperIdOfDeletedScreenshot) {
-                        // Вместо удаления одного элемента, проще перерисовать всю модалку
-                        // Это гарантирует корректный порядок и обработку "нет скриншотов"
                         openFullScreenModal(currentOpenHelperId);
                     }
                 } else if (data.type === 'screenshots_by_helperId') {
-                    // Получены все скриншоты для запрошенного helperId
                     const { helperId, screenshots } = data;
                     const helperInfo = frontendHelperData.get(helperId);
                     if (helperInfo) {
-                        helperInfo.screenshots = screenshots; // Сохраняем все скриншоты
-                        openFullScreenModal(helperId); // Открываем модалку с этими скриншотами
+                        helperInfo.screenshots = screenshots;
+                        openFullScreenModal(helperId);
                     }
                 }
             };
@@ -548,7 +523,6 @@
             };
         }
 
-        // --- Функции для управления карточками помощников ---
         function addOrUpdateHelperCard(helperId, hasAnswer) {
             let card = document.querySelector(`.helper-card[data-helper-id="${helperId}"]`);
             if (!card) {
@@ -558,26 +532,18 @@
                 card.addEventListener('click', () => requestAndOpenHelperScreenshots(helperId));
 
                 const h3 = document.createElement('h3');
-                h3.textContent = `Пользователь: ${helperId}`; // Можно обрезать ID для более короткого отображения
+                h3.textContent = `Пользователь: ${helperId}`;
                 card.appendChild(h3);
-
-                // img.latest-screenshot-preview удален
-                // card.appendChild(img);
 
                 const statusDiv = document.createElement('div');
                 statusDiv.className = 'status-indicator';
                 card.appendChild(statusDiv);
 
-                helperCardsContainer.prepend(card); // Добавляем новые карточки в начало
+                helperCardsContainer.prepend(card);
                 if (noHelpersMessage) {
                     noHelpersMessage.style.display = 'none';
                 }
             }
-
-            // const img = card.querySelector('.latest-screenshot-preview'); // Эта строка больше не нужна
-            // if (img) { // Этот блок больше не нужен
-            //     img.src = latestScreenshotUrl;
-            // }
             const statusDiv = card.querySelector('.status-indicator');
             if (statusDiv) {
                 statusDiv.textContent = hasAnswer ? 'Отвечено' : 'Ожидание ответа';
@@ -594,7 +560,6 @@
         }
 
         function checkNoHelpers() {
-            // Проверяем, есть ли дочерние элементы, кроме самого noHelpersMessage
             const actualChildrenCount = helperCardsContainer.children.length;
             const hasOnlyMessage = actualChildrenCount === 1 && helperCardsContainer.children[0].id === 'no-helpers-message';
 
@@ -614,16 +579,13 @@
             }
         }
 
-        // --- Функции для полноэкранного модального окна ---
         function requestAndOpenHelperScreenshots(helperId) {
-            currentOpenHelperId = helperId; // Устанавливаем текущего открытого помощника
+            currentOpenHelperId = helperId;
             if (ws && ws.readyState === WebSocket.OPEN) {
-                // Если данные уже есть на клиенте, используем их, чтобы избежать задержки
                 const helperInfo = frontendHelperData.get(helperId);
                 if (helperInfo && helperInfo.screenshots.length > 0) {
                     openFullScreenModal(helperId);
                 } else {
-                    // Иначе запрашиваем у сервера
                     ws.send(JSON.stringify({
                         type: 'request_helper_screenshots',
                         helperId: helperId
@@ -637,15 +599,14 @@
         }
 
         function openFullScreenModal(helperId) {
-            modalScreenshotsContainer.innerHTML = ''; // Очищаем старые скриншоты
+            modalScreenshotsContainer.innerHTML = '';
             const helperInfo = frontendHelperData.get(helperId);
 
             if (helperInfo && helperInfo.screenshots.length > 0) {
-                // Сортируем скриншоты по questionId (который содержит timestamp), чтобы новые были в начале
                 helperInfo.screenshots.sort((a, b) => {
                     const timeA = parseInt(a.questionId.split('-')[1]);
                     const timeB = parseInt(b.questionId.split('-')[1]);
-                    return timeB - timeA; // Сортировка по убыванию времени (новые сверху)
+                    return timeB - timeA;
                 });
 
                 helperInfo.screenshots.forEach(ss => {
@@ -653,7 +614,7 @@
                     const parts = filename.split('-');
                     const index = parts[parts.length - 1].replace('.png', '');
 
-                    addOrUpdateScreenshotInModal(ss.questionId, ss.imageUrl, ss.answer, ss.helperId, index);
+                    addOrUpdateScreenshotInModal(ss.questionId, ss.imageUrl, ss.answer, helperId, index); // Передаем helperId
                 });
             } else {
                 const noScreenshotsMsg = document.createElement('p');
@@ -667,7 +628,7 @@
 
         function closeFullScreenModal() {
             fullScreenModal.style.display = 'none';
-            currentOpenHelperId = null; // Сбрасываем текущего открытого помощника
+            currentOpenHelperId = null;
         }
 
         modalCloseButton.addEventListener('click', closeFullScreenModal);
@@ -687,6 +648,11 @@
                 const img = document.createElement('img');
                 img.src = imageUrl;
                 img.alt = `Скриншот ${questionId}`;
+                img.addEventListener('wheel', (e) => handleZoom(e, img)); // Обработчик колесика мыши
+                img.addEventListener('mousedown', (e) => handleMouseDown(e, img)); // Начало перетаскивания
+                img.addEventListener('mousemove', (e) => handleMouseMove(e, img)); // Перетаскивание
+                img.addEventListener('mouseup', (e) => handleMouseUp(e, img)); // Конец перетаскивания
+                img.addEventListener('mouseleave', (e) => handleMouseUp(e, img)); // Если мышь ушла с изображения
                 screenshotItem.appendChild(img);
 
                 const answerDisplay = document.createElement('div');
@@ -715,8 +681,13 @@
                 actionButtonsDiv.appendChild(deleteButton);
 
                 modalScreenshotsContainer.appendChild(screenshotItem);
+
+                // Инициализируем зум и позицию для каждого нового скриншота
+                img.dataset.zoom = 1;
+                img.dataset.translateX = 0;
+                img.dataset.translateY = 0;
+
             } else {
-                // Если элемент уже существует, просто обновим его
                 const img = screenshotItem.querySelector('img');
                 if (img && img.src !== imageUrl) {
                     img.src = imageUrl;
@@ -731,6 +702,80 @@
                 }
             }
         }
+
+        // --- Функции для зума и перетаскивания изображения ---
+        function applyTransform(img) {
+            const zoom = parseFloat(img.dataset.zoom);
+            const translateX = parseFloat(img.dataset.translateX);
+            const translateY = parseFloat(img.dataset.translateY);
+            img.style.transform = `scale(${zoom}) translate(${translateX}px, ${translateY}px)`;
+        }
+
+        function handleZoom(e, img) {
+            e.preventDefault(); // Предотвращаем прокрутку страницы
+            let zoom = parseFloat(img.dataset.zoom);
+            const zoomFactor = 0.1; // Шаг зума
+
+            // Определяем центр зума относительно изображения
+            const rect = img.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            const oldZoom = zoom;
+
+            if (e.deltaY < 0) { // Колесико вверх - увеличиваем
+                zoom += zoomFactor;
+            } else { // Колесико вниз - уменьшаем
+                zoom -= zoomFactor;
+            }
+
+            zoom = Math.max(0.1, Math.min(5, zoom)); // Ограничиваем зум от 0.1x до 5x
+
+            // Пересчитываем смещение, чтобы зум был относительно точки под курсором
+            let translateX = parseFloat(img.dataset.translateX);
+            let translateY = parseFloat(img.dataset.translateY);
+
+            translateX = translateX - (mouseX / oldZoom - mouseX / zoom);
+            translateY = translateY - (mouseY / oldZoom - mouseY / zoom);
+
+
+            img.dataset.zoom = zoom;
+            img.dataset.translateX = translateX;
+            img.dataset.translateY = translateY;
+
+            applyTransform(img);
+        }
+
+        function handleMouseDown(e, img) {
+            if (e.button === 0) { // Левая кнопка мыши
+                isDragging = true;
+                img.style.cursor = 'grabbing';
+                // Сохраняем начальные координаты клика и текущее смещение
+                startX = e.clientX;
+                startY = e.clientY;
+                translateX = parseFloat(img.dataset.translateX);
+                translateY = parseFloat(img.dataset.translateY);
+            }
+        }
+
+        function handleMouseMove(e, img) {
+            if (!isDragging) return;
+            e.preventDefault();
+
+            const dx = (e.clientX - startX) / parseFloat(img.dataset.zoom); // Делим на зум, чтобы скорость перетаскивания была постоянной
+            const dy = (e.clientY - startY) / parseFloat(img.dataset.zoom);
+
+            img.dataset.translateX = translateX + dx;
+            img.dataset.translateY = translateY + dy;
+
+            applyTransform(img);
+        }
+
+        function handleMouseUp(e, img) {
+            isDragging = false;
+            img.style.cursor = 'grab';
+        }
+
 
         function updateAnswerInModal(questionId, answer) {
             const screenshotItem = modalScreenshotsContainer.querySelector(`.screenshot-item[data-question-id="${questionId}"]`);
@@ -774,17 +819,16 @@
         }
 
         function clearAllDisplayedScreenshots() {
-            // Эта функция теперь просто очищает отображение карточек, не влияет на сервер
             helperCardsContainer.innerHTML = '<p class="no-helpers-message" id="no-helpers-message">Ожидание скриншотов от пользователей...</p>';
-            frontendHelperData.clear(); // Очищаем данные на фронтенде
+            frontendHelperData.clear();
             checkNoHelpers();
             alert('Отображение всех скриншотов очищено. Это не удаляет файлы с сервера. Для удаления с сервера перезапустите помощника (букмарклет), или удалите их вручную.');
         }
 
-        clearAllScreenshotsButton.addEventListener('click', clearAllScreenshots);
+        clearAllScreenshotsButton.addEventListener('click', clearAllDisplayedScreenshots);
 
         document.addEventListener('DOMContentLoaded', () => {
-            showPage('error'); // При загрузке показываем страницу ошибки
+            showPage('error');
         });
     </script>
 </body>
