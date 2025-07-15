@@ -347,70 +347,71 @@
         /* Кнопки навигации */
         .nav-button {
             position: absolute;
-            top: 50%; /* Центрируем по вертикали относительно #modal-screenshots-container */
+            top: 50%;
             transform: translateY(-50%);
-            background-color: rgba(0, 0, 0, 0.5);
+            background-color: rgba(0, 0, 0, 0.7); /* Сделаем чуть темнее */
             color: white;
             border: none;
             padding: 15px;
-            font-size: 2em;
+            font-size: 2.5em; /* Сделаем больше */
             cursor: pointer;
-            z-index: 100;
+            z-index: 101; /* Увеличим z-index, чтобы быть над всем */
             border-radius: 5px;
             transition: background-color 0.2s ease;
+            opacity: 0.9; /* Добавим небольшую прозрачность */
         }
         .nav-button:hover {
-            background-color: rgba(0, 0, 0, 0.8);
+            background-color: rgba(0, 0, 0, 1); /* При наведении полностью непрозрачные */
+            opacity: 1;
         }
         #prev-screenshot-btn {
-            left: -60px; /* Отступ от края контейнера #modal-screenshots-container */
+            left: 20px; /* Отступ от левого края modal-screenshots-container */
         }
         #next-screenshot-btn {
-            right: -60px; /* Отступ от края контейнера #modal-screenshots-container */
+            right: 20px; /* Отступ от правого края modal-screenshots-container */
         }
         .nav-button:disabled {
             background-color: rgba(100, 100, 100, 0.5);
             cursor: not-allowed;
+            opacity: 0.5; /* Слегка затемним, когда отключены */
         }
 
         @media (max-width: 768px) {
+            /* Для мобильных устройств: кнопки размещаются внизу по центру */
             #modal-screenshots-container {
-                max-width: 95vw;
-                flex-direction: column; /* Stack screenshot and buttons vertically */
+                flex-direction: column; /* Элементы в колонку: скриншот, потом кнопки */
+                justify-content: flex-start; /* Начнем с верха */
+                align-items: center; /* Центрируем по горизонтали */
+                padding-bottom: 80px; /* Дополнительный отступ для кнопок внизу */
             }
             .nav-button {
                 position: static; /* Снимаем абсолютное позиционирование */
                 transform: none;
-                width: 45%; /* Чтобы разделить кнопки */
-                margin-top: 10px; /* Отступ между скриншотом и кнопками */
+                width: 45%;
+                margin-top: 15px; /* Отступ от скриншота */
+                display: inline-block; /* Чтобы кнопки были в одну линию */
             }
             #prev-screenshot-btn {
-                margin-right: 10px; /* Отступ между кнопками */
+                margin-right: 10px;
+                left: auto; /* Сброс */
             }
             #next-screenshot-btn {
                 margin-left: 10px;
-            }
-             #modal-screenshots-container .screenshot-item {
-                max-width: 100%; /* Занимаем всю ширину на мобильных */
-                max-height: calc(100vh - 250px); /* Больше места для хедера и кнопок снизу */
-            }
-            #modal-header {
-                flex-direction: column;
-                gap: 10px;
-                padding: 0;
-            }
-            #modal-header #modal-close-button {
-                align-self: flex-end;
+                right: auto; /* Сброс */
             }
             /* Обертка для кнопок навигации на мобильных */
-            .nav-buttons-wrapper {
+            .nav-buttons-wrapper { /* Добавим новый контейнер для кнопок на мобильных */
                 display: flex;
                 justify-content: center;
                 width: 100%;
-                margin-top: 10px; /* Отступ от скриншота */
+                position: absolute; /* Фиксируем внизу модалки */
+                bottom: 20px;
+                left: 0;
+                padding: 0 20px;
+                box-sizing: border-box;
+                z-index: 102; /* Выше чем кнопки на десктопе, чтобы быть наверху на мобильных */
             }
         }
-
     </style>
 </head>
 <body>
@@ -467,6 +468,10 @@
         const screenshotCounter = document.getElementById('screenshot-counter');
         const prevScreenshotBtn = document.getElementById('prev-screenshot-btn');
         const nextScreenshotBtn = document.getElementById('next-screenshot-btn');
+
+        // Проверяем, что элементы кнопок найдены
+        if (!prevScreenshotBtn) console.error('Ошибка: Кнопка prev-screenshot-btn не найдена в DOM!');
+        if (!nextScreenshotBtn) console.error('Ошибка: Кнопка next-screenshot-btn не найдена в DOM!');
 
         let ws;
         const frontendHelperData = new Map();
@@ -737,13 +742,17 @@
         }
 
         function openFullScreenModal(helperId) {
+            console.log('openFullScreenModal вызван для helperId:', helperId);
             const helperInfo = frontendHelperData.get(helperId);
             if (!helperInfo || helperInfo.screenshots.length === 0) {
                 modalScreenshotsContainer.innerHTML = '<p class="no-screenshots-for-helper">Для этого пользователя пока нет скриншотов.</p>';
                 screenshotCounter.textContent = '';
-                prevScreenshotBtn.style.display = 'none';
-                nextScreenshotBtn.style.display = 'none';
+                // Убедимся, что кнопки скрыты
+                if (prevScreenshotBtn) prevScreenshotBtn.style.display = 'none';
+                if (nextScreenshotBtn) nextScreenshotBtn.style.display = 'none';
             } else {
+                // Убедимся, что currentScreenshotIndex сброшен перед открытием
+                currentScreenshotIndex = 0;
                 displayScreenshot(currentScreenshotIndex);
             }
             fullScreenModal.style.display = 'flex';
@@ -753,40 +762,58 @@
             fullScreenModal.style.display = 'none';
             currentOpenHelperId = null;
             modalScreenshotsContainer.innerHTML = ''; // Очищаем содержимое
+            // Скрываем кнопки при закрытии модалки, на всякий случай
+            if (prevScreenshotBtn) prevScreenshotBtn.style.display = 'none';
+            if (nextScreenshotBtn) nextScreenshotBtn.style.display = 'none';
         }
 
         modalCloseButton.addEventListener('click', closeFullScreenModal);
-        prevScreenshotBtn.addEventListener('click', () => navigateScreenshot(-1));
-        nextScreenshotBtn.addEventListener('click', () => navigateScreenshot(1));
+        prevScreenshotBtn.addEventListener('click', () => {
+            console.log('Нажата кнопка "Предыдущий"');
+            navigateScreenshot(-1);
+        });
+        nextScreenshotBtn.addEventListener('click', () => {
+            console.log('Нажата кнопка "Следующий"');
+            navigateScreenshot(1);
+        });
 
         function navigateScreenshot(direction) {
+            console.log('navigateScreenshot вызван, направление:', direction);
             const helperInfo = frontendHelperData.get(currentOpenHelperId);
-            if (!helperInfo || helperInfo.screenshots.length === 0) return;
+            if (!helperInfo || helperInfo.screenshots.length === 0) {
+                console.warn('Нет скриншотов для навигации.');
+                return;
+            }
 
             currentScreenshotIndex += direction;
 
+            // Логика зацикливания
             if (currentScreenshotIndex < 0) {
-                currentScreenshotIndex = helperInfo.screenshots.length - 1; // Зацикливание назад
+                currentScreenshotIndex = helperInfo.screenshots.length - 1;
             } else if (currentScreenshotIndex >= helperInfo.screenshots.length) {
-                currentScreenshotIndex = 0; // Зацикливание вперед
+                currentScreenshotIndex = 0;
             }
+            console.log('Новый currentScreenshotIndex:', currentScreenshotIndex);
             displayScreenshot(currentScreenshotIndex);
         }
 
         function displayScreenshot(index) {
+            console.log('displayScreenshot вызван, индекс:', index, 'для helperId:', currentOpenHelperId);
             modalScreenshotsContainer.innerHTML = ''; // Очищаем предыдущий скриншот
             const helperInfo = frontendHelperData.get(currentOpenHelperId);
 
             if (!helperInfo || helperInfo.screenshots.length === 0) {
+                console.warn('Нет скриншотов для отображения.');
                 modalScreenshotsContainer.innerHTML = '<p class="no-screenshots-for-helper">Для этого пользователя пока нет скриншотов.</p>';
                 screenshotCounter.textContent = '';
-                prevScreenshotBtn.style.display = 'none'; // Скрываем кнопки
-                nextScreenshotBtn.style.display = 'none';
+                if (prevScreenshotBtn) prevScreenshotBtn.style.display = 'none';
+                if (nextScreenshotBtn) nextScreenshotBtn.style.display = 'none';
                 return;
             }
 
             const ss = helperInfo.screenshots[index];
             if (!ss) { // На случай, если индекс вышел за пределы
+                console.error('Скриншот с индексом', index, 'не найден. Закрытие модалки.');
                 closeFullScreenModal();
                 return;
             }
@@ -849,18 +876,22 @@
             deleteButton.onclick = () => deleteScreenshot(ss.questionId);
             actionButtonsDiv.appendChild(deleteButton);
 
+            // Вставляем screenshotItem в контейнер
             modalScreenshotsContainer.appendChild(screenshotItem);
 
             // Обновляем счетчик
             screenshotCounter.textContent = `${index + 1} из ${helperInfo.screenshots.length}`;
+            console.log('Обновлен счетчик:', screenshotCounter.textContent);
 
             // Управление видимостью кнопок
             if (helperInfo.screenshots.length > 1) {
-                prevScreenshotBtn.style.display = 'block';
-                nextScreenshotBtn.style.display = 'block';
+                if (prevScreenshotBtn) prevScreenshotBtn.style.display = 'block';
+                if (nextScreenshotBtn) nextScreenshotBtn.style.display = 'block';
+                console.log('Кнопки навигации отображены.');
             } else {
-                prevScreenshotBtn.style.display = 'none';
-                nextScreenshotBtn.style.display = 'none';
+                if (prevScreenshotBtn) prevScreenshotBtn.style.display = 'none';
+                if (nextScreenshotBtn) nextScreenshotBtn.style.display = 'none';
+                console.log('Кнопки навигации скрыты (скриншот один или нет).');
             }
         }
 
