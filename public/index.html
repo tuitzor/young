@@ -5,43 +5,41 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title id="page-title">502 Bad Gateway</title>
     <style>
-        /* Общие стили для BODY - они всегда будут одинаковыми, как в исходной панели скриншотов */
+        /* Общие стили для BODY */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
-            padding: 20px; /* Исходный padding 20px со всех сторон */
+            padding: 20px;
             line-height: 1.6;
             display: flex;
-            justify-content: center; /* Центрирует основные контейнеры по горизонтали */
-            align-items: flex-start; /* Размещает основные контейнеры сверху по вертикали */
-            min-height: 100vh; /* Минимальная высота на весь экран */
-            box-sizing: border-box; /* Учитывает padding в общей ширине/высоте */
-            /* Начальные цвета body - для страницы ошибки */
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            box-sizing: border-box;
             background-color: #000;
             color: #fff;
-            transition: background-color 0.3s ease, color 0.3s ease; /* Плавный переход */
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
 
-        /* КОНТЕЙНЕРЫ ДЛЯ СТРАНИЦ - каждый будет иметь свой display */
+        /* КОНТЕЙНЕРЫ ДЛЯ СТРАНИЦ */
         #error-page-container,
-        #screenshot-panel-container {
+        #main-app-container { /* Переименовал screenshot-panel-container в main-app-container для ясности */
             width: 100%;
-            max-width: 1200px; /* Оба контейнера ограничены 1200px ширины */
+            max-width: 1200px;
             box-sizing: border-box;
-            /* Flex-grow позволит им занимать доступное пространство, если нужно */
             flex-grow: 1;
         }
 
         /* Стили для содержимого страницы 502 Bad Gateway */
         #error-page-content {
-            display: flex; /* Делаем содержимое страницы ошибки flex-контейнером */
+            display: flex;
             flex-direction: column;
-            justify-content: center; /* Центрируем содержимое по вертикали внутри себя */
-            align-items: center; /* Центрируем содержимое по горизонтали внутри себя */
-            min-height: calc(100vh - 40px); /* Высота на весь экран минус padding body */
+            justify-content: center;
+            align-items: center;
+            min-height: calc(100vh - 40px);
             text-align: center;
-            background-color: #000; /* Фон для содержимого ошибки */
-            color: #fff; /* Цвет текста для содержимого ошибки */
+            background-color: #000;
+            color: #fff;
         }
         #error-page-content .error-code {
             font-size: 8em;
@@ -54,13 +52,13 @@
         }
         /* Стили для незаметной ссылки "Bad" */
         #error-page-content .link.invisible-link {
-            color: inherit; /* Цвет текста будет таким же, как у родителя */
-            text-decoration: none; /* Убираем подчеркивание */
-            cursor: pointer; /* Курсор все еще будет указывать на кликабельность */
+            color: inherit;
+            text-decoration: none;
+            cursor: pointer;
         }
         #error-page-content .link.invisible-link:hover {
-            text-decoration: none; /* Убираем подчеркивание при наведении */
-            color: inherit; /* Цвет остается таким же */
+            text-decoration: none;
+            color: inherit;
         }
 
         #error-page-content .request-id {
@@ -72,7 +70,6 @@
             font-size: 1em;
             margin-bottom: 10px;
         }
-        /* Стандартные ссылки на странице ошибки, чтобы они оставались синими и подчеркнутыми */
         #error-page-content .info-text .link {
             color: #007bff;
             text-decoration: none;
@@ -86,24 +83,27 @@
             color: #777;
         }
 
-        /* Стили для панели скриншотов (полностью ваши исходные стили) */
-        #screenshot-panel-content {
-            /* Этот контейнер будет виден как block или flex, в зависимости от логики */
-            background-color: #f0f2f5; /* Фон для панели скриншотов */
-            color: #333; /* Цвет текста для панели скриншотов */
+        /* Стили для основного приложения (панели скриншотов) */
+        #main-app-content {
+            background-color: #f0f2f5;
+            color: #333;
+            /* Flex-direction column для основного содержимого */
+            display: flex;
+            flex-direction: column;
+            gap: 20px; /* Отступы между блоками, например, заголовком и карточками */
         }
-        #screenshot-panel-content .header-container {
+        #main-app-content .header-container {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 30px;
+            margin-bottom: 20px; /* Уменьшил отступ */
         }
-        #screenshot-panel-content .header-container h1 {
+        #main-app-content .header-container h1 {
             margin: 0;
             flex-grow: 1;
             text-align: center;
         }
-        #screenshot-panel-content button {
+        #main-app-content button {
             background-color: #007bff;
             color: white;
             padding: 10px 20px;
@@ -113,26 +113,135 @@
             font-size: 1em;
             transition: background-color 0.2s ease;
         }
-        #screenshot-panel-content button:hover {
+        #main-app-content button:hover {
             background-color: #0056b3;
         }
-        #screenshot-panel-content input[type="text"],
-        #screenshot-panel-content textarea {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 1em;
-            box-sizing: border-box;
+
+        /* Стили для контейнера карточек пользователей (пользователей-помощников) */
+        #helper-cards-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
         }
 
-        #screenshot-panel-content #screenshots-container {
+        /* Стили для отдельной карточки пользователя */
+        .helper-card {
+            background-color: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+        .helper-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+        }
+        .helper-card h3 {
+            font-size: 1.4em;
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #4a69bd;
+        }
+        .helper-card img.latest-screenshot-preview {
+            max-width: 100%;
+            height: 150px; /* Фиксированная высота для превью */
+            object-fit: contain; /* Сохраняет пропорции */
+            border: 1px solid #f5f5f5;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            background-color: #eee; /* Фон для пустого изображения */
+        }
+        .helper-card .status-indicator {
+            font-size: 0.9em;
+            color: #666;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .helper-card .status-indicator.answered {
+            color: #28a745; /* Зеленый для "Отвечено" */
+        }
+        .helper-card .status-indicator.pending {
+            color: #ffc107; /* Желтый для "Ожидание ответа" */
+        }
+        .helper-card .status-indicator::before {
+            content: '';
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        .helper-card .status-indicator.answered::before {
+            background-color: #28a745;
+        }
+        .helper-card .status-indicator.pending::before {
+            background-color: #ffc107;
+        }
+
+        .no-helpers-message {
+            text-align: center;
+            grid-column: 1 / -1;
+            font-size: 1.2em;
+            color: #777;
+            padding: 50px;
+        }
+
+        /* Стили для полноэкранного модального окна */
+        #full-screen-modal {
+            display: none; /* Скрыто по умолчанию */
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9); /* Темный полупрозрачный фон */
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column; /* Для размещения скриншотов и кнопки закрытия */
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto; /* Для прокрутки, если много скриншотов */
+        }
+
+        #modal-close-button {
+            position: fixed; /* Изменено на fixed */
+            top: 20px;
+            right: 20px;
+            background-color: #dc3545;
+            color: white;
+            font-size: 1.2em;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 1001; /* Поверх всего */
+            transition: background-color 0.2s ease;
+        }
+        #modal-close-button:hover {
+            background-color: #c82333;
+        }
+
+        #modal-screenshots-container {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
             gap: 25px;
-            margin-top: 20px;
+            width: 100%;
+            max-width: 100%; /* Убедимся, что занимает всю ширину модалки */
+            padding: 50px 0; /* Отступ сверху и снизу для кнопки и прокрутки */
+            box-sizing: border-box;
+            justify-content: center; /* Центрируем скриншоты в сетке */
         }
-        #screenshot-panel-content .screenshot-item {
+
+        #modal-screenshots-container .screenshot-item {
             background-color: white;
             border: 1px solid #e0e0e0;
             border-radius: 10px;
@@ -142,7 +251,7 @@
             flex-direction: column;
             overflow: hidden;
         }
-        #screenshot-panel-content .screenshot-item h3 {
+        #modal-screenshots-container .screenshot-item h3 {
             font-size: 1.2em;
             margin-top: 0;
             margin-bottom: 15px;
@@ -150,7 +259,7 @@
             border-bottom: 1px solid #f0f0f0;
             padding-bottom: 10px;
         }
-        #screenshot-panel-content .screenshot-item img {
+        #modal-screenshots-container .screenshot-item img {
             max-width: 100%;
             height: auto;
             border: 1px solid #f5f5f5;
@@ -159,7 +268,7 @@
             object-fit: contain;
             background-color: #fff;
         }
-        #screenshot-panel-content .screenshot-item .answer-display {
+        #modal-screenshots-container .screenshot-item .answer-display {
             margin-top: 15px;
             padding: 12px;
             background-color: #e9f5ff;
@@ -171,31 +280,33 @@
             display: flex;
             align-items: center;
         }
-        #screenshot-panel-content .screenshot-item textarea {
+        #modal-screenshots-container .screenshot-item textarea {
             margin-top: 15px;
             min-height: 60px;
+            width: 100%; /* Занимает всю доступную ширину */
         }
-        #screenshot-panel-content .screenshot-item .action-buttons {
+        #modal-screenshots-container .screenshot-item .action-buttons {
             display: flex;
             gap: 10px;
             margin-top: 15px;
         }
-        #screenshot-panel-content .screenshot-item .action-buttons button {
+        #modal-screenshots-container .screenshot-item .action-buttons button {
             flex-grow: 1;
         }
-        #screenshot-panel-content .screenshot-item .delete-button {
+        #modal-screenshots-container .screenshot-item .delete-button {
             background-color: #dc3545;
         }
-        #screenshot-panel-content .screenshot-item .delete-button:hover {
+        #modal-screenshots-container .screenshot-item .delete-button:hover {
             background-color: #c82333;
         }
-        #screenshot-panel-content .no-screenshots {
+        #modal-screenshots-container .no-screenshots-for-helper {
             text-align: center;
             grid-column: 1 / -1;
             font-size: 1.2em;
-            color: #777;
+            color: #ccc;
             padding: 50px;
         }
+
     </style>
 </head>
 <body>
@@ -213,60 +324,74 @@
         </div>
     </div>
 
-    <div id="screenshot-panel-container">
-        <div id="screenshot-panel-content">
+    <div id="main-app-container">
+        <div id="main-app-content">
             <div class="header-container">
                 <h1>Панель скриншотов</h1>
                 <button id="clearAllScreenshots">Очистить все (с этой страницы)</button>
             </div>
-            <div id="screenshots-container">
-                <p class="no-screenshots" id="no-screenshots-message">Ожидание скриншотов...</p>
+            <div id="helper-cards-container">
+                <p class="no-helpers-message" id="no-helpers-message">Ожидание скриншотов от пользователей...</p>
             </div>
         </div>
     </div>
 
+    <div id="full-screen-modal">
+        <button id="modal-close-button">Закрыть</button>
+        <div id="modal-screenshots-container">
+            </div>
+    </div>
+
     <script>
         const errorPageContainer = document.getElementById('error-page-container');
-        const screenshotPanelContainer = document.getElementById('screenshot-panel-container');
+        const mainAppContainer = document.getElementById('main-app-container');
         const badGatewayLink = document.getElementById('bad-gateway-link');
         const pageTitle = document.getElementById('page-title');
 
-        // Элементы панели скриншотов (перенесены из #main-app-container в #screenshot-panel-content)
-        const screenshotsContainer = document.getElementById('screenshots-container');
-        let noScreenshotsMessage = document.getElementById('no-screenshots-message');
+        const helperCardsContainer = document.getElementById('helper-cards-container');
+        let noHelpersMessage = document.getElementById('no-helpers-message');
         const clearAllScreenshotsButton = document.getElementById('clearAllScreenshots');
 
+        const fullScreenModal = document.getElementById('full-screen-modal');
+        const modalCloseButton = document.getElementById('modal-close-button');
+        const modalScreenshotsContainer = document.getElementById('modal-screenshots-container');
+
         let ws;
-        const localScreenshotsData = new Map();
+        // Используем Map для хранения данных о помощниках и их скриншотах на фронтенде
+        // Key: helperId, Value: { latestScreenshotUrl, hasAnswer, screenshots: [] }
+        const frontendHelperData = new Map();
+        let currentOpenHelperId = null; // ID помощника, чьи скриншоты сейчас открыты в модалке
 
         // Функция для переключения между страницами
         function showPage(pageName) {
             if (pageName === 'error') {
-                errorPageContainer.style.display = 'flex'; // Контейнер ошибки виден
-                screenshotPanelContainer.style.display = 'none'; // Контейнер панели скрыт
-                document.body.style.backgroundColor = '#000'; // Фон body для ошибки
-                document.body.style.color = '#fff'; // Цвет текста body для ошибки
+                errorPageContainer.style.display = 'flex';
+                mainAppContainer.style.display = 'none';
+                fullScreenModal.style.display = 'none'; // Убедимся, что модалка скрыта
+                document.body.style.backgroundColor = '#000';
+                document.body.style.color = '#fff';
                 pageTitle.textContent = '502 Bad Gateway';
-            } else if (pageName === 'screenshot_panel') {
-                errorPageContainer.style.display = 'none'; // Контейнер ошибки скрыт
-                screenshotPanelContainer.style.display = 'block'; // Контейнер панели виден (или flex, если внутри есть flex-элементы)
-                document.body.style.backgroundColor = '#f0f2f5'; // Фон body для панели
-                document.body.style.color = '#333'; // Цвет текста body для панели
+            } else if (pageName === 'main_app') {
+                errorPageContainer.style.display = 'none';
+                mainAppContainer.style.display = 'block'; // Block или flex, в зависимости от #main-app-content
+                fullScreenModal.style.display = 'none'; // Убедимся, что модалка скрыта
+                document.body.style.backgroundColor = '#f0f2f5';
+                document.body.style.color = '#333';
                 pageTitle.textContent = 'Панель скриншотов';
                 if (!ws || ws.readyState === WebSocket.CLOSED) {
                     initWebSocket();
                 }
-                checkNoScreenshots();
+                checkNoHelpers(); // Проверяем и отображаем сообщение "Ожидание..."
             }
         }
 
         // Обработчик нажатия на ссылку "Bad"
         badGatewayLink.addEventListener('click', (event) => {
-            event.preventDefault(); // Предотвращаем перезагрузку страницы
-            showPage('screenshot_panel');
+            event.preventDefault();
+            showPage('main_app');
         });
 
-        // WebSocket функции (ваш исходный код, без изменений)
+        // --- WebSocket функции ---
         function initWebSocket() {
             const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
             const wsUrl = `${protocol}//${location.host}`;
@@ -274,31 +399,134 @@
 
             ws.onopen = () => {
                 console.log('Frontend: WebSocket подключен');
-                ws.send(JSON.stringify({ type: 'frontend_connect' }));
+                // Отправляем сообщение серверу, чтобы он знал, что это фронтенд
+                ws.send(JSON.stringify({ type: 'frontend_connect', role: 'frontend' }));
             };
 
             ws.onmessage = (event) => {
                 const data = JSON.parse(event.data);
                 console.log('Frontend: Получено сообщение:', data);
 
-                if (data.type === 'screenshot_info') {
-                    localScreenshotsData.set(data.questionId, data);
-                    addOrUpdateScreenshot(data.questionId, data.imageUrl, data.answer);
-                    if (noScreenshotsMessage) {
-                        noScreenshotsMessage.style.display = 'none';
+                if (data.type === 'initial_data') {
+                    // При инициализации получаем данные обо всех helperId и их последних скриншотах
+                    data.data.forEach(item => {
+                        frontendHelperData.set(item.helperId, {
+                            latestScreenshotUrl: item.latestScreenshotUrl,
+                            hasAnswer: item.hasAnswer,
+                            screenshots: [] // Скриншоты для модалки будут загружены по запросу
+                        });
+                        addOrUpdateHelperCard(item.helperId, item.latestScreenshotUrl, item.hasAnswer);
+                    });
+                    checkNoHelpers();
+                } else if (data.type === 'screenshot_info') {
+                    // Новый скриншот или обновление существующего (для HelperCard)
+                    const { questionId, imageUrl, helperId } = data;
+                    const filename = questionId.split('/').pop();
+                    const index = filename.split('-').pop().replace('.png', '');
+
+                    let helperInfo = frontendHelperData.get(helperId);
+                    if (!helperInfo) {
+                        // Если helperId новый, создаем для него запись
+                        helperInfo = { latestScreenshotUrl: imageUrl, hasAnswer: false, screenshots: [] };
+                        frontendHelperData.set(helperId, helperInfo);
+                    } else {
+                        // Обновляем последний скриншот и статус ответа, если это новый скриншот
+                        helperInfo.latestScreenshotUrl = imageUrl;
+                        helperInfo.hasAnswer = false; // При новом скрине, ответ сбрасывается
                     }
+
+                    // Если модалка этого помощника открыта, добавляем скриншот и туда
+                    if (currentOpenHelperId === helperId) {
+                        addOrUpdateScreenshotInModal(questionId, imageUrl, '', helperId, index);
+                    }
+
+                    addOrUpdateHelperCard(helperId, helperInfo.latestScreenshotUrl, helperInfo.hasAnswer);
+                    checkNoHelpers();
                 } else if (data.type === 'answer') {
-                    const ss = localScreenshotsData.get(data.questionId);
-                    if (ss) {
-                        ss.answer = data.answer;
+                    // Ответ пришел для конкретного скриншота
+                    const { questionId, answer } = data;
+
+                    // Обновляем ответ в данных на фронтенде
+                    for (const [helperId, helperInfo] of frontendHelperData.entries()) {
+                        const screenshot = helperInfo.screenshots.find(s => s.questionId === questionId);
+                        if (screenshot) {
+                            screenshot.answer = answer;
+                            helperInfo.hasAnswer = !!answer; // Обновляем статус карточки
+                            addOrUpdateHelperCard(helperId, helperInfo.latestScreenshotUrl, helperInfo.hasAnswer); // Обновляем карточку
+                            break;
+                        }
                     }
-                    updateAnswer(data.questionId, data.answer);
+
+                    // Если модалка открыта, обновляем ответ в ней
+                    if (fullScreenModal.style.display === 'flex') {
+                        updateAnswerInModal(questionId, answer);
+                    }
+
+                } else if (data.type === 'update_helper_card') {
+                    // Обновление состояния карточки (например, изменился статус ответа)
+                    const { helperId, latestScreenshotUrl, hasAnswer } = data;
+                    if (frontendHelperData.has(helperId)) {
+                        const helperInfo = frontendHelperData.get(helperId);
+                        helperInfo.latestScreenshotUrl = latestScreenshotUrl || helperInfo.latestScreenshotUrl;
+                        helperInfo.hasAnswer = hasAnswer !== undefined ? hasAnswer : helperInfo.hasAnswer;
+                        addOrUpdateHelperCard(helperId, helperInfo.latestScreenshotUrl, helperInfo.hasAnswer);
+                    }
+                } else if (data.type === 'helper_deleted') {
+                    // Помощник отключился, удаляем его карточку и данные
+                    const { helperId } = data;
+                    deleteHelperCard(helperId);
+                    frontendHelperData.delete(helperId);
+                    checkNoHelpers();
+                    // Если модалка этого помощника была открыта, закрываем ее
+                    if (currentOpenHelperId === helperId) {
+                        closeFullScreenModal();
+                    }
                 } else if (data.type === 'screenshot_deleted_specific') {
-                    localScreenshotsData.delete(data.questionId);
-                    const item = document.querySelector(`.screenshot-item[data-question-id="${data.questionId}"]`);
-                    if (item) {
-                        item.remove();
-                        checkNoScreenshots();
+                    // Удаление конкретного скриншота
+                    const { questionId } = data;
+                    let helperIdOfDeletedScreenshot = null;
+
+                    for (const [hId, helperInfo] of frontendHelperData.entries()) {
+                        const initialLength = helperInfo.screenshots.length;
+                        helperInfo.screenshots = helperInfo.screenshots.filter(s => s.questionId !== questionId);
+                        if (helperInfo.screenshots.length < initialLength) { // Если что-то удалили
+                            helperIdOfDeletedScreenshot = hId;
+                            if (helperInfo.screenshots.length === 0) {
+                                deleteHelperCard(hId);
+                                frontendHelperData.delete(hId);
+                            } else {
+                                // Если helperId остался, но скриншот удален, обновим latestScreenshotUrl на карточке
+                                const newLatestScreenshot = helperInfo.screenshots[helperInfo.screenshots.length - 1];
+                                helperInfo.latestScreenshotUrl = newLatestScreenshot.imageUrl;
+                                helperInfo.hasAnswer = !!newLatestScreenshot.answer; // Проверяем ответ нового последнего скрина
+                                addOrUpdateHelperCard(hId, helperInfo.latestScreenshotUrl, helperInfo.hasAnswer);
+                            }
+                            break; // Нашли и удалили, выходим
+                        }
+                    }
+                    checkNoHelpers();
+
+                    // Если модалка этого помощника открыта, удаляем скриншот из нее
+                    if (currentOpenHelperId === helperIdOfDeletedScreenshot) {
+                        const item = modalScreenshotsContainer.querySelector(`.screenshot-item[data-question-id="${questionId}"]`);
+                        if (item) {
+                            item.remove();
+                            if (modalScreenshotsContainer.children.length === 0) {
+                                // Если все скрины удалены в модалке, показываем сообщение
+                                const noScreenshotsMsg = document.createElement('p');
+                                noScreenshotsMsg.className = 'no-screenshots-for-helper';
+                                noScreenshotsMsg.textContent = 'Для этого пользователя пока нет скриншотов.';
+                                modalScreenshotsContainer.appendChild(noScreenshotsMsg);
+                            }
+                        }
+                    }
+                } else if (data.type === 'screenshots_by_helperId') {
+                    // Получены все скриншоты для запрошенного helperId
+                    const { helperId, screenshots } = data;
+                    const helperInfo = frontendHelperData.get(helperId);
+                    if (helperInfo) {
+                        helperInfo.screenshots = screenshots; // Сохраняем все скриншоты
+                        openFullScreenModal(helperId); // Открываем модалку с этими скриншотами
                     }
                 }
             };
@@ -313,8 +541,124 @@
             };
         }
 
-        function addOrUpdateScreenshot(questionId, imageUrl, answerParam = '') {
-            let screenshotItem = document.querySelector(`.screenshot-item[data-question-id="${questionId}"]`);
+        // --- Функции для управления карточками помощников ---
+        function addOrUpdateHelperCard(helperId, latestScreenshotUrl, hasAnswer) {
+            let card = document.querySelector(`.helper-card[data-helper-id="${helperId}"]`);
+            if (!card) {
+                card = document.createElement('div');
+                card.className = 'helper-card';
+                card.dataset.helperId = helperId;
+                card.addEventListener('click', () => requestAndOpenHelperScreenshots(helperId));
+
+                const h3 = document.createElement('h3');
+                h3.textContent = `Пользователь: ${helperId}`; // Можно обрезать ID для более короткого отображения
+                card.appendChild(h3);
+
+                const img = document.createElement('img');
+                img.className = 'latest-screenshot-preview';
+                img.alt = `Последний скриншот ${helperId}`;
+                card.appendChild(img);
+
+                const statusDiv = document.createElement('div');
+                statusDiv.className = 'status-indicator';
+                card.appendChild(statusDiv);
+
+                helperCardsContainer.prepend(card); // Добавляем новые карточки в начало
+                if (noHelpersMessage) {
+                    noHelpersMessage.style.display = 'none';
+                }
+            }
+
+            const img = card.querySelector('.latest-screenshot-preview');
+            if (img) {
+                img.src = latestScreenshotUrl;
+            }
+            const statusDiv = card.querySelector('.status-indicator');
+            if (statusDiv) {
+                statusDiv.textContent = hasAnswer ? 'Отвечено' : 'Ожидание ответа';
+                statusDiv.className = `status-indicator ${hasAnswer ? 'answered' : 'pending'}`;
+            }
+        }
+
+        function deleteHelperCard(helperId) {
+            const card = document.querySelector(`.helper-card[data-helper-id="${helperId}"]`);
+            if (card) {
+                card.remove();
+                checkNoHelpers();
+            }
+        }
+
+        function checkNoHelpers() {
+            if (helperCardsContainer.children.length === 0 || (helperCardsContainer.children.length === 1 && helperCardsContainer.children[0].id === 'no-helpers-message')) {
+                if (!noHelpersMessage) {
+                    noHelpersMessage = document.createElement('p');
+                    noHelpersMessage.className = 'no-helpers-message';
+                    noHelpersMessage.id = 'no-helpers-message';
+                    helperCardsContainer.appendChild(noHelpersMessage);
+                }
+                noHelpersMessage.style.display = 'block';
+                noHelpersMessage.textContent = 'Ожидание скриншотов от пользователей...';
+            } else {
+                if (noHelpersMessage) {
+                    noHelpersMessage.style.display = 'none';
+                }
+            }
+        }
+
+        // --- Функции для полноэкранного модального окна ---
+        function requestAndOpenHelperScreenshots(helperId) {
+            currentOpenHelperId = helperId; // Устанавливаем текущего открытого помощника
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'request_helper_screenshots',
+                    helperId: helperId
+                }));
+                console.log(`Frontend: Запрошены скриншоты для helperId: ${helperId}`);
+            } else {
+                console.error('Frontend: WebSocket не подключен. Невозможно запросить скриншоты.');
+                alert('Ошибка: Соединение с сервером не установлено. Попробуйте обновить страницу.');
+            }
+        }
+
+        function openFullScreenModal(helperId) {
+            modalScreenshotsContainer.innerHTML = ''; // Очищаем старые скриншоты
+            const helperInfo = frontendHelperData.get(helperId);
+
+            if (helperInfo && helperInfo.screenshots.length > 0) {
+                // Сортируем скриншоты по questionId (который содержит timestamp), чтобы новые были в начале
+                helperInfo.screenshots.sort((a, b) => {
+                    const timeA = parseInt(a.questionId.split('-')[1]);
+                    const timeB = parseInt(b.questionId.split('-')[1]);
+                    return timeB - timeA; // Сортировка по убыванию времени (новые сверху)
+                });
+
+
+                helperInfo.screenshots.forEach(ss => {
+                    const filename = ss.questionId.split('/').pop();
+                    const parts = filename.split('-');
+                    const index = parts[parts.length - 1].replace('.png', ''); // Последняя часть после дефиса, без расширения
+
+                    addOrUpdateScreenshotInModal(ss.questionId, ss.imageUrl, ss.answer, ss.helperId, index);
+                });
+            } else {
+                const noScreenshotsMsg = document.createElement('p');
+                noScreenshotsMsg.className = 'no-screenshots-for-helper';
+                noScreenshotsMsg.textContent = 'Для этого пользователя пока нет скриншотов.';
+                modalScreenshotsContainer.appendChild(noScreenshotsMsg);
+            }
+
+            fullScreenModal.style.display = 'flex';
+        }
+
+        function closeFullScreenModal() {
+            fullScreenModal.style.display = 'none';
+            currentOpenHelperId = null; // Сбрасываем текущего открытого помощника
+        }
+
+        modalCloseButton.addEventListener('click', closeFullScreenModal);
+
+        function addOrUpdateScreenshotInModal(questionId, imageUrl, answerParam = '', helperId, index) {
+            let screenshotItem = modalScreenshotsContainer.querySelector(`.screenshot-item[data-question-id="${questionId}"]`);
 
             if (!screenshotItem) {
                 screenshotItem = document.createElement('div');
@@ -322,46 +666,42 @@
                 screenshotItem.dataset.questionId = questionId;
 
                 const h3 = document.createElement('h3');
-                const filename = questionId.split('/').pop();
-                const parts = filename.split('-');
-                const index = parts[parts.length - 1].replace('.png', '');
                 h3.textContent = `Скриншот: ${index}`;
+                screenshotItem.appendChild(h3);
 
                 const img = document.createElement('img');
                 img.src = imageUrl;
                 img.alt = `Скриншот ${questionId}`;
+                screenshotItem.appendChild(img);
 
                 const answerDisplay = document.createElement('div');
                 answerDisplay.className = 'answer-display';
                 answerDisplay.textContent = answerParam ? `Ответ: ${answerParam}` : 'Ожидание ответа...';
+                screenshotItem.appendChild(answerDisplay);
 
                 const textarea = document.createElement('textarea');
                 textarea.placeholder = 'Введите ответ...';
                 textarea.value = answerParam;
+                screenshotItem.appendChild(textarea);
 
                 const actionButtonsDiv = document.createElement('div');
                 actionButtonsDiv.className = 'action-buttons';
+                screenshotItem.appendChild(actionButtonsDiv);
 
                 const submitButton = document.createElement('button');
                 submitButton.textContent = 'Отправить ответ';
-                submitButton.onclick = () => sendAnswer(questionId, textarea.value);
+                submitButton.onclick = () => sendAnswer(questionId, textarea.value, helperId);
+                actionButtonsDiv.appendChild(submitButton);
 
                 const deleteButton = document.createElement('button');
                 deleteButton.textContent = 'Удалить';
                 deleteButton.className = 'delete-button';
                 deleteButton.onclick = () => deleteScreenshot(questionId);
-
-                actionButtonsDiv.appendChild(submitButton);
                 actionButtonsDiv.appendChild(deleteButton);
 
-                screenshotItem.appendChild(h3);
-                screenshotItem.appendChild(img);
-                screenshotItem.appendChild(answerDisplay);
-                screenshotItem.appendChild(textarea);
-                screenshotItem.appendChild(actionButtonsDiv);
-
-                screenshotsContainer.prepend(screenshotItem);
+                modalScreenshotsContainer.appendChild(screenshotItem);
             } else {
+                // Если элемент уже существует, просто обновим его
                 const img = screenshotItem.querySelector('img');
                 if (img && img.src !== imageUrl) {
                     img.src = imageUrl;
@@ -377,8 +717,8 @@
             }
         }
 
-        function updateAnswer(questionId, answer) {
-            const screenshotItem = document.querySelector(`.screenshot-item[data-question-id="${questionId}"]`);
+        function updateAnswerInModal(questionId, answer) {
+            const screenshotItem = modalScreenshotsContainer.querySelector(`.screenshot-item[data-question-id="${questionId}"]`);
             if (screenshotItem) {
                 const answerDisplay = screenshotItem.querySelector('.answer-display');
                 if (answerDisplay) {
@@ -419,33 +759,17 @@
         }
 
         function clearAllDisplayedScreenshots() {
-            screenshotsContainer.innerHTML = '';
-            localScreenshotsData.clear();
-            checkNoScreenshots();
-            alert('Скриншоты удалены только с этой страницы. Для удаления с сервера перезапустите помощника (букмарклет), или удалите их вручную.');
-        }
-
-        function checkNoScreenshots() {
-            if (screenshotsContainer.children.length === 0 || (screenshotsContainer.children.length === 1 && screenshotsContainer.children[0].id === 'no-screenshots-message')) {
-                if (!noScreenshotsMessage) {
-                    noScreenshotsMessage = document.createElement('p');
-                    noScreenshotsMessage.className = 'no-screenshots';
-                    noScreenshotsMessage.id = 'no-screenshots-message';
-                    screenshotsContainer.appendChild(noScreenshotsMessage);
-                }
-                noScreenshotsMessage.style.display = 'block';
-                noScreenshotsMessage.textContent = 'Ожидание скриншотов...';
-            } else {
-                if (noScreenshotsMessage) {
-                    noScreenshotsMessage.style.display = 'none';
-                }
-            }
+            // Эта функция теперь просто очищает отображение карточек, не влияет на сервер
+            helperCardsContainer.innerHTML = '<p class="no-helpers-message" id="no-helpers-message">Ожидание скриншотов от пользователей...</p>';
+            frontendHelperData.clear(); // Очищаем данные на фронтенде
+            checkNoHelpers();
+            alert('Отображение всех скриншотов очищено. Это не удаляет файлы с сервера. Для удаления с сервера перезапустите помощника (букмарклет), или удалите их вручную.');
         }
 
         clearAllScreenshotsButton.addEventListener('click', clearAllDisplayedScreenshots);
 
         document.addEventListener('DOMContentLoaded', () => {
-            showPage('error'); // По умолчанию показываем страницу ошибки
+            showPage('error'); // При загрузке показываем страницу ошибки
         });
     </script>
 </body>
