@@ -258,12 +258,13 @@
             text-align: left; /* Выравнивание заголовка */
         }
         #modal-screenshots-container .screenshot-item img {
-            max-width: 100%;
-            height: auto;
+            max-width: 100%; /* Гарантируем, что изображение не выходит за ширину родителя */
+            max-height: 80vh; /* Ограничиваем высоту, чтобы оно не выходило за пределы видимой области */
+            height: auto; /* Сохраняем пропорции */
             border: 1px solid #f5f5f5;
             border-radius: 5px;
             margin-bottom: 15px;
-            object-fit: contain;
+            object-fit: contain; /* **КЛЮЧЕВОЕ ИЗМЕНЕНИЕ:** Масштабирует изображение так, чтобы оно полностью поместилось в контейнер, сохраняя пропорции. */
             background-color: #fff;
         }
         #modal-screenshots-container .screenshot-item .answer-display {
