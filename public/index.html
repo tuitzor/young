@@ -196,43 +196,50 @@
             background-color: rgba(0, 0, 0, 0.9);
             z-index: 1000;
             justify-content: center;
-            align-items: flex-start;
+            align-items: center; /* Центрируем содержимое по вертикали */
             flex-direction: column;
             padding: 20px;
             box-sizing: border-box;
-            overflow-y: auto;
+            overflow: hidden; /* Скрываем основную прокрутку модалки, т.к. прокрутка внутри скриншота */
         }
 
-        #modal-close-button {
-            position: sticky;
-            top: 0px;
-            align-self: flex-end;
-            background-color: #dc3545;
-            color: white;
-            font-size: 1.2em;
-            padding: 10px 15px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            z-index: 1001;
-            transition: background-color 0.2s ease;
-            margin-bottom: 20px;
+        #modal-header {
+            width: 100%;
+            max-width: 90vw;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 0 10px; /* Отступы для содержимого хедера */
+            box-sizing: border-box;
         }
-        #modal-close-button:hover {
-            background-color: #c82333;
+
+        #modal-header #modal-close-button {
+            position: static; /* Не sticky в данном контексте, т.к. в хедере */
+            margin-bottom: 0;
+        }
+
+        #modal-header #screenshot-counter {
+            color: white;
+            font-size: 1.1em;
+            font-weight: bold;
         }
 
         #modal-screenshots-container {
             display: flex;
-            flex-direction: column;
-            gap: 30px;
+            flex-direction: column; /* Всегда один скриншот, поэтому flex-direction не так важен, но оставим */
+            justify-content: center; /* Центрируем скриншот внутри контейнера */
+            align-items: center; /* Центрируем скриншот внутри контейнера */
             width: 100%;
-            max-width: 90vw; /* **ИЗМЕНЕНО:** Увеличен до 90% ширины вьюпорта */
+            max-width: 90vw; /* Ширина контейнера для ОДНОГО скриншота */
+            flex-grow: 1; /* Позволяет контейнеру занимать доступное пространство */
             margin: 0 auto;
-            padding-bottom: 50px;
+            padding-bottom: 20px; /* Отступ снизу */
             box-sizing: border-box;
+            position: relative; /* Для позиционирования кнопок навигации */
         }
 
+        /* Стили для индивидуального контейнера скриншота */
         #modal-screenshots-container .screenshot-item {
             background-color: white;
             border: 1px solid #e0e0e0;
@@ -241,9 +248,18 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
             display: flex;
             flex-direction: column;
-            overflow: hidden;
             align-items: center;
+            box-sizing: border-box;
+
+            /* **КЛЮЧЕВЫЕ ИЗМЕНЕНИЯ ЗДЕСЬ:** */
+            width: 100%; /* Занимаем всю доступную ширину родителя */
+            max-width: 800px; /* Ограничим ширину самого элемента скриншота для читаемости, можно настроить */
+            max-height: calc(100vh - 200px); /* Высота на весь экран минус хедер, футер, отступы */
+            overflow-y: auto; /* Прокрутка внутри этого "окошка" скриншота */
+            flex-shrink: 0; /* Не сжимать */
+            margin: 0; /* Убираем отступы, т.к. теперь по одному */
         }
+
         #modal-screenshots-container .screenshot-item h3 {
             font-size: 1.2em;
             margin-top: 0;
@@ -253,22 +269,32 @@
             padding-bottom: 10px;
             width: 100%;
             text-align: left;
+            flex-shrink: 0;
         }
+        #modal-screenshots-container .screenshot-item .image-wrapper {
+            width: 100%;
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 150px; /* Минимальная высота для обертки изображения */
+        }
+
         #modal-screenshots-container .screenshot-item img {
             max-width: 100%;
-            /* max-height: calc(100vh - 250px); */ /* Закомментируем, чтобы изображение могло быть очень высоким */
+            max-height: 100%; /* Изображение подстраивается под обертку */
             height: auto;
             display: block;
-            margin: 0 auto 15px auto;
+            margin: 0 auto;
             border: 1px solid #f5f5f5;
             border-radius: 5px;
             object-fit: contain;
             background-color: #fff;
-            /* **НОВОЕ ДОБАВЛЕНИЕ:** Делаем изображение масштабируемым и перетаскиваемым */
-            cursor: grab; /* Изменяем курсор для интерактивности */
-            transform-origin: 0 0; /* Точка трансформации для зума */
-            transition: transform 0.1s ease-out; /* Плавность зума */
+            cursor: grab;
+            transform-origin: 0 0;
+            transition: transform 0.1s ease-out;
         }
+
         #modal-screenshots-container .screenshot-item .answer-display {
             margin-top: 15px;
             padding: 12px;
@@ -282,6 +308,7 @@
             align-items: center;
             width: 100%;
             box-sizing: border-box;
+            flex-shrink: 0;
         }
         #modal-screenshots-container .screenshot-item textarea {
             margin-top: 15px;
@@ -292,12 +319,14 @@
             border-radius: 5px;
             font-size: 1em;
             box-sizing: border-box;
+            flex-shrink: 0;
         }
         #modal-screenshots-container .screenshot-item .action-buttons {
             display: flex;
             gap: 10px;
             margin-top: 15px;
             width: 100%;
+            flex-shrink: 0;
         }
         #modal-screenshots-container .screenshot-item .action-buttons button {
             flex-grow: 1;
@@ -314,6 +343,64 @@
             font-size: 1.2em;
             color: #ccc;
             padding: 50px;
+        }
+
+        /* Кнопки навигации */
+        .nav-button {
+            position: absolute;
+            top: 50%; /* Центрируем по вертикали относительно #modal-screenshots-container */
+            transform: translateY(-50%);
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            border: none;
+            padding: 15px;
+            font-size: 2em;
+            cursor: pointer;
+            z-index: 100;
+            border-radius: 5px;
+            transition: background-color 0.2s ease;
+        }
+        .nav-button:hover {
+            background-color: rgba(0, 0, 0, 0.8);
+        }
+        #prev-screenshot-btn {
+            left: -50px; /* Отступ от края контейнера */
+        }
+        #next-screenshot-btn {
+            right: -50px; /* Отступ от края контейнера */
+        }
+        .nav-button:disabled {
+            background-color: rgba(100, 100, 100, 0.5);
+            cursor: not-allowed;
+        }
+
+        @media (max-width: 768px) {
+            #modal-screenshots-container {
+                max-width: 95vw;
+            }
+            .nav-button {
+                padding: 10px;
+                font-size: 1.5em;
+                left: 5px;
+                right: 5px;
+                top: auto;
+                bottom: 20px; /* Перемещаем кнопки вниз на мобильных */
+                transform: none;
+                width: 45%; /* Чтобы разделить кнопки */
+            }
+            #prev-screenshot-btn {
+                left: 5px;
+            }
+            #next-screenshot-btn {
+                right: 5px;
+            }
+            #modal-header {
+                flex-direction: column;
+                gap: 10px;
+            }
+            #modal-header #modal-close-button {
+                align-self: flex-end;
+            }
         }
 
     </style>
@@ -346,9 +433,14 @@
     </div>
 
     <div id="full-screen-modal">
-        <button id="modal-close-button">Закрыть</button>
+        <div id="modal-header">
+            <button id="modal-close-button">Закрыть</button>
+            <span id="screenshot-counter"></span>
+        </div>
         <div id="modal-screenshots-container">
-            </div>
+            <button id="prev-screenshot-btn" class="nav-button">&lt;</button>
+            <button id="next-screenshot-btn" class="nav-button">&gt;</button>
+        </div>
     </div>
 
     <script>
@@ -364,16 +456,19 @@
         const fullScreenModal = document.getElementById('full-screen-modal');
         const modalCloseButton = document.getElementById('modal-close-button');
         const modalScreenshotsContainer = document.getElementById('modal-screenshots-container');
+        const screenshotCounter = document.getElementById('screenshot-counter');
+        const prevScreenshotBtn = document.getElementById('prev-screenshot-btn');
+        const nextScreenshotBtn = document.getElementById('next-screenshot-btn');
 
         let ws;
         const frontendHelperData = new Map();
         let currentOpenHelperId = null;
+        let currentScreenshotIndex = 0; // Индекс текущего отображаемого скриншота
 
         // Переменные для зума и перетаскивания изображения
-        let currentZoom = 1;
         let isDragging = false;
-        let startX, startY, currentX, currentY;
-        let translateX = 0, translateY = 0;
+        let startX, startY;
+        let initialTranslateX, initialTranslateY;
 
         // Функция для переключения между страницами
         function showPage(pageName) {
@@ -436,17 +531,28 @@
                         helperInfo = { hasAnswer: false, screenshots: [] };
                         frontendHelperData.set(helperId, helperInfo);
                     } else {
-                        helperInfo.hasAnswer = false;
+                        helperInfo.hasAnswer = false; // Если новый скрин, сбрасываем статус ответа
+                    }
+                    
+                    // Добавляем новый скриншот в список, если его там еще нет
+                    const existingScreenshot = helperInfo.screenshots.find(s => s.questionId === questionId);
+                    if (!existingScreenshot) {
+                        helperInfo.screenshots.push({ questionId, imageUrl, answer: '' });
+                        // Сортируем после добавления, чтобы новые были сверху
+                        helperInfo.screenshots.sort((a, b) => {
+                            const timeA = parseInt(a.questionId.split('-')[1]);
+                            const timeB = parseInt(b.questionId.split('-')[1]);
+                            return timeB - timeA; // Сортировка по убыванию времени (новые сверху)
+                        });
                     }
 
+                    // Если модалка этого помощника открыта, обновляем отображение
                     if (currentOpenHelperId === helperId) {
-                        const existingScreenshot = helperInfo.screenshots.find(s => s.questionId === questionId);
+                        // Если новый скриншот добавлен, и он самый новый, отображаем его
                         if (!existingScreenshot) {
-                            helperInfo.screenshots.push({ questionId, imageUrl, answer: '' });
-                            openFullScreenModal(helperId);
-                        } else {
-                            updateAnswerInModal(questionId, existingScreenshot.answer);
+                            currentScreenshotIndex = 0; // Показываем самый новый скриншот
                         }
+                        displayScreenshot(currentScreenshotIndex);
                     }
 
                     addOrUpdateHelperCard(helperId, helperInfo.hasAnswer);
@@ -462,8 +568,12 @@
                             break;
                         }
                     }
-                    if (fullScreenModal.style.display === 'flex') {
-                        updateAnswerInModal(questionId, answer);
+                    // Обновляем ответ в текущем отображаемом скриншоте, если это он
+                    if (currentOpenHelperId && frontendHelperData.has(currentOpenHelperId)) {
+                        const currentScreenshots = frontendHelperData.get(currentOpenHelperId).screenshots;
+                        if (currentScreenshots[currentScreenshotIndex] && currentScreenshots[currentScreenshotIndex].questionId === questionId) {
+                             updateAnswerInModal(questionId, answer);
+                        }
                     }
                 } else if (data.type === 'update_helper_card') {
                     const { helperId, hasAnswer } = data;
@@ -500,14 +610,31 @@
                         }
                     }
                     checkNoHelpers();
+
                     if (currentOpenHelperId === helperIdOfDeletedScreenshot) {
-                        openFullScreenModal(currentOpenHelperId);
+                        const helperInfo = frontendHelperData.get(currentOpenHelperId);
+                        if (helperInfo && helperInfo.screenshots.length > 0) {
+                            // Если удален текущий скриншот, или последний, корректируем индекс
+                            if (currentScreenshotIndex >= helperInfo.screenshots.length) {
+                                currentScreenshotIndex = helperInfo.screenshots.length - 1;
+                            }
+                            displayScreenshot(currentScreenshotIndex);
+                        } else {
+                            closeFullScreenModal(); // Все скриншоты удалены, закрываем модалку
+                        }
                     }
                 } else if (data.type === 'screenshots_by_helperId') {
                     const { helperId, screenshots } = data;
                     const helperInfo = frontendHelperData.get(helperId);
                     if (helperInfo) {
                         helperInfo.screenshots = screenshots;
+                        // Сортируем скриншоты по questionId (который содержит timestamp), чтобы новые были в начале
+                        helperInfo.screenshots.sort((a, b) => {
+                            const timeA = parseInt(a.questionId.split('-')[1]);
+                            const timeB = parseInt(b.questionId.split('-')[1]);
+                            return timeB - timeA; // Сортировка по убыванию времени (новые сверху)
+                        });
+                        currentScreenshotIndex = 0; // Всегда начинаем с первого (самого нового) скриншота
                         openFullScreenModal(helperId);
                     }
                 }
@@ -584,8 +711,11 @@
             if (ws && ws.readyState === WebSocket.OPEN) {
                 const helperInfo = frontendHelperData.get(helperId);
                 if (helperInfo && helperInfo.screenshots.length > 0) {
+                    // Если данные уже есть, сразу показываем первый скриншот
+                    currentScreenshotIndex = 0; // Всегда начинаем с первого
                     openFullScreenModal(helperId);
                 } else {
+                    // Иначе запрашиваем у сервера
                     ws.send(JSON.stringify({
                         type: 'request_helper_screenshots',
                         helperId: helperId
@@ -599,145 +729,166 @@
         }
 
         function openFullScreenModal(helperId) {
-            modalScreenshotsContainer.innerHTML = '';
             const helperInfo = frontendHelperData.get(helperId);
-
-            if (helperInfo && helperInfo.screenshots.length > 0) {
-                helperInfo.screenshots.sort((a, b) => {
-                    const timeA = parseInt(a.questionId.split('-')[1]);
-                    const timeB = parseInt(b.questionId.split('-')[1]);
-                    return timeB - timeA;
-                });
-
-                helperInfo.screenshots.forEach(ss => {
-                    const filename = ss.questionId.split('/').pop();
-                    const parts = filename.split('-');
-                    const index = parts[parts.length - 1].replace('.png', '');
-
-                    addOrUpdateScreenshotInModal(ss.questionId, ss.imageUrl, ss.answer, helperId, index); // Передаем helperId
-                });
+            if (!helperInfo || helperInfo.screenshots.length === 0) {
+                modalScreenshotsContainer.innerHTML = '<p class="no-screenshots-for-helper">Для этого пользователя пока нет скриншотов.</p>';
+                screenshotCounter.textContent = '';
+                prevScreenshotBtn.disabled = true;
+                nextScreenshotBtn.disabled = true;
             } else {
-                const noScreenshotsMsg = document.createElement('p');
-                noScreenshotsMsg.className = 'no-screenshots-for-helper';
-                noScreenshotsMsg.textContent = 'Для этого пользователя пока нет скриншотов.';
-                modalScreenshotsContainer.appendChild(noScreenshotsMsg);
+                displayScreenshot(currentScreenshotIndex);
             }
-
             fullScreenModal.style.display = 'flex';
         }
 
         function closeFullScreenModal() {
             fullScreenModal.style.display = 'none';
             currentOpenHelperId = null;
+            modalScreenshotsContainer.innerHTML = ''; // Очищаем содержимое
         }
 
         modalCloseButton.addEventListener('click', closeFullScreenModal);
+        prevScreenshotBtn.addEventListener('click', () => navigateScreenshot(-1));
+        nextScreenshotBtn.addEventListener('click', () => navigateScreenshot(1));
 
-        function addOrUpdateScreenshotInModal(questionId, imageUrl, answerParam = '', helperId, index) {
-            let screenshotItem = modalScreenshotsContainer.querySelector(`.screenshot-item[data-question-id="${questionId}"]`);
+        function navigateScreenshot(direction) {
+            const helperInfo = frontendHelperData.get(currentOpenHelperId);
+            if (!helperInfo || helperInfo.screenshots.length === 0) return;
 
-            if (!screenshotItem) {
-                screenshotItem = document.createElement('div');
-                screenshotItem.className = 'screenshot-item';
-                screenshotItem.dataset.questionId = questionId;
+            currentScreenshotIndex += direction;
 
-                const h3 = document.createElement('h3');
-                h3.textContent = `Скриншот: ${index}`;
-                screenshotItem.appendChild(h3);
-
-                const img = document.createElement('img');
-                img.src = imageUrl;
-                img.alt = `Скриншот ${questionId}`;
-                img.addEventListener('wheel', (e) => handleZoom(e, img)); // Обработчик колесика мыши
-                img.addEventListener('mousedown', (e) => handleMouseDown(e, img)); // Начало перетаскивания
-                img.addEventListener('mousemove', (e) => handleMouseMove(e, img)); // Перетаскивание
-                img.addEventListener('mouseup', (e) => handleMouseUp(e, img)); // Конец перетаскивания
-                img.addEventListener('mouseleave', (e) => handleMouseUp(e, img)); // Если мышь ушла с изображения
-                screenshotItem.appendChild(img);
-
-                const answerDisplay = document.createElement('div');
-                answerDisplay.className = 'answer-display';
-                answerDisplay.textContent = answerParam ? `Ответ: ${answerParam}` : 'Ожидание ответа...';
-                screenshotItem.appendChild(answerDisplay);
-
-                const textarea = document.createElement('textarea');
-                textarea.placeholder = 'Введите ответ...';
-                textarea.value = answerParam;
-                screenshotItem.appendChild(textarea);
-
-                const actionButtonsDiv = document.createElement('div');
-                actionButtonsDiv.className = 'action-buttons';
-                screenshotItem.appendChild(actionButtonsDiv);
-
-                const submitButton = document.createElement('button');
-                submitButton.textContent = 'Отправить ответ';
-                submitButton.onclick = () => sendAnswer(questionId, textarea.value, helperId);
-                actionButtonsDiv.appendChild(submitButton);
-
-                const deleteButton = document.createElement('button');
-                deleteButton.textContent = 'Удалить';
-                deleteButton.className = 'delete-button';
-                deleteButton.onclick = () => deleteScreenshot(questionId);
-                actionButtonsDiv.appendChild(deleteButton);
-
-                modalScreenshotsContainer.appendChild(screenshotItem);
-
-                // Инициализируем зум и позицию для каждого нового скриншота
-                img.dataset.zoom = 1;
-                img.dataset.translateX = 0;
-                img.dataset.translateY = 0;
-
-            } else {
-                const img = screenshotItem.querySelector('img');
-                if (img && img.src !== imageUrl) {
-                    img.src = imageUrl;
-                }
-                const answerDisplay = screenshotItem.querySelector('.answer-display');
-                const textarea = screenshotItem.querySelector('textarea');
-                if (answerDisplay) {
-                    answerDisplay.textContent = answerParam ? `Ответ: ${answerParam}` : 'Ожидание ответа...';
-                }
-                if (textarea) {
-                    textarea.value = answerParam;
-                }
+            if (currentScreenshotIndex < 0) {
+                currentScreenshotIndex = helperInfo.screenshots.length - 1; // Зацикливание назад
+            } else if (currentScreenshotIndex >= helperInfo.screenshots.length) {
+                currentScreenshotIndex = 0; // Зацикливание вперед
             }
+            displayScreenshot(currentScreenshotIndex);
         }
 
-        // --- Функции для зума и перетаскивания изображения ---
+        function displayScreenshot(index) {
+            modalScreenshotsContainer.innerHTML = ''; // Очищаем предыдущий скриншот
+            const helperInfo = frontendHelperData.get(currentOpenHelperId);
+
+            if (!helperInfo || helperInfo.screenshots.length === 0) {
+                modalScreenshotsContainer.innerHTML = '<p class="no-screenshots-for-helper">Для этого пользователя пока нет скриншотов.</p>';
+                screenshotCounter.textContent = '';
+                prevScreenshotBtn.disabled = true;
+                nextScreenshotBtn.disabled = true;
+                return;
+            }
+
+            const ss = helperInfo.screenshots[index];
+            if (!ss) { // На случай, если индекс вышел за пределы
+                closeFullScreenModal();
+                return;
+            }
+
+            const filename = ss.questionId.split('/').pop();
+            const parts = filename.split('-');
+            const screenshotNumber = parts[parts.length - 1].replace('.png', ''); // Используем как уникальный номер
+
+            const screenshotItem = document.createElement('div');
+            screenshotItem.className = 'screenshot-item';
+            screenshotItem.dataset.questionId = ss.questionId;
+
+            const h3 = document.createElement('h3');
+            h3.textContent = `Скриншот: ${screenshotNumber}`;
+            screenshotItem.appendChild(h3);
+
+            const imageWrapper = document.createElement('div');
+            imageWrapper.className = 'image-wrapper';
+            screenshotItem.appendChild(imageWrapper);
+
+            const img = document.createElement('img');
+            img.src = ss.imageUrl;
+            img.alt = `Скриншот ${ss.questionId}`;
+            imageWrapper.appendChild(img);
+
+            img.addEventListener('wheel', (e) => handleZoom(e, img));
+            img.addEventListener('mousedown', (e) => handleMouseDown(e, img));
+            img.addEventListener('mousemove', (e) => handleMouseMove(e, img));
+            img.addEventListener('mouseup', (e) => handleMouseUp(e, img));
+            img.addEventListener('mouseleave', (e) => handleMouseUp(e, img));
+
+            // Инициализируем зум и позицию для каждого нового скриншота
+            img.dataset.zoom = 1;
+            img.dataset.translateX = 0;
+            img.dataset.translateY = 0;
+            applyTransform(img); // Применяем начальные трансформации
+
+            const answerDisplay = document.createElement('div');
+            answerDisplay.className = 'answer-display';
+            answerDisplay.textContent = ss.answer ? `Ответ: ${ss.answer}` : 'Ожидание ответа...';
+            screenshotItem.appendChild(answerDisplay);
+
+            const textarea = document.createElement('textarea');
+            textarea.placeholder = 'Введите ответ...';
+            textarea.value = ss.answer;
+            screenshotItem.appendChild(textarea);
+
+            const actionButtonsDiv = document.createElement('div');
+            actionButtonsDiv.className = 'action-buttons';
+            screenshotItem.appendChild(actionButtonsDiv);
+
+            const submitButton = document.createElement('button');
+            submitButton.textContent = 'Отправить ответ';
+            submitButton.onclick = () => sendAnswer(ss.questionId, textarea.value, currentOpenHelperId);
+            actionButtonsDiv.appendChild(submitButton);
+
+            const deleteButton = document.createElement('button');
+            deleteButton.textContent = 'Удалить';
+            deleteButton.className = 'delete-button';
+            deleteButton.onclick = () => deleteScreenshot(ss.questionId);
+            actionButtonsDiv.appendChild(deleteButton);
+
+            modalScreenshotsContainer.appendChild(screenshotItem);
+
+            // Обновляем счетчик
+            screenshotCounter.textContent = `${index + 1} из ${helperInfo.screenshots.length}`;
+
+            // Управление состоянием кнопок навигации (если не зацикливаем)
+            // prevScreenshotBtn.disabled = (index === 0);
+            // nextScreenshotBtn.disabled = (index === helperInfo.screenshots.length - 1);
+            
+            // Если зацикливание, то кнопки всегда активны (если скриншотов > 1)
+            prevScreenshotBtn.disabled = (helperInfo.screenshots.length <= 1);
+            nextScreenshotBtn.disabled = (helperInfo.screenshots.length <= 1);
+        }
+
+
+        // --- Функции для зума и перетаскивания изображения (без изменений) ---
         function applyTransform(img) {
             const zoom = parseFloat(img.dataset.zoom);
             const translateX = parseFloat(img.dataset.translateX);
             const translateY = parseFloat(img.dataset.translateY);
             img.style.transform = `scale(${zoom}) translate(${translateX}px, ${translateY}px)`;
+            img.style.transformOrigin = '0 0';
         }
 
         function handleZoom(e, img) {
-            e.preventDefault(); // Предотвращаем прокрутку страницы
+            e.preventDefault();
             let zoom = parseFloat(img.dataset.zoom);
-            const zoomFactor = 0.1; // Шаг зума
+            const zoomFactor = 0.1;
 
-            // Определяем центр зума относительно изображения
             const rect = img.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
             const mouseY = e.clientY - rect.top;
 
             const oldZoom = zoom;
 
-            if (e.deltaY < 0) { // Колесико вверх - увеличиваем
+            if (e.deltaY < 0) {
                 zoom += zoomFactor;
-            } else { // Колесико вниз - уменьшаем
+            } else {
                 zoom -= zoomFactor;
             }
 
-            zoom = Math.max(0.1, Math.min(5, zoom)); // Ограничиваем зум от 0.1x до 5x
+            zoom = Math.max(0.1, Math.min(5, zoom));
 
-            // Пересчитываем смещение, чтобы зум был относительно точки под курсором
             let translateX = parseFloat(img.dataset.translateX);
             let translateY = parseFloat(img.dataset.translateY);
 
             translateX = translateX - (mouseX / oldZoom - mouseX / zoom);
             translateY = translateY - (mouseY / oldZoom - mouseY / zoom);
-
 
             img.dataset.zoom = zoom;
             img.dataset.translateX = translateX;
@@ -747,14 +898,13 @@
         }
 
         function handleMouseDown(e, img) {
-            if (e.button === 0) { // Левая кнопка мыши
+            if (e.button === 0) {
                 isDragging = true;
                 img.style.cursor = 'grabbing';
-                // Сохраняем начальные координаты клика и текущее смещение
                 startX = e.clientX;
                 startY = e.clientY;
-                translateX = parseFloat(img.dataset.translateX);
-                translateY = parseFloat(img.dataset.translateY);
+                initialTranslateX = parseFloat(img.dataset.translateX);
+                initialTranslateY = parseFloat(img.dataset.translateY);
             }
         }
 
@@ -762,11 +912,12 @@
             if (!isDragging) return;
             e.preventDefault();
 
-            const dx = (e.clientX - startX) / parseFloat(img.dataset.zoom); // Делим на зум, чтобы скорость перетаскивания была постоянной
-            const dy = (e.clientY - startY) / parseFloat(img.dataset.zoom);
+            const currentZoom = parseFloat(img.dataset.zoom);
+            const dx = (e.clientX - startX) / currentZoom;
+            const dy = (e.clientY - startY) / currentZoom;
 
-            img.dataset.translateX = translateX + dx;
-            img.dataset.translateY = translateY + dy;
+            img.dataset.translateX = initialTranslateX + dx;
+            img.dataset.translateY = initialTranslateY + dy;
 
             applyTransform(img);
         }
