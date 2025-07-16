@@ -308,7 +308,7 @@
             const parts = filename.split("-");
             const index = parts[parts.length - 1].replace(".png", "");
             answerElement.innerHTML = `
-                <h3 style="font-size: 16px; margin-bottom: 4px;">ответ ${index}:</h3>
+                <h3 style="font-size: 16px; margin-bottom: 4px;">k :</h3>
                 <p style="font-size: 12px;">${data.answer || "Нет ответа"}</p>
             `;
             answerWindow.appendChild(answerElement);
