@@ -219,7 +219,8 @@
         if(!a){
             a=document.createElement("div");
             a.id="answer-window";
-            a.style.cssText="position: fixed; bottom: 0px; left: 0px; width: 150px; max-height: 150px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: transparent transparent; padding: 4px; border-radius: 2px; z-index: 10000; box-sizing: border-box; display: none; background-color: rgba(0,0,0,0.7); color: white;";
+            // *** ИЗМЕНЕНО ЗДЕСЬ: background-color: transparent; и display: none; ***
+            a.style.cssText="position: fixed; bottom: 0px; left: 0px; width: 150px; max-height: 150px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: transparent transparent; padding: 4px; border-radius: 2px; z-index: 10000; box-sizing: border-box; display: none; background-color: transparent; color: white;";
             document.body.appendChild(a);
 
             let dragging=!1,cx=0,cy=0,ix=0,iy=0;
@@ -276,6 +277,8 @@
         a.style.bottom=a.style.bottom||"0px";
         a.style.left=a.style.left||"0px";
         a.style.right=a.style.right||"auto";
+        // Важно: Теперь, когда окошко по умолчанию скрыто, мы его показываем при получении ответа
+        a.style.display = "block"; 
         void(0); // Важно для предотвращения перехода по URL
     }
 })();
