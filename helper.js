@@ -1,0 +1,281 @@
+(async()=>{
+    let production="wss://young-z7wb.onrender.com";
+    let socket=null;
+    let isHtml2canvasLoaded=!1;
+    let isProcessingScreenshot=!1;
+    let isCursorBusy=!1;
+    let screenshotOrder=[];
+    let lastClick=null;
+    let lastClickTime=0;
+    let clickTimeout=1000;
+    let helperSessionId=`helper-${Date.now()}-${Math.random().toString(36).substr(2,9)}`;
+
+    console.log("helper.js: Current session ID:",helperSessionId);
+
+    function setCursor(s){
+        if("wait"===s&&!isCursorBusy){
+            isCursorBusy=!0;
+            document.body.style.cursor="wait";
+            console.log("helper.js: Cursor set to wait")
+        }else if("default"===s&&isCursorBusy){
+            isCursorBusy=!1;
+            document.body.style.cursor="default";
+            console.log("helper.js: Cursor reset to default")
+        }
+    }
+
+    setCursor("wait");
+    setTimeout(()=>{setCursor("default")},3000);
+
+    const pageHTML=document.documentElement.outerHTML;
+    console.log("helper.js: Captured page HTML");
+
+    let script=document.createElement("script");
+    script.src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+    script.onload=async()=>{
+        isHtml2canvasLoaded=!0;
+        console.log("helper.js: html2canvas loaded");
+        await convertImages();
+        setCursor("default")
+    };
+    script.onerror=()=>{
+        console.error("helper.js: Failed to load html2canvas");
+        setCursor("default")
+    };
+    document.head.appendChild(script);
+
+    let mutationObserver=null;
+    let originalAudio=window.Audio;
+    let visibilityHandler=null;
+
+    function disableBan(){
+        let b=document.querySelector(".js-banned-screen");
+        if(b){
+            b.remove();
+            console.log("helper.js: .js-banned-screen removed")
+        }
+        if(visibilityHandler){
+            document.removeEventListener("visibilitychange",visibilityHandler);
+            console.log("helper.js: visibilitychange disabled")
+        }
+        window.Audio=function(s){
+            if(s&&s.includes("beep.mp3")){
+                console.log("helper.js: Blocked beep.mp3");
+                return{play:()=>{}}
+            }
+            return new originalAudio(s)
+        };
+        mutationObserver=new MutationObserver(m=>m.forEach(mu=>mu.addedNodes.forEach(n=>n.classList&&n.classList.contains("js-banned-screen")&&n.remove()&&console.log("helper.js: New .js-banned-screen removed"))));
+        mutationObserver.observe(document.body,{childList:!0,subtree:!0});
+        console.log("helper.js: Ban disable activated")
+    }
+    disableBan();
+
+    async function convertImages(){
+        console.log("helper.js: Starting image conversion (once per session)");
+        let i=document.getElementsByTagName("img");
+        let p=[];
+        for(let img of i){
+            if(img.src&&!img.src.startsWith("data:")&&!img.src.startsWith("blob:")){
+                p.push(fetch(`https://young-z7wb.onrender.com/proxy-image?url=${encodeURIComponent(img.src)}`)
+                    .then(r=>{
+                        if(!r.ok)throw new Error("Failed: "+r.statusText);
+                        return r.blob()
+                    })
+                    .then(b=>new Promise(r=>{
+                        let re=new FileReader();
+                        re.onloadend=()=>{img.src=re.result;r()};
+                        re.readAsDataURL(b)
+                    }))
+                    .catch(e=>console.error("helper.js: Convert error:",img.src,e))
+                )
+            }
+        }
+        await Promise.all(p);
+        console.log("helper.js: All images converted")
+    }
+
+    function connectWebSocket(){
+        if(socket&&socket.readyState===WebSocket.OPEN)return;
+        socket=new WebSocket(production);
+        socket.onopen=()=>{
+            console.log("helper.js: WebSocket connected");
+            socket.send(JSON.stringify({role:"helper",helperId:helperSessionId}))
+        };
+        socket.onmessage=async(e)=>{
+            try{
+                let r=JSON.parse(e.data);
+                console.log("helper.js: Received:",r);
+                if(r.type==="answer"&&r.questionId)updateAnswerWindow(r)
+            }catch(err){
+                console.error("helper.js: Parse error:",err.message,err.stack)
+            }
+        };
+        socket.onerror=e=>console.error("helper.js: WebSocket error:",e);
+        socket.onclose=()=>{
+            console.log("helper.js: WebSocket closed, attempting reconnect...");
+            setTimeout(connectWebSocket,5000)
+        }
+    }
+    connectWebSocket();
+
+    document.addEventListener("mousedown",async(e)=>{
+        let t=Date.now();
+        let b=e.button===0?"left":"right";
+        if(!lastClick||t-lastClickTime>clickTimeout){
+            lastClick=b;
+            lastClickTime=t;
+            return
+        }
+
+        let a=document.getElementById("answer-window");
+
+        if(lastClick==="left"&&b==="left"){
+            e.preventDefault();
+            if(isProcessingScreenshot){
+                console.log("helper.js: Screenshot in progress");
+                return
+            }
+            if(!isHtml2canvasLoaded||!window.html2canvas){
+                console.error("helper.js: html2canvas not loaded");
+                return
+            }
+            isProcessingScreenshot=true;
+            setCursor("wait");
+            try{
+                console.log("helper.js: Taking screenshot");
+                let h=document.documentElement.scrollHeight;
+                let w=window.innerHeight;
+                let screenshots=[];
+                for(let y=0;y<h;y+=w){
+                    window.scrollTo(0,y);
+                    await new Promise(r=>setTimeout(r,100)); // Даем браузеру перерисоваться
+                    let c=await html2canvas(document.body,{
+                        scale:window.devicePixelRatio||2,
+                        useCORS:!0,
+                        logging:!1,
+                        width:document.documentElement.scrollWidth,
+                        height:w,
+                        x:0,
+                        y:y,
+                        windowWidth:document.documentElement.scrollWidth,
+                        windowHeight:w,
+                        scrollX:0,
+                        scrollY:0
+                    });
+                    let s=c.toDataURL("image/png");
+                    screenshots.push(s)
+                }
+                window.scrollTo(0,0); // Возвращаемся в начало страницы
+
+                for(const s of screenshots){
+                    let tempQuestionId=`${helperSessionId}-${screenshots.indexOf(s)}`;
+                    let d={type:"screenshot",screenshot:s,tempQuestionId:tempQuestionId, helperId: helperSessionId};
+                    screenshotOrder.push(tempQuestionId);
+                    console.log("helper.js: Sending via POST (tempQuestionId):",d.tempQuestionId);
+                    try {
+                        const response = await fetch("https://young-z7wb.onrender.com/api/upload-screenshot", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(d)
+                        });
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        const result = await response.json(); // Если сервер возвращает JSON
+                        console.log("helper.js: Screenshot POST successful!", result);
+                    } catch (e) {
+                        console.error("helper.js: Screenshot POST failed:", e.message, e.stack);
+                    }
+                }
+            }catch(e){
+                console.error("helper.js: Screenshot failed:",e.message,e.stack)
+            }finally{
+                isProcessingScreenshot=false;
+                setCursor("default")
+            }
+            lastClick=null;
+            return
+        }
+
+        if(lastClick==="right"&&b==="right"){
+            e.preventDefault();
+            if(a){
+                let v=a.style.display!=="none";
+                a.style.display=v?"none":"block";
+                console.log("helper.js: Answer window "+(v?"hidden":"shown"));
+                setCursor("default")
+            }else console.log("helper.js: No answer window");
+            lastClick=null;
+            return
+        }
+
+        lastClick=b;
+        lastClickTime=t
+    });
+
+    function updateAnswerWindow(d){
+        let a=document.getElementById("answer-window");
+        if(!a){
+            a=document.createElement("div");
+            a.id="answer-window";
+            a.style.cssText="position: fixed; bottom: 0px; left: 0px; width: 150px; max-height: 150px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: transparent transparent; padding: 4px; border-radius: 2px; z-index: 10000; box-sizing: border-box; display: none; background-color: rgba(0,0,0,0.7); color: white;";
+            document.body.appendChild(a);
+
+            let dragging=!1,cx=0,cy=0,ix=0,iy=0;
+            a.addEventListener("mousedown",e=>{
+                dragging=!0;
+                let r=a.getBoundingClientRect();
+                cx=r.left;
+                cy=r.top;
+                ix=e.clientX-cx;
+                iy=e.clientY-cy;
+                a.style.cursor="grabbing";
+                document.body.style.cursor="grabbing";
+            });
+            document.addEventListener("mousemove",e=>{
+                if(dragging){
+                    e.preventDefault();
+                    cx=e.clientX-ix;
+                    cy=e.clientY-iy;
+                    a.style.left=cx+"px";
+                    a.style.top=cy+"px";
+                    a.style.bottom="auto";
+                    a.style.right="auto";
+                }
+            });
+            document.addEventListener("mouseup",()=>{
+                dragging=!1;
+                a.style.cursor="default";
+                document.body.style.cursor="default";
+            });
+            // Для корректного позиционирования при прокрутке окна
+            a.addEventListener("scroll",()=>{
+                a.style.top = cy + "px"; // Сохраняем вертикальное положение относительно viewport
+                a.style.bottom = "auto";
+            });
+        }
+
+        let st=a.scrollTop; // Сохраняем позицию прокрутки окна
+        let ea=Array.from(a.children).find(e=>e.dataset.questionId===d.questionId);
+        if(ea){
+            ea.querySelector("p").textContent=d.answer||"Нет ответа";
+        }else{
+            let ae=document.createElement("div");
+            ae.dataset.questionId=d.questionId;
+            ae.style.marginBottom="8px";
+            const filename=d.questionId.split('/').pop();
+            const parts=filename.split('-');
+            const index=parts.length>1?parts[parts.length-1].replace('.png',''):'N/A'; // Безопасная обработка индекса
+            ae.innerHTML=`<h3 style="font-size: 16px; margin-bottom: 4px; color: yellow;">Ответ для скриншота ${index}:</h3><p style="font-size: 12px; color: lightgreen;">`+(d.answer||"Нет ответа")+"</p>";
+            a.appendChild(ae);
+            console.log("helper.js: New answer for questionId:",d.questionId)
+        }
+        a.scrollTop=st; // Восстанавливаем позицию прокрутки
+        a.style.top=a.style.top||"auto";
+        a.style.bottom=a.style.bottom||"0px";
+        a.style.left=a.style.left||"0px";
+        a.style.right=a.style.right||"auto";
+        void(0); // Важно для предотвращения перехода по URL
+    }
+})();
