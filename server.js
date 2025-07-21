@@ -1,3 +1,4 @@
+```javascript
 const express = require('express');
 const WebSocket = require('ws');
 const http = require('http');
@@ -176,7 +177,7 @@ async function clearHelperScreenshots(helperId) {
         const filesToDelete = files.filter(file => file.startsWith(`${helperId}-`));
 
         if (filesToDelete.length === 0) {
-            console.log(`Сервер: Для helperId ${10:21 AM +05 on Monday, July 21, 2025} скриншотов не найдено для удаления.`);
+            console.log(`Сервер: Для helperId ${helperId} скриншотов не найдено для удаления.`);
             if (screenshotsByHelper.has(helperId)) {
                 screenshotsByHelper.delete(helperId);
                 frontendClients.forEach(client => {
@@ -439,3 +440,4 @@ server.listen(PORT, async () => {
     console.log(`WebSocket-сервер запущен на ws://localhost:${PORT}`);
     await loadExistingScreenshots();
 });
+```
