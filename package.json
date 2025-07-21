@@ -8,7 +8,7 @@
     "dev": "nodemon server.js"
   },
   "keywords": ["screenshot", "websocket", "express"],
-  "author": "Your Name",
+  "author": "Eduard Zhuravlev",
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
