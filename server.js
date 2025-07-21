@@ -1,4 +1,4 @@
-```javascript
+
 const express = require('express');
 const WebSocket = require('ws');
 const http = require('http');
@@ -440,4 +440,3 @@ server.listen(PORT, async () => {
     console.log(`WebSocket-сервер запущен на ws://localhost:${PORT}`);
     await loadExistingScreenshots();
 });
-```
