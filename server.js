@@ -42,6 +42,12 @@ app.get('/healthz', (req, res) => {
     res.status(200).send('OK');
 });
 
+app.get('/api/active-helpers', (req, res) => {
+    const helpers = Array.from(helperClients.keys());
+    console.log(`Сервер: Запрос активных помощников, найдено: ${helpers.length}`);
+    res.status(200).json({ helpers });
+});
+
 app.get('/proxy-image', async (req, res) => {
     const imageUrl = req.query.url;
     if (!imageUrl) {
@@ -230,7 +236,6 @@ wss.on('connection', (ws) => {
                 if (currentHelperId) {
                     helperClients.set(currentHelperId, ws);
                     console.log(`Сервер: Подключился помощник с ID: ${currentHelperId}, активных помощников: ${helperClients.size}`);
-                    // Отправка сохраненных ответов при подключении
                     if (screenshotsByHelper.has(currentHelperId)) {
                         const screenshots = screenshotsByHelper.get(currentHelperId);
                         screenshots.forEach(screenshot => {
@@ -420,7 +425,6 @@ wss.on('connection', (ws) => {
         console.error('Сервер: Ошибка WebSocket:', error);
     });
 
-    // Поддержание соединения с помощью ping/pong
     ws.isAlive = true;
     ws.on('pong', () => {
         ws.isAlive = true;
@@ -428,7 +432,6 @@ wss.on('connection', (ws) => {
     });
 });
 
-// Периодический пинг для поддержания WebSocket-соединений
 const pingInterval = setInterval(() => {
     wss.clients.forEach(ws => {
         if (!ws.isAlive) {
@@ -441,7 +444,6 @@ const pingInterval = setInterval(() => {
     });
 }, 30000);
 
-// Очистка интервала при закрытии сервера
 wss.on('close', () => {
     clearInterval(pingInterval);
 });
