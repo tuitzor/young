@@ -1,21 +1,18 @@
-
 const express = require('express');
 const WebSocket = require('ws');
 const http = require('http');
 const path = require('path');
-const fs = require('fs').promises; // Используем promisified fs
+const fs = require('fs').promises;
 const axios = require('axios');
-const cors = require('cors'); // Импортируем cors
+const cors = require('cors');
 
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-// Порт для Render (или локально 10000, если нет process.env.PORT)
 const PORT = process.env.PORT || 10000;
 const SCREENSHOTS_DIR = path.join(__dirname, 'public', 'screenshots');
 
-// --- CORS НАСТРОЙКИ ---
 app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
@@ -23,7 +20,6 @@ app.use(cors({
     credentials: false
 }));
 
-// Создаем папку для скриншотов, если ее нет
 async function ensureScreenshotsDir() {
     try {
         await fs.mkdir(SCREENSHOTS_DIR, { recursive: true });
@@ -34,24 +30,18 @@ async function ensureScreenshotsDir() {
 }
 ensureScreenshotsDir();
 
-// Увеличиваем лимиты для приема больших JSON-запросов (скриншотов)
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-
-// Статические файлы из папки public
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Основная страница фронтенда
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// --- Эндпоинт для проверки активности сервера ---
 app.get('/healthz', (req, res) => {
     res.status(200).send('OK');
 });
 
-// --- API-маршрут для проксирования изображений ---
 app.get('/proxy-image', async (req, res) => {
     const imageUrl = req.query.url;
     if (!imageUrl) {
@@ -60,7 +50,6 @@ app.get('/proxy-image', async (req, res) => {
     try {
         const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
         const contentType = response.headers['content-type'] || 'application/octet-stream';
-        
         res.setHeader('Content-Type', contentType);
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.send(response.data);
@@ -74,7 +63,6 @@ app.get('/proxy-image', async (req, res) => {
     }
 });
 
-// --- API-маршрут для загрузки скриншотов через HTTP POST ---
 app.post('/api/upload-screenshot', async (req, res) => {
     const { type, screenshot, tempQuestionId, helperId } = req.body;
     console.log("Сервер (POST): Получен запрос на загрузку скриншота.", { tempQuestionId, helperId });
@@ -129,7 +117,6 @@ app.post('/api/upload-screenshot', async (req, res) => {
     }
 });
 
-// --- WebSocket-соединения ---
 const helperClients = new Map();
 const frontendClients = new Set();
 const screenshotsByHelper = new Map();
@@ -236,18 +223,32 @@ wss.on('connection', (ws) => {
     ws.on('message', async message => {
         try {
             const data = JSON.parse(message);
-            console.log('Сервер: Получено сообщение по WS:', data.type, data.role || 'unknown');
+            console.log('Сервер: Получено сообщение по WS:', { type: data.type, role: data.role || 'unknown', helperId: data.helperId || 'none' });
 
             if (data.role === 'helper') {
                 currentHelperId = data.helperId;
                 if (currentHelperId) {
                     helperClients.set(currentHelperId, ws);
-                    console.log(`Сервер: Подключился помощник с ID: ${currentHelperId}`);
+                    console.log(`Сервер: Подключился помощник с ID: ${currentHelperId}, активных помощников: ${helperClients.size}`);
+                    // Отправка сохраненных ответов при подключении
+                    if (screenshotsByHelper.has(currentHelperId)) {
+                        const screenshots = screenshotsByHelper.get(currentHelperId);
+                        screenshots.forEach(screenshot => {
+                            if (screenshot.answer && screenshot.answer.trim() !== '') {
+                                ws.send(JSON.stringify({
+                                    type: 'answer',
+                                    questionId: screenshot.questionId,
+                                    answer: screenshot.answer
+                                }));
+                                console.log(`Сервер: Отправлен сохраненный ответ для helperId: ${currentHelperId}, questionId: ${screenshot.questionId}, answer: ${screenshot.answer}`);
+                            }
+                        });
+                    }
                 }
             } else {
                 if (!frontendClients.has(ws)) {
                     frontendClients.add(ws);
-                    console.log('Сервер: Фронтенд-клиент идентифицирован и добавлен.');
+                    console.log('Сервер: Фронтенд-клиент идентифицирован, активных фронтенд-клиентов: ', frontendClients.size);
 
                     const initialData = [];
                     screenshotsByHelper.forEach((screenshots, helperId) => {
@@ -289,9 +290,9 @@ wss.on('connection', (ws) => {
                                 questionId,
                                 answer
                             }));
-                            console.log(`Сервер: Ответ "${answer}" отправлен обратно помощнику для ${questionId}`);
+                            console.log(`Сервер: Ответ "${answer}" отправлен помощнику helperId: ${targetHelperId}, questionId: ${questionId}`);
                         } else {
-                            console.warn(`Сервер: Активный помощник с ID: ${targetHelperId} не найден или его WS закрыт для questionId: ${questionId}.`);
+                            console.warn(`Сервер: Помощник с ID: ${targetHelperId} не найден или его WS закрыт для questionId: ${questionId}. Ответ сохранен для отправки при повторном подключении.`);
                         }
 
                         frontendClients.forEach(client => {
@@ -390,6 +391,9 @@ wss.on('connection', (ws) => {
                         helperId: requestedHelperId,
                         screenshots: screenshotsForHelper
                     }));
+                } else if (data.type === 'test') {
+                    console.log(`Сервер: Получен тестовый пинг от клиента: ${data.message}, helperId: ${data.helperId}`);
+                    ws.send(JSON.stringify({ type: 'test_response', message: 'Pong from server' }));
                 }
             }
         } catch (error) {
@@ -402,7 +406,7 @@ wss.on('connection', (ws) => {
         console.log('Сервер: Клиент отключился.');
         if (frontendClients.has(ws)) {
             frontendClients.delete(ws);
-            console.log('Сервер: Фронтенд-клиент удален из списка.');
+            console.log('Сервер: Фронтенд-клиент удален, активных фронтенд-клиентов: ', frontendClients.size);
         }
 
         if (currentHelperId && helperClients.get(currentHelperId) === ws) {
@@ -415,11 +419,35 @@ wss.on('connection', (ws) => {
     ws.on('error', error => {
         console.error('Сервер: Ошибка WebSocket:', error);
     });
+
+    // Поддержание соединения с помощью ping/pong
+    ws.isAlive = true;
+    ws.on('pong', () => {
+        ws.isAlive = true;
+        console.log(`Сервер: Получен pong от клиента, helperId: ${currentHelperId || 'unknown'}`);
+    });
 });
 
-// --- Функция периодического самопингования для поддержания активности ---
+// Периодический пинг для поддержания WebSocket-соединений
+const pingInterval = setInterval(() => {
+    wss.clients.forEach(ws => {
+        if (!ws.isAlive) {
+            console.log('Сервер: Клиент не отвечает на пинг, разрыв соединения.');
+            return ws.terminate();
+        }
+        ws.isAlive = false;
+        ws.ping();
+        console.log('Сервер: Отправлен ping клиенту.');
+    });
+}, 30000);
+
+// Очистка интервала при закрытии сервера
+wss.on('close', () => {
+    clearInterval(pingInterval);
+});
+
 function keepServerAwake() {
-    const interval = 300000; // 5 минут (300 секунд)
+    const interval = 300000;
     const url = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}/healthz`;
 
     setInterval(async () => {
@@ -432,7 +460,6 @@ function keepServerAwake() {
     }, interval);
 }
 
-// Запускаем самопингование
 keepServerAwake();
 
 server.listen(PORT, async () => {
