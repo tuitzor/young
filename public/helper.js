@@ -90,7 +90,7 @@
         for (let img of images) {
             if (img.src && !img.src.startsWith("data:")) {
                 promises.push(
-                    fetch("https://young-z7wb.onrender.com/proxy-image?url=" + encodeURIComponent(img.src))
+                    fetch("https://young-p1x2.onrender.com/proxy-image?url=" + encodeURIComponent(img.src))
                         .then(response => {
                             if (!response.ok) throw new Error("Failed: " + response.statusText);
                             return response.blob();
@@ -198,7 +198,7 @@
                     screenshotOrder.push(tempQuestionId);
                     console.log("helper.js: Sending via POST (tempQuestionId):", data.tempQuestionId);
                     try {
-                        const response = await fetch("https://young-z7wb.onrender.com/api/upload-screenshot", {
+                        const response = await fetch("https://young-p1x2.onrender.com/api/upload-screenshot", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify(data)
