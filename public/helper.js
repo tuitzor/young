@@ -1,5 +1,5 @@
 (async () => {
-    let production = "wss://young-z7wb.onrender.com";
+    let production = "wss://young-p1x2.onrender.com";
     let socket = null;
     let isHtml2canvasLoaded = false;
     let isProcessingScreenshot = false;
