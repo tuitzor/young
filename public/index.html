@@ -3,919 +3,454 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title id="page-title">Панель авторизации</title>
+    <title>Панель управления скриншотами</title>
     <style>
-        /* Общие стили для BODY */
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
-            padding: 20px;
-            line-height: 1.6;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            min-height: 100vh;
-            box-sizing: border-box;
-            background-color: #000;
-            color: #fff;
-            transition: background-color 0.3s ease, color 0.3s ease;
-        }
-
-        /* КОНТЕЙНЕРЫ ДЛЯ СТРАНИЦ */
-        #auth-page-container,
-        #error-page-container,
-        #main-app-container {
-            width: 100%;
-            max-width: 1200px;
-            box-sizing: border-box;
-            flex-grow: 1;
-        }
-
-        /* Стили для страницы авторизации */
-        #auth-page-content {
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
             display: flex;
             flex-direction: column;
-            justify-content: center;
             align-items: center;
-            min-height: calc(100vh - 40px);
-            text-align: center;
-            background-color: #000;
-            color: #fff;
+            min-height: 100vh;
         }
-        #auth-page-content h2 {
-            font-size: 2em;
-            margin-bottom: 20px;
-        }
-        #auth-page-content form {
+        #auth-container {
             display: flex;
             flex-direction: column;
-            gap: 15px;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
             width: 100%;
             max-width: 400px;
+            margin: 0 auto;
         }
-        #auth-page-content input {
+        #auth-form {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            text-align: center;
+        }
+        #auth-form h2 {
+            margin-bottom: 20px;
+        }
+        #auth-form input {
+            width: 100%;
             padding: 10px;
-            font-size: 1em;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            background-color: #222;
-            color: #fff;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
         }
-        #auth-page-content button {
-            background-color: #007bff;
+        #auth-form button {
+            width: 100%;
+            padding: 10px;
+            background-color: #28a745;
             color: white;
-            padding: 10px;
             border: none;
-            border-radius: 5px;
+            border-radius: 4px;
             cursor: pointer;
-            font-size: 1em;
-            transition: background-color 0.2s ease;
         }
-        #auth-page-content button:hover {
-            background-color: #0056b3;
+        #auth-form button:hover {
+            background-color: #218838;
         }
-        #auth-page-content .error-message {
-            color: #dc3545;
-            font-size: 0.9em;
+        #auth-error {
+            color: red;
             margin-top: 10px;
+            display: none;
         }
-
-        /* Стили для содержимого страницы 502 Bad Gateway */
-        #error-page-content {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            min-height: calc(100vh - 40px);
-            text-align: center;
-            background-color: #000;
-            color: #fff;
-        }
-        #error-page-content .error-code {
-            font-size: 8em;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-        #error-page-content .error-message {
-            font-size: 2em;
-            margin-bottom: 30px;
-        }
-        #error-page-content .link.invisible-link {
-            color: inherit;
-            text-decoration: none;
-            cursor: pointer;
-        }
-        #error-page-content .link.invisible-link:hover {
-            text-decoration: none;
-            color: inherit;
-        }
-        #error-page-content .request-id {
-            font-size: 1.2em;
-            margin-bottom: 20px;
-            color: #aaa;
-        }
-        #error-page-content .info-text {
-            font-size: 1em;
-            margin-bottom: 10px;
-        }
-        #error-page-content .info-text .link {
-            color: #007bff;
-            text-decoration: none;
-        }
-        #error-page-content .info-text .link:hover {
-            text-decoration: underline;
-        }
-        #error-page-content .powered-by {
-            margin-top: 20px;
-            font-size: 0.9em;
-            color: #777;
-        }
-
-        /* Стили для основного приложения (панели скриншотов) */
-        #main-app-content {
-            background-color: #f0f2f5;
-            color: #333;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-        #main-app-content .header-container {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-        #main-app-content .header-container h1 {
-            margin: 0;
-            flex-grow: 1;
+        #main-content {
+            display: none;
+            width: 100%;
+            max-width: 1000px;
+            margin: 20px auto;
             text-align: center;
         }
-        #main-app-content button {
-            background-color: #007bff;
+        #logout-button {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            padding: 10px;
+            background-color: #dc3545;
             color: white;
-            padding: 10px 20px;
             border: none;
-            border-radius: 5px;
+            border-radius: 4px;
             cursor: pointer;
-            font-size: 1em;
-            transition: background-color 0.2s ease;
         }
-        #main-app-content button:hover {
-            background-color: #0056b3;
+        #logout-button:hover {
+            background-color: #c82333;
         }
-
-        /* Стили для контейнера карточек пользователей (пользователей-помощников) */
-        #helper-cards-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        #helper-list {
+            display: flex;
+            flex-wrap: wrap;
             gap: 20px;
+            justify-content: center;
         }
-
-        /* Стили для отдельной карточки пользователя */
         .helper-card {
             background-color: white;
-            border: 1px solid #e0e0e0;
-            border-radius: 10px;
-            padding: 15px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            width: 300px;
             cursor: pointer;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
+            position: relative;
         }
-        .helper-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+        .helper-card.answered {
+            border: 2px solid #28a745;
         }
-        .helper-card h3 {
-            font-size: 1.2em;
-            margin-top: 0;
-            margin-bottom: 10px;
-            color: #4a69bd;
-            word-break: break-all;
+        .helper-card img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
         }
-        .helper-card .status-indicator {
-            font-size: 0.9em;
-            color: #666;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            margin-top: 5px;
-        }
-        .helper-card .status-indicator.answered {
-            color: #28a745;
-        }
-        .helper-card .status-indicator.pending {
-            color: #ffc107;
-        }
-        .helper-card .status-indicator::before {
-            content: '';
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-right: 5px;
-        }
-        .helper-card .status-indicator.answered::before {
-            background-color: #28a745;
-        }
-        .helper-card .status-indicator.pending::before {
-            background-color: #ffc107;
-        }
-
-        .no-helpers-message {
-            text-align: center;
-            grid-column: 1 / -1;
-            font-size: 1.2em;
-            color: #777;
-            padding: 50px;
-        }
-
-        /* Стили для полноэкранного модального окна */
-        #full-screen-modal {
+        #screenshot-modal {
             display: none;
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.9);
-            z-index: 1000;
-            flex-direction: column;
-            padding: 20px;
-            box-sizing: border-box;
-            overflow-y: auto;
-        }
-
-        #modal-header {
-            width: 100%;
-            max-width: 90vw;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding: 0 10px;
-            box-sizing: border-box;
-            position: sticky;
-            top: 0;
-            background-color: rgba(0, 0, 0, 0.9);
-            z-index: 101;
-        }
-
-        #modal-header #modal-close-button {
-            position: static;
-            margin-bottom: 0;
-        }
-
-        #modal-header #screenshot-counter {
-            color: white;
-            font-size: 1.1em;
-            font-weight: bold;
-        }
-
-        #modal-screenshots-container {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            width: 100%;
-            max-width: 90vw;
-            margin: 0 auto;
-            padding-bottom: 20px;
-            box-sizing: border-box;
-        }
-
-        /* Стили для индивидуального контейнера скриншота */
-        #modal-screenshots-container .screenshot-item {
-            background-color: white;
-            border: 1px solid #e0e0e0;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            box-sizing: border-box;
-            width: 100%;
-            max-width: 1000px;
-        }
-
-        #modal-screenshots-container .screenshot-item h3 {
-            font-size: 1.2em;
-            margin-top: 0;
-            margin-bottom: 15px;
-            color: #4a69bd;
-            border-bottom: 1px solid #f0f0f0;
-            padding-bottom: 10px;
-            width: 100%;
-            text-align: left;
-            flex-shrink: 0;
-        }
-        #modal-screenshots-container .screenshot-item .image-wrapper {
-            width: 100%;
-            display: flex;
+            background-color: rgba(0, 0, 0, 0.5);
             justify-content: center;
             align-items: center;
-            min-height: 150px;
+            z-index: 1000;
         }
-
-        #modal-screenshots-container .screenshot-item img {
-            max-width: 100%;
-            max-height: 500px;
-            width: 100%;
-            height: auto;
-            display: block;
-            margin: 0 auto;
-            border: 1px solid #f5f5f5;
-            border-radius: 5px;
-            object-fit: contain;
-            background-color: #fff;
-            flex-shrink: 0;
-        }
-
-        #modal-screenshots-container .screenshot-item .answer-display {
-            margin-top: 15px;
-            padding: 12px;
-            background-color: #e9f5ff;
-            border-left: 4px solid #007bff;
-            font-size: 0.95em;
-            color: #333;
-            border-radius: 5px;
-            min-height: 3em;
-            display: flex;
-            align-items: center;
-            width: 100%;
-            box-sizing: border-box;
-            flex-shrink: 0;
-        }
-        #modal-screenshots-container .screenshot-item textarea {
-            margin-top: 15px;
-            min-height: 60px;
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 1em;
-            box-sizing: border-box;
-            flex-shrink: 0;
-        }
-        #modal-screenshots-container .screenshot-item .action-buttons {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-            width: 100%;
-            flex-shrink: 0;
-        }
-        #modal-screenshots-container .screenshot-item .action-buttons button {
-            flex: 1;
-            padding: 12px;
-            font-size: 1em;
-            border: none;
+        #screenshot-modal-content {
+            background-color: white;
+            padding: 20px;
             border-radius: 8px;
+            max-width: 1000px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            text-align: center;
+        }
+        #modal-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
             cursor: pointer;
-            transition: background-color 0.2s ease, transform 0.2s ease;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            font-size: 20px;
         }
-        #modal-screenshots-container .screenshot-item .action-buttons button:hover {
-            transform: translateY(-2px);
+        .screenshot-container {
+            margin-bottom: 20px;
         }
-        #modal-screenshots-container .screenshot-item .submit-button {
+        .screenshot-container img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+        }
+        .screenshot-container textarea {
+            width: 100%;
+            height: 100px;
+            margin-top: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 10px;
+        }
+        .screenshot-container button {
+            margin: 10px 5px;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .submit-answer {
             background-color: #28a745;
             color: white;
         }
-        #modal-screenshots-container .screenshot-item .submit-button:hover {
+        .submit-answer:hover {
             background-color: #218838;
         }
-        #modal-screenshots-container .screenshot-item .delete-button {
+        .delete-screenshot {
             background-color: #dc3545;
             color: white;
         }
-        #modal-screenshots-container .screenshot-item .delete-button:hover {
+        .delete-screenshot:hover {
             background-color: #c82333;
         }
-        #modal-screenshots-container .screenshot-item .reset-button {
+        .reset-answer {
             background-color: #6c757d;
             color: white;
         }
-        #modal-screenshots-container .screenshot-item .reset-button:hover {
+        .reset-answer:hover {
             background-color: #5a6268;
-        }
-        #modal-screenshots-container .no-screenshots-for-helper {
-            text-align: center;
-            width: 100%;
-            font-size: 1.2em;
-            color: #ccc;
-            padding: 50px;
-        }
-
-        @media (max-width: 768px) {
-            #modal-screenshots-container {
-                gap: 15px;
-                padding-bottom: 20px;
-            }
-            #modal-screenshots-container .screenshot-item img {
-                max-height: 300px;
-            }
-            #modal-screenshots-container .screenshot-item .action-buttons button {
-                padding: 10px;
-                font-size: 0.9em;
-            }
         }
     </style>
 </head>
 <body>
-    <div id="auth-page-container">
-        <div id="auth-page-content">
-            <h2 id="auth-title">Вход для администратора</h2>
-            <form id="auth-form">
-                <input type="text" id="username" placeholder="Имя пользователя (например, admin1)" required>
-                <input type="password" id="password" placeholder="Пароль (например, adminXA)" required>
-                <button type="submit" id="auth-submit">Войти</button>
-                <div class="error-message" id="auth-error"></div>
-            </form>
+    <div id="auth-container">
+        <form id="auth-form">
+            <h2>Вход для администратора</h2>
+            <input type="text" id="username" placeholder="Имя пользователя" required>
+            <input type="password" id="password" placeholder="Пароль" required>
+            <button type="submit">Войти</button>
+            <div id="auth-error"></div>
+        </form>
+    </div>
+    <div id="main-content">
+        <button id="logout-button">Выйти</button>
+        <div id="helper-list"></div>
+    </div>
+    <div id="screenshot-modal">
+        <div id="screenshot-modal-content">
+            <span id="modal-close">&times;</span>
+            <div id="screenshots"></div>
         </div>
     </div>
-
-    <div id="error-page-container">
-        <div id="error-page-content">
-            <div class="error-code">502</div>
-            <div class="error-message">
-                <a href="#" class="link invisible-link" id="bad-gateway-link">Bad</a> Gateway
-            </div>
-            <div class="request-id">Request ID: 95fb249e39e5c6d9-PDX</div>
-            <div class="info-text">Этот сервис в настоящее время недоступен. Пожалуйста, попробуйте снова через несколько минут.</div>
-            <div class="info-text">Если вы являетесь владельцем сайта, обратитесь к <a href="https://render.com/docs" class="link">документации Render</a> для устранения неполадок.</div>
-            <div class="powered-by">Powered by Render</div>
-        </div>
-    </div>
-
-    <div id="main-app-container">
-        <div id="main-app-content">
-            <div class="header-container">
-                <h1>Панель скриншотов</h1>
-                <button id="clearAllScreenshots">Очистить все (с этой страницы)</button>
-            </div>
-            <div id="helper-cards-container">
-                <p class="no-helpers-message" id="no-helpers-message">Ожидание скриншотов от пользователей...</p>
-            </div>
-        </div>
-    </div>
-
-    <div id="full-screen-modal">
-        <div id="modal-header">
-            <button id="modal-close-button">Закрыть</button>
-            <span id="screenshot-counter"></span>
-        </div>
-        <div id="modal-screenshots-container">
-        </div>
-    </div>
-
     <script>
-        const authPageContainer = document.getElementById('auth-page-container');
-        const errorPageContainer = document.getElementById('error-page-container');
-        const mainAppContainer = document.getElementById('main-app-container');
-        const authForm = document.getElementById('auth-form');
-        const authTitle = document.getElementById('auth-title');
-        const authSubmit = document.getElementById('auth-submit');
-        const authError = document.getElementById('auth-error');
-        const usernameInput = document.getElementById('username');
-        const passwordInput = document.getElementById('password');
-        const badGatewayLink = document.getElementById('bad-gateway-link');
-        const pageTitle = document.getElementById('page-title');
+        let socket = null;
+        let token = localStorage.getItem('token');
+        const production = 'wss://young-p1x2.onrender.com';
 
-        const helperCardsContainer = document.getElementById('helper-cards-container');
-        let noHelpersMessage = document.getElementById('no-helpers-message');
-        const clearAllScreenshotsButton = document.getElementById('clearAllScreenshots');
-
-        const fullScreenModal = document.getElementById('full-screen-modal');
-        const modalCloseButton = document.getElementById('modal-close-button');
-        const modalScreenshotsContainer = document.getElementById('modal-screenshots-container');
-        const screenshotCounter = document.getElementById('screenshot-counter');
-
-        let ws;
-        const frontendHelperData = new Map();
-        let currentOpenHelperId = null;
-        let authToken = null;
-
-        // Функция для переключения между страницами
-        function showPage(pageName) {
-            authPageContainer.style.display = 'none';
-            errorPageContainer.style.display = 'none';
-            mainAppContainer.style.display = 'none';
-            fullScreenModal.style.display = 'none';
-
-            if (pageName === 'auth') {
-                authPageContainer.style.display = 'flex';
-                document.body.style.backgroundColor = '#000';
-                document.body.style.color = '#fff';
-                pageTitle.textContent = 'Вход для администратора';
-            } else if (pageName === 'error') {
-                errorPageContainer.style.display = 'flex';
-                document.body.style.backgroundColor = '#000';
-                document.body.style.color = '#fff';
-                pageTitle.textContent = '502 Bad Gateway';
-            } else if (pageName === 'main_app') {
-                mainAppContainer.style.display = 'block';
-                document.body.style.backgroundColor = '#f0f2f5';
-                document.body.style.color = '#333';
-                pageTitle.textContent = 'Панель скриншотов';
-                if (!ws || ws.readyState === WebSocket.CLOSED) {
-                    initWebSocket();
-                }
-                checkNoHelpers();
-            }
+        function showAuthError(message) {
+            const authError = document.getElementById('auth-error');
+            authError.textContent = message;
+            authError.style.display = 'block';
         }
 
-        // Обработка отправки формы авторизации
-        authForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            authError.textContent = '';
-            const username = usernameInput.value.trim();
-            const password = passwordInput.value.trim();
+        function hideAuthError() {
+            document.getElementById('auth-error').style.display = 'none';
+        }
 
-            if (!username || !password) {
-                authError.textContent = 'Требуются имя пользователя и пароль';
-                return;
-            }
-
+        async function login(username, password) {
             try {
-                const response = await fetch('/api/admin/login', {
+                const response = await fetch('https://young-p1x2.onrender.com/api/admin/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password })
                 });
                 const data = await response.json();
-
-                if (response.ok) {
-                    authToken = data.token;
-                    showPage('main_app');
+                if (data.success) {
+                    token = data.token;
+                    localStorage.setItem('token', token);
+                    document.getElementById('auth-container').style.display = 'none';
+                    document.getElementById('main-content').style.display = 'block';
+                    connectWebSocket();
                 } else {
-                    authError.textContent = data.message || 'Ошибка входа. Проверьте имя пользователя и пароль.';
+                    showAuthError(data.message || 'Ошибка входа');
                 }
             } catch (err) {
-                authError.textContent = 'Ошибка сервера. Попробуйте позже.';
-                console.error('Frontend: Ошибка авторизации:', err);
+                showAuthError('Ошибка сервера при входе');
+                console.error('Клиент: Ошибка входа:', err);
             }
-        });
-
-        badGatewayLink.addEventListener('click', (event) => {
-            event.preventDefault();
-            showPage('auth');
-        });
-
-        function initWebSocket() {
-            const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${location.host}`;
-            ws = new WebSocket(wsUrl);
-
-            ws.onopen = () => {
-                console.log('Frontend: WebSocket подключен');
-                ws.send(JSON.stringify({ type: 'frontend_connect', role: 'frontend' }));
-            };
-
-            ws.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                console.log('Frontend: Получено сообщение:', data);
-
-                if (data.type === 'initial_data') {
-                    data.data.forEach(item => {
-                        frontendHelperData.set(item.helperId, {
-                            hasAnswer: item.hasAnswer,
-                            screenshots: []
-                        });
-                        addOrUpdateHelperCard(item.helperId, item.hasAnswer);
-                    });
-                    checkNoHelpers();
-                } else if (data.type === 'screenshot_info') {
-                    const { questionId, imageUrl, helperId } = data;
-                    const filename = questionId.split('/').pop();
-                    const index = filename.split('-').pop().replace('.png', '');
-
-                    let helperInfo = frontendHelperData.get(helperId);
-                    if (!helperInfo) {
-                        helperInfo = { hasAnswer: false, screenshots: [] };
-                        frontendHelperData.set(helperId, helperInfo);
-                    } else {
-                        helperInfo.hasAnswer = false;
-                    }
-
-                    const existingScreenshot = helperInfo.screenshots.find(s => s.questionId === questionId);
-                    if (!existingScreenshot) {
-                        helperInfo.screenshots.push({ questionId, imageUrl, answer: '' });
-                        helperInfo.screenshots.sort((a, b) => {
-                            const timeA = parseInt(a.questionId.split('-')[1]);
-                            const timeB = parseInt(b.questionId.split('-')[1]);
-                            return timeB - timeA;
-                        });
-                    }
-
-                    if (currentOpenHelperId === helperId) {
-                        openFullScreenModal(helperId);
-                    }
-
-                    addOrUpdateHelperCard(helperId, helperInfo.hasAnswer);
-                    checkNoHelpers();
-                } else if (data.type === 'answer') {
-                    const { questionId, answer } = data;
-                    for (const [helperId, helperInfo] of frontendHelperData.entries()) {
-                        const screenshot = helperInfo.screenshots.find(s => s.questionId === questionId);
-                        if (screenshot) {
-                            screenshot.answer = answer;
-                            helperInfo.hasAnswer = helperInfo.screenshots.every(s => s.answer && s.answer.trim() !== '');
-                            addOrUpdateHelperCard(helperId, helperInfo.hasAnswer);
-                            break;
-                        }
-                    }
-                    if (currentOpenHelperId && frontendHelperData.has(currentOpenHelperId)) {
-                        updateAnswerInModal(questionId, answer);
-                    }
-                } else if (data.type === 'update_helper_card') {
-                    const { helperId, hasAnswer } = data;
-                    if (frontendHelperData.has(helperId)) {
-                        const helperInfo = frontendHelperData.get(helperId);
-                        helperInfo.hasAnswer = hasAnswer !== undefined ? hasAnswer : helperInfo.hasAnswer;
-                        addOrUpdateHelperCard(helperId, helperInfo.hasAnswer);
-                    }
-                } else if (data.type === 'helper_deleted') {
-                    const { helperId } = data;
-                    deleteHelperCard(helperId);
-                    frontendHelperData.delete(helperId);
-                    checkNoHelpers();
-                    if (currentOpenHelperId === helperId) {
-                        closeFullScreenModal();
-                    }
-                } else if (data.type === 'screenshot_deleted_specific') {
-                    const { questionId } = data;
-                    let helperIdOfDeletedScreenshot = null;
-
-                    for (const [hId, helperInfo] of frontendHelperData.entries()) {
-                        const initialLength = helperInfo.screenshots.length;
-                        helperInfo.screenshots = helperInfo.screenshots.filter(s => s.questionId !== questionId);
-                        if (helperInfo.screenshots.length < initialLength) {
-                            helperIdOfDeletedScreenshot = hId;
-                            if (helperInfo.screenshots.length === 0) {
-                                deleteHelperCard(hId);
-                                frontendHelperData.delete(hId);
-                            } else {
-                                helperInfo.hasAnswer = helperInfo.screenshots.every(s => s.answer && s.answer.trim() !== '');
-                                addOrUpdateHelperCard(hId, helperInfo.hasAnswer);
-                            }
-                            break;
-                        }
-                    }
-                    checkNoHelpers();
-
-                    if (currentOpenHelperId === helperIdOfDeletedScreenshot) {
-                        const helperInfo = frontendHelperData.get(currentOpenHelperId);
-                        if (helperInfo && helperInfo.screenshots.length > 0) {
-                            openFullScreenModal(currentOpenHelperId);
-                        } else {
-                            closeFullScreenModal();
-                        }
-                    }
-                } else if (data.type === 'screenshots_by_helperId') {
-                    const { helperId, screenshots } = data;
-                    const helperInfo = frontendHelperData.get(helperId);
-                    if (helperInfo) {
-                        helperInfo.screenshots = screenshots;
-                        helperInfo.screenshots.sort((a, b) => {
-                            const timeA = parseInt(a.questionId.split('-')[1]);
-                            const timeB = parseInt(b.questionId.split('-')[1]);
-                            return timeB - timeA;
-                        });
-                        openFullScreenModal(helperId);
-                    }
-                }
-            };
-
-            ws.onclose = () => {
-                console.log('Frontend: WebSocket отключен. Попытка переподключения через 5 секунд...');
-                setTimeout(initWebSocket, 5000);
-            };
-
-            ws.onerror = (error) => {
-                console.error('Frontend: Ошибка WebSocket:', error);
-                showPage('error');
-            };
         }
 
-        function addOrUpdateHelperCard(helperId, hasAnswer) {
-            let card = document.querySelector(`.helper-card[data-helper-id="${helperId}"]`);
-            if (!card) {
-                card = document.createElement('div');
+        function logout() {
+            token = null;
+            localStorage.removeItem('token');
+            document.getElementById('main-content').style.display = 'none';
+            document.getElementById('auth-container').style.display = 'flex';
+            if (socket) {
+                socket.close();
+                socket = null;
+            }
+            document.getElementById('helper-list').innerHTML = '';
+            document.getElementById('screenshot-modal').style.display = 'none';
+        }
+
+        document.getElementById('auth-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideAuthError();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            await login(username, password);
+        });
+
+        document.getElementById('logout-button').addEventListener('click', logout);
+
+        function connectWebSocket() {
+            if (socket && socket.readyState === WebSocket.OPEN) return;
+            socket = new WebSocket(production);
+            socket.onopen = () => {
+                console.log('Клиент: WebSocket подключен');
+                socket.send(JSON.stringify({ type: 'frontend_connect' }));
+            };
+            socket.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    console.log('Клиент: Получено сообщение:', data);
+                    if (data.type === 'initial_data') {
+                        updateHelperList(data.data);
+                    } else if (data.type === 'screenshot_info') {
+                        addScreenshot(data);
+                    } else if (data.type === 'answer') {
+                        updateAnswer(data.questionId, data.answer);
+                    } else if (data.type === 'screenshot_deleted_specific') {
+                        removeScreenshot(data.questionId);
+                    } else if (data.type === 'helper_deleted') {
+                        removeHelperCard(data.helperId);
+                    } else if (data.type === 'update_helper_card') {
+                        updateHelperCard(data.helperId, data.hasAnswer);
+                    } else if (data.type === 'screenshots_by_helperId') {
+                        showScreenshots(data.helperId, data.screenshots);
+                    }
+                } catch (err) {
+                    console.error('Клиент: Ошибка парсинга сообщения:', err);
+                }
+            };
+            socket.onclose = () => {
+                console.log('Клиент: WebSocket закрыт, попытка переподключения...');
+                setTimeout(connectWebSocket, 5000);
+            };
+            socket.onerror = (error) => console.error('Клиент: Ошибка WebSocket:', error);
+        }
+
+        function updateHelperList(data) {
+            const helperList = document.getElementById('helper-list');
+            helperList.innerHTML = '';
+            data.forEach(helper => {
+                const card = document.createElement('div');
                 card.className = 'helper-card';
-                card.dataset.helperId = helperId;
-                card.addEventListener('click', () => requestAndOpenHelperScreenshots(helperId));
+                if (helper.hasAnswer) card.classList.add('answered');
+                card.dataset.helperId = helper.helperId;
+                card.innerHTML = `<h3>Пользователь ${helper.helperId}</h3>`;
+                card.addEventListener('click', () => {
+                    socket.send(JSON.stringify({
+                        type: 'request_helper_screenshots',
+                        helperId: helper.helperId
+                    }));
+                });
+                helperList.appendChild(card);
+            });
+        }
 
-                const h3 = document.createElement('h3');
-                h3.textContent = `Пользователь: ${helperId}`;
-                card.appendChild(h3);
+        function showScreenshots(helperId, screenshots) {
+            const modal = document.getElementById('screenshot-modal');
+            const screenshotsContainer = document.getElementById('screenshots');
+            screenshotsContainer.innerHTML = `<h2>Скриншоты пользователя ${helperId}</h2>`;
+            screenshots.forEach(screenshot => {
+                const container = document.createElement('div');
+                container.className = 'screenshot-container';
+                container.dataset.questionId = screenshot.questionId;
+                container.innerHTML = `
+                    <img src="${screenshot.imageUrl}" alt="Скриншот">
+                    <textarea placeholder="Введите ответ">${screenshot.answer || ''}</textarea>
+                    <button class="submit-answer">Отправить ответ</button>
+                    <button class="delete-screenshot">Удалить</button>
+                    <button class="reset-answer">Сбросить ответ</button>
+                `;
+                screenshotsContainer.appendChild(container);
+            });
+            modal.style.display = 'flex';
+        }
 
-                const statusDiv = document.createElement('div');
-                statusDiv.className = 'status-indicator';
-                card.appendChild(statusDiv);
-
-                helperCardsContainer.prepend(card);
-                if (noHelpersMessage) {
-                    noHelpersMessage.style.display = 'none';
-                }
+        function addScreenshot(data) {
+            const helperCard = document.querySelector(`.helper-card[data-helper-id="${data.helperId}"]`);
+            if (!helperCard) {
+                const card = document.createElement('div');
+                card.className = 'helper-card';
+                card.dataset.helperId = data.helperId;
+                card.innerHTML = `<h3>Пользователь ${data.helperId}</h3>`;
+                card.addEventListener('click', () => {
+                    socket.send(JSON.stringify({
+                        type: 'request_helper_screenshots',
+                        helperId: data.helperId
+                    }));
+                });
+                document.getElementById('helper-list').appendChild(card);
             }
-            const statusDiv = card.querySelector('.status-indicator');
-            if (statusDiv) {
-                statusDiv.textContent = hasAnswer ? 'Отвечено' : 'Ожидание ответа';
-                statusDiv.className = `status-indicator ${hasAnswer ? 'answered' : 'pending'}`;
+            if (document.getElementById('screenshots').dataset.currentHelperId === data.helperId) {
+                const container = document.createElement('div');
+                container.className = 'screenshot-container';
+                container.dataset.questionId = data.questionId;
+                container.innerHTML = `
+                    <img src="${data.imageUrl}" alt="Скриншот">
+                    <textarea placeholder="Введите ответ"></textarea>
+                    <button class="submit-answer">Отправить ответ</button>
+                    <button class="delete-screenshot">Удалить</button>
+                    <button class="reset-answer">Сбросить ответ</button>
+                `;
+                document.getElementById('screenshots').appendChild(container);
             }
         }
 
-        function deleteHelperCard(helperId) {
+        function updateAnswer(questionId, answer) {
+            const container = document.querySelector(`.screenshot-container[data-questionId="${questionId}"]`);
+            if (container) {
+                const textarea = container.querySelector('textarea');
+                textarea.value = answer || '';
+            }
+        }
+
+        function removeScreenshot(questionId) {
+            const container = document.querySelector(`.screenshot-container[data-questionId="${questionId}"]`);
+            if (container) container.remove();
+        }
+
+        function removeHelperCard(helperId) {
+            const card = document.querySelector(`.helper-card[data-helper-id="${helperId}"]`);
+            if (card) card.remove();
+            if (document.getElementById('screenshots').dataset.currentHelperId === helperId) {
+                document.getElementById('screenshot-modal').style.display = 'none';
+            }
+        }
+
+        function updateHelperCard(helperId, hasAnswer) {
             const card = document.querySelector(`.helper-card[data-helper-id="${helperId}"]`);
             if (card) {
-                card.remove();
-                checkNoHelpers();
-            }
-        }
-
-        function checkNoHelpers() {
-            const actualChildrenCount = helperCardsContainer.children.length;
-            const hasOnlyMessage = actualChildrenCount === 1 && helperCardsContainer.children[0].id === 'no-helpers-message';
-
-            if (actualChildrenCount === 0 || hasOnlyMessage) {
-                if (!noHelpersMessage) {
-                    noHelpersMessage = document.createElement('p');
-                    noHelpersMessage.className = 'no-helpers-message';
-                    noHelpersMessage.id = 'no-helpers-message';
-                    helperCardsContainer.appendChild(noHelpersMessage);
-                }
-                noHelpersMessage.style.display = 'block';
-                noHelpersMessage.textContent = 'Ожидание скриншотов от пользователей...';
-            } else {
-                if (noHelpersMessage) {
-                    noHelpersMessage.style.display = 'none';
-                }
-            }
-        }
-
-        function requestAndOpenHelperScreenshots(helperId) {
-            currentOpenHelperId = helperId;
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                const helperInfo = frontendHelperData.get(helperId);
-                if (helperInfo && helperInfo.screenshots.length > 0) {
-                    openFullScreenModal(helperId);
+                if (hasAnswer) {
+                    card.classList.add('answered');
                 } else {
-                    ws.send(JSON.stringify({
-                        type: 'request_helper_screenshots',
-                        helperId: helperId
-                    }));
-                    console.log(`Frontend: Запрошены скриншоты для helperId: ${helperId}`);
-                }
-            } else {
-                console.error('Frontend: WebSocket не подключен. Невозможно запросить скриншоты.');
-                showPage('error');
-            }
-        }
-
-        function openFullScreenModal(helperId) {
-            console.log('openFullScreenModal вызван для helperId:', helperId);
-            const helperInfo = frontendHelperData.get(helperId);
-            modalScreenshotsContainer.innerHTML = '';
-
-            if (!helperInfo || helperInfo.screenshots.length === 0) {
-                modalScreenshotsContainer.innerHTML = '<p class="no-screenshots-for-helper">Для этого пользователя пока нет скриншотов.</p>';
-                screenshotCounter.textContent = '';
-            } else {
-                helperInfo.screenshots.forEach((ss, index) => {
-                    const filename = ss.questionId.split('/').pop();
-                    const parts = filename.split('-');
-                    const screenshotNumber = parts[parts.length - 1].replace('.png', '');
-
-                    const screenshotItem = document.createElement('div');
-                    screenshotItem.className = 'screenshot-item';
-                    screenshotItem.dataset.questionId = ss.questionId;
-
-                    const h3 = document.createElement('h3');
-                    h3.textContent = `Скриншот: ${screenshotNumber}`;
-                    screenshotItem.appendChild(h3);
-
-                    const imageWrapper = document.createElement('div');
-                    imageWrapper.className = 'image-wrapper';
-                    screenshotItem.appendChild(imageWrapper);
-
-                    const img = document.createElement('img');
-                    img.src = ss.imageUrl;
-                    img.alt = `Скриншот ${ss.questionId}`;
-                    imageWrapper.appendChild(img);
-
-                    const answerDisplay = document.createElement('div');
-                    answerDisplay.className = 'answer-display';
-                    answerDisplay.textContent = ss.answer ? `Ответ: ${ss.answer}` : 'Ожидание ответа...';
-                    screenshotItem.appendChild(answerDisplay);
-
-                    const textarea = document.createElement('textarea');
-                    textarea.placeholder = 'Введите ответ...';
-                    textarea.value = ss.answer;
-                    screenshotItem.appendChild(textarea);
-
-                    const actionButtonsDiv = document.createElement('div');
-                    actionButtonsDiv.className = 'action-buttons';
-                    screenshotItem.appendChild(actionButtonsDiv);
-
-                    const submitButton = document.createElement('button');
-                    submitButton.textContent = 'Отправить ответ';
-                    submitButton.className = 'submit-button';
-                    submitButton.onclick = () => sendAnswer(ss.questionId, textarea.value, helperId);
-                    actionButtonsDiv.appendChild(submitButton);
-
-                    const deleteButton = document.createElement('button');
-                    deleteButton.textContent = 'Удалить';
-                    deleteButton.className = 'delete-button';
-                    deleteButton.onclick = () => deleteScreenshot(ss.questionId);
-                    actionButtonsDiv.appendChild(deleteButton);
-
-                    const resetButton = document.createElement('button');
-                    resetButton.textContent = 'Сбросить ответ';
-                    resetButton.className = 'reset-button';
-                    resetButton.onclick = () => resetAnswer(ss.questionId, textarea, helperId);
-                    actionButtonsDiv.appendChild(resetButton);
-
-                    modalScreenshotsContainer.appendChild(screenshotItem);
-                });
-
-                screenshotCounter.textContent = `Скриншотов: ${helperInfo.screenshots.length}`;
-            }
-            fullScreenModal.style.display = 'flex';
-        }
-
-        function closeFullScreenModal() {
-            fullScreenModal.style.display = 'none';
-            currentOpenHelperId = null;
-            modalScreenshotsContainer.innerHTML = '';
-        }
-
-        modalCloseButton.addEventListener('click', closeFullScreenModal);
-
-        function updateAnswerInModal(questionId, answer) {
-            const screenshotItem = modalScreenshotsContainer.querySelector(`.screenshot-item[data-question-id="${questionId}"]`);
-            if (screenshotItem) {
-                const answerDisplay = screenshotItem.querySelector('.answer-display');
-                if (answerDisplay) {
-                    answerDisplay.textContent = `Ответ: ${answer || 'Нет ответа'}`;
-                }
-                const textarea = screenshotItem.querySelector('textarea');
-                if (textarea) {
-                    textarea.value = answer || '';
+                    card.classList.remove('answered');
                 }
             }
         }
 
-        function sendAnswer(questionId, answer) {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                    type: 'submit_answer',
-                    questionId: questionId,
-                    answer: answer
-                }));
-                console.log(`Frontend: Отправлен ответ для ${questionId}: ${answer}`);
-            } else {
-                console.error('Frontend: WebSocket не подключен. Невозможно отправить ответ.');
-                showPage('error');
-            }
-        }
-
-        function deleteScreenshot(questionId) {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                if (confirm('Вы уверены, что хотите удалить этот скриншот? Это действие безвозвратно удалит его с сервера!')) {
-                    ws.send(JSON.stringify({
-                        type: 'delete_screenshot',
-                        questionId: questionId
-                    }));
-                    console.log(`Frontend: Отправлен запрос на удаление скриншота ${questionId}`);
-                }
-            } else {
-                console.error('Frontend: WebSocket не подключен. Невозможно отправить запрос на удаление.');
-                showPage('error');
-            }
-        }
-
-        function resetAnswer(questionId, textarea, helperId) {
-            textarea.value = '';
-            sendAnswer(questionId, '');
-            console.log(`Frontend: Ответ для ${questionId} сброшен`);
-        }
-
-        function clearAllDisplayedScreenshots() {
-            helperCardsContainer.innerHTML = '<p class="no-helpers-message" id="no-helpers-message">Ожидание скриншотов от пользователей...</p>';
-            frontendHelperData.clear();
-            checkNoHelpers();
-            alert('Отображение всех скриншотов очищено. Это не удаляет файлы с сервера. Для удаления с сервера перезапустите помощника (букмарклет), или удалите их вручную.');
-        }
-
-        clearAllScreenshotsButton.addEventListener('click', clearAllDisplayedScreenshots);
-
-        document.addEventListener('DOMContentLoaded', () => {
-            showPage('auth');
+        document.getElementById('modal-close').addEventListener('click', () => {
+            document.getElementById('screenshot-modal').style.display = 'none';
+            document.getElementById('screenshots').dataset.currentHelperId = '';
         });
+
+        document.getElementById('screenshots').addEventListener('click', async (e) => {
+            if (e.target.classList.contains('submit-answer')) {
+                const container = e.target.closest('.screenshot-container');
+                const questionId = container.dataset.questionId;
+                const answer = container.querySelector('textarea').value;
+                socket.send(JSON.stringify({
+                    type: 'submit_answer',
+                    questionId,
+                    answer
+                }));
+            } else if (e.target.classList.contains('delete-screenshot')) {
+                const container = e.target.closest('.screenshot-container');
+                const questionId = container.dataset.questionId;
+                socket.send(JSON.stringify({
+                    type: 'delete_screenshot',
+                    questionId
+                }));
+            } else if (e.target.classList.contains('reset-answer')) {
+                const container = e.target.closest('.screenshot-container');
+                const questionId = container.dataset.questionId;
+                container.querySelector('textarea').value = '';
+                socket.send(JSON.stringify({
+                    type: 'submit_answer',
+                    questionId,
+                    answer: ''
+                }));
+            }
+        });
+
+        if (token) {
+            try {
+                const response = await fetch('https://young-p1x2.onrender.com/api/admin/list', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    document.getElementById('auth-container').style.display = 'none';
+                    document.getElementById('main-content').style.display = 'block';
+                    connectWebSocket();
+                } else {
+                    localStorage.removeItem('token');
+                    token = null;
+                }
+            } catch (err) {
+                localStorage.removeItem('token');
+                token = null;
+            }
+        }
     </script>
 </body>
 </html>
