@@ -18,12 +18,12 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secure-jwt-secret'; // Replac
 
 // Список администраторов с хешированными паролями
 const admins = [
-    { username: 'admin1', passwordHash: bcrypt.hashSync('admin1A', 10) },
-    { username: 'admin2', passwordHash: bcrypt.hashSync('admin2A', 10) },
-    { username: 'admin3', passwordHash: bcrypt.hashSync('admin3A', 10) },
-    { username: 'admin4', passwordHash: bcrypt.hashSync('admin4A', 10) },
-    { username: 'admin5', passwordHash: bcrypt.hashSync('admin5A', 10) },
-    { username: 'admin6', passwordHash: bcrypt.hashSync('admin6A', 10) }
+    { username: 'AYAZ', passwordHash: bcrypt.hashSync('AYAZ1', 10) },
+    { username: 'XASAN', passwordHash: bcrypt.hashSync('XASAN1', 10) },
+    { username: 'XUSAN', passwordHash: bcrypt.hashSync('XUSAN1', 10) },
+    { username: 'JOHON', passwordHash: bcrypt.hashSync('JOHON1', 10) },
+    { username: 'EDOS', passwordHash: bcrypt.hashSync('edos16', 10) },
+    { username: 'KOMRON', passwordHash: bcrypt.hashSync('KOMRON1', 10) }
 ];
 
 app.use(cors({
