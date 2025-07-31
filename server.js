@@ -82,7 +82,7 @@ app.post('/api/upload-screenshot', async (req, res) => {
         return res.status(400).json({ success: false, message: 'Неверные данные скриншота.' });
     }
 
-    if (!tempQuestionId.match(/^helper-[\w-]+-\d+-\d+$/) || !helperId.match(/^helper-[\w-]+-\d+$/)) {
+    if (!tempQuestionId.match(/^helper-[\w-]+-\w+-\d+-\d+$/) || !helperId.match(/^helper-[\w-]+-\w+$/)) {
         console.error('Сервер: Неверный формат tempQuestionId или helperId:', { tempQuestionId, helperId });
         return res.status(400).json({ success: false, message: 'Неверный формат tempQuestionId или helperId.' });
     }
@@ -280,15 +280,16 @@ wss.on('connection', (ws) => {
         try {
             const data = JSON.parse(message);
             console.log('Сервер: Получено сообщение по WS:', {
-                type: data.type,
+                type: data.type || 'undefined',
                 role: data.role || 'unknown',
                 helperId: data.helperId || 'none',
-                questionId: data.tempQuestionId || 'none'
+                questionId: data.tempQuestionId || data.questionId || 'none',
+                bypassAuth: data.bypassAuth || false
             });
 
-            if (data.role === 'helper') {
+            if (data.role === 'helper' && data.bypassAuth) {
                 currentHelperId = data.helperId;
-                if (currentHelperId && currentHelperId.match(/^helper-[\w-]+-\d+$/)) {
+                if (currentHelperId && currentHelperId.match(/^helper-[\w-]+-\w+$/)) {
                     helperClients.set(currentHelperId, ws);
                     console.log(`Сервер: Подключился помощник с ID: ${currentHelperId}, активных помощников: ${helperClients.size}`);
                     if (screenshotsByHelper.has(currentHelperId)) {
@@ -309,7 +310,7 @@ wss.on('connection', (ws) => {
                 }
             } else if (data.type === 'frontend_connect') {
                 if (!frontendClients.has(ws)) {
-                    if (!data.token || !data.helperId || data.helperId === 'none' || !data.helperId.match(/^helper-[\w-]+-\d+$/)) {
+                    if (!data.token || !data.helperId || data.helperId === 'none' || !data.helperId.match(/^helper-[\w-]+-\w+$/)) {
                         console.warn('Сервер: Неверный токен или helperId в frontend_connect:', { token: !!data.token, helperId: data.helperId });
                         return ws.send(JSON.stringify({
                             type: 'error',
@@ -349,7 +350,7 @@ wss.on('connection', (ws) => {
                         }));
                     }
                 }
-            } else if (data.type === 'screenshot') {
+            } else if (data.type === 'screenshot' && data.bypassAuth) {
                 const { screenshot, tempQuestionId, helperId } = data;
                 if (!screenshot || !tempQuestionId || !helperId) {
                     console.error('Сервер: Неверные данные скриншота:', { screenshot: !!screenshot, tempQuestionId, helperId });
@@ -357,7 +358,7 @@ wss.on('connection', (ws) => {
                     return;
                 }
 
-                if (!tempQuestionId.match(/^helper-[\w-]+-\d+-\d+$/) || !helperId.match(/^helper-[\w-]+-\d+$/)) {
+                if (!tempQuestionId.match(/^helper-[\w-]+-\w+-\d+-\d+$/) || !helperId.match(/^helper-[\w-]+-\w+$/)) {
                     console.error('Сервер: Неверный формат tempQuestionId или helperId:', { tempQuestionId, helperId });
                     ws.send(JSON.stringify({ type: 'error', message: 'Неверный формат tempQuestionId или helperId.' }));
                     return;
@@ -507,7 +508,7 @@ wss.on('connection', (ws) => {
                 }
             } else if (data.type === 'request_helper_screenshots') {
                 const { helperId: requestedHelperId } = data;
-                if (!requestedHelperId || !requestedHelperId.match(/^helper-[\w-]+-\d+$/)) {
+                if (!requestedHelperId || !requestedHelperId.match(/^helper-[\w-]+-\w+$/)) {
                     ws.send(JSON.stringify({ type: 'error', message: 'Неверный формат helperId.' }));
                     return;
                 }
