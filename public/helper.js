@@ -24,7 +24,6 @@
         }
     }
 
-    // Инициализация скриншота без ожидания
     setCursor("wait");
     setTimeout(() => {
         setCursor("default");
@@ -33,7 +32,6 @@
     const pageHTML = document.documentElement.outerHTML;
     console.log("helper.js: Captured page HTML");
 
-    // Загрузка html2canvas без блокировки интерфейса
     let script = document.createElement("script");
     script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
     script.async = true;
@@ -48,7 +46,6 @@
     };
     document.head.appendChild(script);
 
-    // Упрощенная функция для обхода бана
     function disableBan() {
         window.Audio = function(src) {
             if (src && src.includes("beep.mp3")) {
@@ -72,7 +69,6 @@
 
     disableBan();
 
-    // Функция для создания WebSocket соединения
     function connectWebSocket() {
         if (socket && socket.readyState === WebSocket.OPEN) return;
         
@@ -83,7 +79,7 @@
             socket.send(JSON.stringify({ 
                 role: "helper", 
                 helperId: helperSessionId,
-                bypassAuth: true // Флаг для обхода авторизации
+                bypassAuth: true
             }));
             socket.send(JSON.stringify({ 
                 type: "pageHTML", 
@@ -116,7 +112,6 @@
 
     connectWebSocket();
 
-    // Улучшенная функция для создания скриншотов
     async function takeScreenshot() {
         if (isProcessingScreenshot || !isHtml2canvasLoaded) {
             console.log("helper.js: Screenshot already in progress or html2canvas not loaded");
@@ -134,7 +129,6 @@
             const screenshots = [];
             const scrollPosition = window.scrollY;
             
-            // Делаем скриншоты по частям
             for (let y = 0; y < height; y += windowHeight) {
                 window.scrollTo(0, y);
                 await new Promise(resolve => setTimeout(resolve, 100));
@@ -158,10 +152,8 @@
                 screenshots.push(canvas.toDataURL("image/png"));
             }
             
-            // Возвращаем скролл на прежнее место
             window.scrollTo(0, scrollPosition);
             
-            // Отправляем скриншоты
             for (const screenshot of screenshots) {
                 const tempQuestionId = `${helperSessionId}-${Date.now()}-${screenshots.indexOf(screenshot)}`;
                 
@@ -170,7 +162,7 @@
                     screenshot: screenshot,
                     tempQuestionId: tempQuestionId,
                     helperId: helperSessionId,
-                    bypassAuth: true // Флаг для обхода авторизации
+                    bypassAuth: true
                 };
                 
                 screenshotOrder.push(tempQuestionId);
@@ -178,9 +170,6 @@
                 if (socket && socket.readyState === WebSocket.OPEN) {
                     socket.send(JSON.stringify(data));
                     console.log("helper.js: Screenshot sent:", tempQuestionId);
-                } else {
-                    console.error("helper.js: WebSocket not connected, storing screenshot locally");
-                    // Можно добавить локальное хранение скриншотов для последующей отправки
                 }
             }
         } catch (error) {
@@ -191,12 +180,10 @@
         }
     }
 
-    // Обработчик кликов для создания скриншотов
     document.addEventListener("mousedown", async event => {
         const currentTime = Date.now();
         const button = event.button === 0 ? "left" : "right";
         
-        // Двойной клик левой кнопкой - сделать скриншот
         if (button === "left" && lastClick === "left" && currentTime - lastClickTime < clickTimeout) {
             event.preventDefault();
             await takeScreenshot();
@@ -204,7 +191,6 @@
             return;
         }
         
-        // Двойной клик правой кнопкой - показать/скрыть окно ответов
         if (button === "right" && lastClick === "right" && currentTime - lastClickTime < clickTimeout) {
             event.preventDefault();
             const answerWindow = document.getElementById("answer-window");
@@ -219,83 +205,98 @@
         lastClickTime = currentTime;
     });
 
-    // Функция для отображения ответов
     function updateAnswerWindow(data) {
         let answerWindow = document.getElementById("answer-window");
-        
         if (!answerWindow) {
             answerWindow = document.createElement("div");
             answerWindow.id = "answer-window";
             answerWindow.style.cssText = `
                 position: fixed;
-                bottom: 20px;
-                left: 20px;
-                width: 200px;
-                max-height: 300px;
+                bottom: 0px;
+                left: 0px;
+                width: 150px;
+                max-height: 150px;
                 overflow-y: auto;
-                background: white;
-                padding: 10px;
-                border: 1px solid #ccc;
-                border-radius: 5px;
-                z-index: 9999;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+                padding: 4px;
+                z-index: 10000;
+                box-sizing: border-box;
                 display: none;
+                background: transparent !important;
+                border: none !important;
             `;
             document.body.appendChild(answerWindow);
             
-            // Добавляем возможность перетаскивания окна
-            let isDragging = false;
-            let offsetX, offsetY;
+            let dragging = false;
+            let currentX = 0;
+            let currentY = 0;
+            let initialX = 0;
+            let initialY = 0;
             
-            answerWindow.addEventListener("mousedown", (e) => {
-                isDragging = true;
-                offsetX = e.clientX - answerWindow.getBoundingClientRect().left;
-                offsetY = e.clientY - answerWindow.getBoundingClientRect().top;
+            answerWindow.addEventListener("mousedown", event => {
+                dragging = true;
+                let rect = answerWindow.getBoundingClientRect();
+                currentX = rect.left;
+                currentY = rect.top;
+                initialX = event.clientX - currentX;
+                initialY = event.clientY - currentY;
                 answerWindow.style.cursor = "grabbing";
+                document.body.style.cursor = "grabbing";
             });
             
-            document.addEventListener("mousemove", (e) => {
-                if (!isDragging) return;
-                answerWindow.style.left = (e.clientX - offsetX) + "px";
-                answerWindow.style.top = (e.clientY - offsetY) + "px";
-                answerWindow.style.bottom = "auto";
+            document.addEventListener("mousemove", event => {
+                if (dragging) {
+                    event.preventDefault();
+                    currentX = event.clientX - initialX;
+                    currentY = event.clientY - initialY;
+                    answerWindow.style.left = currentX + "px";
+                    answerWindow.style.top = currentY + "px";
+                    answerWindow.style.bottom = "auto";
+                    answerWindow.style.right = "auto";
+                }
             });
             
             document.addEventListener("mouseup", () => {
-                isDragging = false;
+                dragging = false;
                 answerWindow.style.cursor = "default";
+                document.body.style.cursor = "default";
+            });
+            
+            answerWindow.addEventListener("scroll", () => {
+                answerWindow.style.top = currentY + "px";
+                answerWindow.style.bottom = "auto";
             });
         }
         
-        const existingAnswer = Array.from(answerWindow.children).find(
-            el => el.dataset.questionId === data.questionId
+        let scrollTop = answerWindow.scrollTop;
+        let existingAnswer = Array.from(answerWindow.children).find(
+            element => element.dataset.questionId === data.questionId
         );
         
         if (existingAnswer) {
-            existingAnswer.querySelector("p").textContent = data.answer || "No answer";
+            existingAnswer.querySelector("p").textContent = data.answer || "Нет ответа";
         } else {
-            const answerElement = document.createElement("div");
+            let answerElement = document.createElement("div");
             answerElement.dataset.questionId = data.questionId;
-            answerElement.style.marginBottom = "10px";
-            answerElement.style.paddingBottom = "10px";
-            answerElement.style.borderBottom = "1px solid #eee";
-            
+            answerElement.style.marginBottom = "8px";
+            answerElement.style.background = "transparent";
+            answerElement.style.border = "none";
             const filename = data.questionId.split("/").pop();
             const parts = filename.split("-");
             const index = parts[parts.length - 1].replace(".png", "");
-            
             answerElement.innerHTML = `
-                <h3 style="margin: 0 0 5px 0; font-size: 14px;">Screenshot ${index}</h3>
-                <p style="margin: 0; font-size: 12px;">${data.answer || "No answer"}</p>
+                <h3 style="font-size: 16px; margin-bottom: 4px; color: white; text-shadow: 1px 1px 2px black;">Скриншот ${index}:</h3>
+                <p style="font-size: 12px; color: white; text-shadow: 1px 1px 2px black; margin: 0;">${data.answer || "Нет ответа"}</p>
             `;
-            
             answerWindow.appendChild(answerElement);
         }
         
-        answerWindow.style.display = "block";
+        answerWindow.scrollTop = scrollTop;
+        answerWindow.style.top = answerWindow.style.top || "auto";
+        answerWindow.style.bottom = answerWindow.style.bottom || "0px";
+        answerWindow.style.left = answerWindow.style.left || "0px";
+        answerWindow.style.right = answerWindow.style.right || "auto";
     }
 
-    // Автоматически делаем первый скриншот при загрузке
     setTimeout(async () => {
         if (isHtml2canvasLoaded) {
             await takeScreenshot();
@@ -310,7 +311,6 @@
         }
     }, 3000);
 
-    // Периодическая проверка соединения и отправка скриншотов
     setInterval(() => {
         if (socket && socket.readyState === WebSocket.OPEN) {
             socket.send(JSON.stringify({
