@@ -8,12 +8,13 @@
         body {
             margin: 0;
             padding: 0;
-            font-family: Arial, sans-serif;
-            background-color: #f0f0f0;
+            font-family: 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #667eea, #764ba2);
             display: flex;
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
+            color: #333;
         }
         #auth-container {
             display: flex;
@@ -24,40 +25,60 @@
             width: 100%;
             max-width: 400px;
             margin: 0 auto;
+            padding: 20px;
         }
         #auth-form {
-            background-color: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            background-color: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
             width: 100%;
             text-align: center;
+            transform: translateY(0);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        #auth-form:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
         }
         #auth-form h2 {
-            margin-bottom: 20px;
+            margin-bottom: 25px;
+            font-size: 24px;
+            color: #333;
         }
         #auth-form input {
             width: 100%;
-            padding: 10px;
-            margin: 10px 0;
-            border: 1px solid #ccc;
-            border-radius: 4px;
+            padding: 12px;
+            margin: 12px 0;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+            box-sizing: border-box;
+        }
+        #auth-form input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 8px rgba(102, 126, 234, 0.3);
         }
         #auth-form button {
             width: 100%;
-            padding: 10px;
+            padding: 12px;
             background-color: #28a745;
             color: white;
             border: none;
-            border-radius: 4px;
+            border-radius: 6px;
+            font-size: 16px;
             cursor: pointer;
+            transition: background-color 0.3s ease;
         }
         #auth-form button:hover {
             background-color: #218838;
         }
         #auth-error {
-            color: red;
-            margin-top: 10px;
+            color: #dc3545;
+            margin-top: 15px;
+            font-size: 14px;
             display: none;
         }
         #main-content {
@@ -71,12 +92,14 @@
             position: fixed;
             top: 10px;
             right: 10px;
-            padding: 10px;
+            padding: 10px 20px;
             background-color: #dc3545;
             color: white;
             border: none;
-            border-radius: 4px;
+            border-radius: 6px;
             cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s ease;
         }
         #logout-button:hover {
             background-color: #c82333;
@@ -89,12 +112,16 @@
         }
         .helper-card {
             background-color: white;
-            padding: 10px;
+            padding: 15px;
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             width: 300px;
             cursor: pointer;
-            position: relative;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .helper-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         }
         .helper-card.answered {
             border: 2px solid #28a745;
@@ -111,51 +138,62 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
+            background-color: rgba(0, 0, 0, 0.6);
             justify-content: center;
             align-items: center;
             z-index: 1000;
         }
         #screenshot-modal-content {
             background-color: white;
-            padding: 20px;
-            border-radius: 8px;
+            padding: 25px;
+            border-radius: 12px;
             max-width: 1000px;
             width: 90%;
             max-height: 80vh;
             overflow-y: auto;
             position: relative;
             text-align: center;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
         }
         #modal-close {
             position: absolute;
-            top: 10px;
-            right: 10px;
+            top: 15px;
+            right: 15px;
             cursor: pointer;
-            font-size: 20px;
+            font-size: 24px;
+            color: #333;
+            transition: color 0.2s ease;
+        }
+        #modal-close:hover {
+            color: #dc3545;
         }
         .screenshot-container {
-            margin-bottom: 20px;
+            margin-bottom: 25px;
         }
         .screenshot-container img {
             max-width: 100%;
             height: auto;
-            border-radius: 4px;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
         .screenshot-container textarea {
             width: 100%;
-            height: 100px;
-            margin-top: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            padding: 10px;
+            height: 120px;
+            margin-top: 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 12px;
+            font-size: 14px;
+            resize: vertical;
         }
         .screenshot-container button {
-            margin: 10px 5px;
-            padding: 10px;
+            margin: 10px 8px;
+            padding: 10px 20px;
             border: none;
-            border-radius: 4px;
+            border-radius: 6px;
             cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s ease;
         }
         .submit-answer {
             background-color: #28a745;
@@ -178,7 +216,28 @@
         .reset-answer:hover {
             background-color: #5a6268;
         }
+        @media (max-width: 600px) {
+            #auth-form {
+                padding: 20px;
+                max-width: 90%;
+            }
+            #auth-form h2 {
+                font-size: 20px;
+            }
+            #auth-form input, #auth-form button {
+                font-size: 14px;
+                padding: 10px;
+            }
+            .helper-card {
+                width: 90%;
+            }
+            #screenshot-modal-content {
+                width: 95%;
+                padding: 15px;
+            }
+        }
     </style>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
 </head>
 <body>
     <div id="auth-container">
@@ -335,6 +394,7 @@
                 screenshotsContainer.appendChild(container);
             });
             modal.style.display = 'flex';
+            screenshotsContainer.dataset.currentHelperId = helperId;
         }
 
         function addScreenshot(data) {
@@ -343,7 +403,7 @@
                 const card = document.createElement('div');
                 card.className = 'helper-card';
                 card.dataset.helperId = data.helperId;
-                card.innerHTML = `<h3>Пользователь ${data.helperId}</h3>`;
+                card.innerHTML = `<h3>Пользователь ${helperId}</h3>`;
                 card.addEventListener('click', () => {
                     socket.send(JSON.stringify({
                         type: 'request_helper_screenshots',
