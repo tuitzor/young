@@ -1,4 +1,4 @@
-const express = require('express');
+\const express = require('express');
 const WebSocket = require('ws');
 const http = require('http');
 const path = require('path');
@@ -82,9 +82,9 @@ app.post('/api/upload-screenshot', async (req, res) => {
         return res.status(400).json({ success: false, message: 'Неверные данные скриншота.' });
     }
 
-    if (!tempQuestionId.match(/^helper-[\w-]+-\d+-\d+$/)) {
-        console.error('Сервер: Неверный формат tempQuestionId:', tempQuestionId);
-        return res.status(400).json({ success: false, message: 'Неверный формат tempQuestionId.' });
+    if (!tempQuestionId.match(/^helper-[\w-]+-\d+-\d+$/) || !helperId.match(/^helper-[\w-]+-\d+$/)) {
+        console.error('Сервер: Неверный формат tempQuestionId или helperId:', { tempQuestionId, helperId });
+        return res.status(400).json({ success: false, message: 'Неверный формат tempQuestionId или helperId.' });
     }
 
     try {
@@ -127,7 +127,7 @@ app.post('/api/upload-screenshot', async (req, res) => {
 
         res.status(200).json({ success: true, message: 'Скриншот успешно загружен', imageUrl });
     } catch (err) {
-        console.error('Сервер: Ошибка при сохранении скриншота:', err);
+        console.error('Сервер: Ошибка при сохранении скриншота:', err.message, err.stack);
         res.status(500).json({ success: false, message: 'Ошибка сервера при сохранении скриншота.' });
     }
 });
@@ -137,7 +137,7 @@ async function ensureScreenshotsDir() {
         await fs.mkdir(SCREENSHOTS_DIR, { recursive: true });
         console.log('Сервер: Папка screenshots создана или уже существует:', SCREENSHOTS_DIR);
     } catch (error) {
-        console.error(`Сервер: Ошибка при создании папки для скриншотов: ${error}`);
+        console.error(`Сервер: Ошибка при создании папки для скриншотов: ${error.message}`);
     }
 }
 
@@ -208,7 +208,7 @@ async function loadExistingScreenshots() {
         });
         console.log(`Сервер: Загружено ${screenshotFiles.length} существующих скриншотов для ${screenshotsByHelper.size} помощников.`);
     } catch (err) {
-        console.error('Сервер: Ошибка при чтении папки скриншотов:', err);
+        console.error('Сервер: Ошибка при чтении папки скриншотов:', err.message);
     }
 }
 
@@ -254,7 +254,7 @@ async function clearHelperScreenshots(helperId) {
                     }
                 });
             } catch (unlinkErr) {
-                console.error(`Сервер: Ошибка при удалении файла ${filePath}:`, unlinkErr);
+                console.error(`Сервер: Ошибка при удалении файла ${filePath}:`, unlinkErr.message);
             }
         }
 
@@ -267,7 +267,7 @@ async function clearHelperScreenshots(helperId) {
             });
         }
     } catch (err) {
-        console.error(`Сервер: Ошибка при чтении папки скриншотов для удаления ${helperId}:`, err);
+        console.error(`Сервер: Ошибка при чтении папки скриншотов для удаления ${helperId}:`, err.message);
     }
 }
 
@@ -279,11 +279,16 @@ wss.on('connection', (ws) => {
     ws.on('message', async message => {
         try {
             const data = JSON.parse(message);
-            console.log('Сервер: Получено сообщение по WS:', { type: data.type, role: data.role || 'unknown', helperId: data.helperId || 'none' });
+            console.log('Сервер: Получено сообщение по WS:', {
+                type: data.type,
+                role: data.role || 'unknown',
+                helperId: data.helperId || 'none',
+                questionId: data.tempQuestionId || 'none'
+            });
 
             if (data.role === 'helper') {
                 currentHelperId = data.helperId;
-                if (currentHelperId) {
+                if (currentHelperId && currentHelperId.match(/^helper-[\w-]+-\d+$/)) {
                     helperClients.set(currentHelperId, ws);
                     console.log(`Сервер: Подключился помощник с ID: ${currentHelperId}, активных помощников: ${helperClients.size}`);
                     if (screenshotsByHelper.has(currentHelperId)) {
@@ -300,14 +305,15 @@ wss.on('connection', (ws) => {
                         });
                     }
                 } else {
-                    ws.send(JSON.stringify({ type: 'error', message: 'Требуется helperId для помощников' }));
+                    ws.send(JSON.stringify({ type: 'error', message: 'Требуется корректный helperId для помощников' }));
                 }
             } else if (data.type === 'frontend_connect') {
                 if (!frontendClients.has(ws)) {
-                    if (!data.token || !data.helperId) {
+                    if (!data.token || !data.helperId || data.helperId === 'none' || !data.helperId.match(/^helper-[\w-]+-\d+$/)) {
+                        console.warn('Сервер: Неверный токен или helperId в frontend_connect:', { token: !!data.token, helperId: data.helperId });
                         return ws.send(JSON.stringify({
                             type: 'error',
-                            message: 'Требуется токен авторизации и helperId'
+                            message: 'Требуется токен авторизации и корректный helperId'
                         }));
                     }
 
@@ -336,6 +342,7 @@ wss.on('connection', (ws) => {
                         }));
                         console.log(`Сервер: Отправлено ${screenshots.length} скриншотов для helperId: ${data.helperId}`);
                     } catch (err) {
+                        console.error('Сервер: Ошибка проверки токена:', err.message);
                         ws.send(JSON.stringify({
                             type: 'error',
                             message: 'Неверный или истекший токен'
@@ -350,9 +357,9 @@ wss.on('connection', (ws) => {
                     return;
                 }
 
-                if (!tempQuestionId.match(/^helper-[\w-]+-\d+-\d+$/)) {
-                    console.error('Сервер: Неверный формат tempQuestionId:', tempQuestionId);
-                    ws.send(JSON.stringify({ type: 'error', message: 'Неверный формат tempQuestionId.' }));
+                if (!tempQuestionId.match(/^helper-[\w-]+-\d+-\d+$/) || !helperId.match(/^helper-[\w-]+-\d+$/)) {
+                    console.error('Сервер: Неверный формат tempQuestionId или helperId:', { tempQuestionId, helperId });
+                    ws.send(JSON.stringify({ type: 'error', message: 'Неверный формат tempQuestionId или helperId.' }));
                     return;
                 }
 
@@ -397,7 +404,7 @@ wss.on('connection', (ws) => {
                         }
                     }
                 } catch (err) {
-                    console.error('Сервер: Ошибка при сохранении скриншота:', err);
+                    console.error('Сервер: Ошибка при сохранении скриншота:', err.message, err.stack);
                     ws.send(JSON.stringify({ type: 'error', message: 'Ошибка сервера при сохранении скриншота.' }));
                 }
             } else if (data.type === 'submit_answer') {
@@ -491,7 +498,7 @@ wss.on('connection', (ws) => {
                             });
                         }
                     } catch (err) {
-                        console.error(`Сервер: Ошибка при удалении файла скриншота ${filepath}:`, err);
+                        console.error(`Сервер: Ошибка при удалении файла скриншота ${filepath}:`, err.message);
                         ws.send(JSON.stringify({ type: 'error', message: 'Ошибка при удалении скриншота.' }));
                     }
                 } else {
@@ -500,6 +507,10 @@ wss.on('connection', (ws) => {
                 }
             } else if (data.type === 'request_helper_screenshots') {
                 const { helperId: requestedHelperId } = data;
+                if (!requestedHelperId || !requestedHelperId.match(/^helper-[\w-]+-\d+$/)) {
+                    ws.send(JSON.stringify({ type: 'error', message: 'Неверный формат helperId.' }));
+                    return;
+                }
                 const screenshots = screenshotsByHelper.get(requestedHelperId) || [];
                 console.log(`Сервер: Отправка ${screenshots.length} скриншотов для helperId ${requestedHelperId}`);
                 ws.send(JSON.stringify({
@@ -514,7 +525,7 @@ wss.on('connection', (ws) => {
                 console.log(`Сервер: Получен HTML страницы от helperId: ${data.helperId}`);
             }
         } catch (error) {
-            console.error('Сервер: Ошибка при разборе сообщения:', error);
+            console.error('Сервер: Ошибка при разборе сообщения:', error.message, error.stack);
             ws.send(JSON.stringify({ type: 'error', message: 'Неверный формат сообщения.' }));
         }
     });
@@ -533,7 +544,7 @@ wss.on('connection', (ws) => {
     });
 
     ws.on('error', error => {
-        console.error('Сервер: Ошибка WebSocket:', error);
+        console.error('Сервер: Ошибка WebSocket:', error.message);
     });
 
     ws.isAlive = true;
