@@ -10,12 +10,12 @@ const app = express();
 const port = process.env.PORT || 10000;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-very-secure-jwt-secret-1234567890abcdef';
 const admins = [
-    { username: 'AYAZ', passwordHash: bcrypt.hashSync('AYAZ1', 10) },
-    { username: 'XASAN', passwordHash: bcrypt.hashSync('XASAN1', 10) },
-    { username: 'XUSAN', passwordHash: bcrypt.hashSync('XUSAN1', 10) },
-    { username: 'JOHON', passwordHash: bcrypt.hashSync('JOHON1', 10) },
-    { username: 'EDOS', passwordHash: bcrypt.hashSync('edos16', 10) },
-    { username: 'KOMRON', passwordHash: bcrypt.hashSync('KOMRON1', 10) }
+    { username: 'admin1', passwordHash: bcrypt.hashSync('admin1A', 10) },
+    { username: 'admin2', passwordHash: bcrypt.hashSync('admin2A', 10) },
+    { username: 'admin3', passwordHash: bcrypt.hashSync('admin3A', 10) },
+    { username: 'admin4', passwordHash: bcrypt.hashSync('admin4A', 10) },
+    { username: 'admin5', passwordHash: bcrypt.hashSync('admin5A', 10) },
+    { username: 'admin6', passwordHash: bcrypt.hashSync('admin6A', 10) }
 ];
 
 app.use(cors());
@@ -24,11 +24,11 @@ app.use('/screenshots', express.static(path.join(__dirname, 'public', 'screensho
 app.use(express.static(path.join(__dirname, 'public')));
 
 const server = app.listen(port, () => {
-    console.log(`Сервер запущен на порту: ${port}`);
+    console.log(`Server running on port: ${port}`);
 });
 
 const wss = new WebSocket.Server({ server });
-console.log(`WebSocket-сервер запущен на ws://localhost:${port}`);
+console.log(`WebSocket server running on ws://localhost:${port}`);
 
 let helpers = [];
 let screenshots = [];
@@ -37,10 +37,10 @@ async function ensureScreenshotDir() {
     const screenshotDir = path.join(__dirname, 'public', 'screenshots');
     try {
         await fs.access(screenshotDir);
-        console.log(`Сервер: Папка для скриншотов существует: ${screenshotDir}`);
+        console.log(`Server: Screenshot directory exists: ${screenshotDir}`);
     } catch {
         await fs.mkdir(screenshotDir, { recursive: true });
-        console.log(`Сервер: Папка для скриншотов создана: ${screenshotDir}`);
+        console.log(`Server: Screenshot directory created: ${screenshotDir}`);
     }
 }
 
@@ -70,9 +70,9 @@ async function loadScreenshots() {
             helperId,
             hasAnswer: screenshots.some(s => s.helperId === helperId && s.answer)
         }));
-        console.log(`Сервер: Загружено ${screenshots.length} скриншотов для ${helpers.length} помощников`);
+        console.log(`Server: Loaded ${screenshots.length} screenshots for ${helpers.length} helpers`);
     } catch (err) {
-        console.error('Сервер: Ошибка загрузки скриншотов:', err);
+        console.error('Server: Error loading screenshots:', err);
     }
 }
 
@@ -80,28 +80,28 @@ app.get('/healthz', (req, res) => res.send('OK'));
 
 app.post('/api/admin/login', async (req, res) => {
     const { username, password } = req.body;
-    console.log(`Сервер: Попытка входа с username: ${username}, password: ${password}`);
+    console.log(`Server: Login attempt with username: ${username}`);
     if (!username || !password) {
-        console.log('Сервер: Отсутствует username или password');
-        return res.status(400).json({ success: false, message: 'Требуются имя пользователя и пароль' });
+        console.log('Server: Missing username or password');
+        return res.status(400).json({ success: false, message: 'Username and password required' });
     }
     const admin = admins.find(a => a.username === username);
     if (!admin) {
-        console.log(`Сервер: Пользователь ${username} не найден`);
-        return res.status(401).json({ success: false, message: 'Неверное имя пользователя или пароль' });
+        console.log(`Server: User ${username} not found`);
+        return res.status(401).json({ success: false, message: 'Invalid username or password' });
     }
     const passwordMatch = await bcrypt.compare(password, admin.passwordHash);
-    console.log(`Сервер: Пароль для ${username} ${passwordMatch ? 'совпал' : 'не совпал'}`);
+    console.log(`Server: Password for ${username} ${passwordMatch ? 'matched' : 'did not match'}`);
     if (!passwordMatch) {
-        return res.status(401).json({ success: false, message: 'Неверное имя пользователя или пароль' });
+        return res.status(401).json({ success: false, message: 'Invalid username or password' });
     }
     try {
         const token = jwt.sign({ username: admin.username }, JWT_SECRET, { expiresIn: '1h' });
-        console.log(`Сервер: Токен создан для ${username}`);
+        console.log(`Server: Token created for ${username}`);
         res.status(200).json({ success: true, token });
     } catch (err) {
-        console.error('Сервер: Ошибка при создании токена:', err);
-        res.status(500).json({ success: false, message: 'Ошибка сервера при входе' });
+        console.error('Server: Error creating token:', err);
+        res.status(500).json({ success: false, message: 'Server error during login' });
     }
 });
 
@@ -109,46 +109,45 @@ function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
     if (!token) {
-        console.log('Сервер: Токен отсутствует');
-        return res.status(401).json({ success: false, message: 'Токен отсутствует' });
+        console.log('Server: Token missing');
+        return res.status(401).json({ success: false, message: 'Token missing' });
     }
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
         req.user = decoded;
-        console.log(`Сервер: Токен верифицирован для ${decoded.username}`);
+        console.log(`Server: Token verified for ${decoded.username}`);
         next();
     } catch (err) {
-        console.log('Сервер: Неверный токен');
-        return res.status(403).json({ success: false, message: 'Неверный токен' });
+        console.log('Server: Invalid token');
+        return res.status(403).json({ success: false, message: 'Invalid token' });
     }
 }
 
 app.get('/api/admin/list', authenticateToken, async (req, res) => {
     try {
-        console.log(`Сервер: Запрос списка помощников от ${req.user.username}`);
+        console.log(`Server: Helper list requested by ${req.user.username}`);
         res.json(helpers);
     } catch (err) {
-        console.error('Сервер: Ошибка получения списка:', err);
-        res.status(500).json({ success: false, message: 'Ошибка сервера' });
+        console.error('Server: Error fetching list:', err);
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 });
 
 wss.on('connection', (ws) => {
-    console.log('Сервер: Новый WebSocket-клиент подключен');
+    console.log('Server: New WebSocket client connected');
     ws.on('message', async (message) => {
         try {
             const data = JSON.parse(message);
-            console.log('Сервер: Получено сообщение:', data);
+            console.log('Server: Received message:', data);
             if (data.type === 'frontend_connect') {
                 ws.send(JSON.stringify({ type: 'initial_data', data: helpers }));
-            } else if (data.type === 'submit_screenshot' || data.type === 'скриншот') {
-                const { helperId, questionId, tempQuestionId, screenshot } = data;
-                const qId = questionId || tempQuestionId;
-                const screenshotPath = path.join(__dirname, 'public', 'screenshots', `${helperId}_${qId}.png`);
+            } else if (data.type === 'submit_screenshot') {
+                const { helperId, questionId, screenshot } = data;
+                const screenshotPath = path.join(__dirname, 'public', 'screenshots', `${helperId}_${questionId}.png`);
                 const base64Data = screenshot.replace(/^data:image\/png;base64,/, '');
                 await fs.writeFile(screenshotPath, base64Data, 'base64');
-                console.log(`Сервер: Скриншот сохранен: ${screenshotPath}`);
-                screenshots.push({ helperId, questionId: qId, imageUrl: `/screenshots/${helperId}_${qId}.png`, answer: '' });
+                console.log(`Server: Screenshot saved: ${screenshotPath}`);
+                screenshots.push({ helperId, questionId, imageUrl: `/screenshots/${helperId}_${questionId}.png`, answer: '' });
                 if (!helpers.some(h => h.helperId === helperId)) {
                     helpers.push({ helperId, hasAnswer: false });
                 }
@@ -157,8 +156,8 @@ wss.on('connection', (ws) => {
                         client.send(JSON.stringify({
                             type: 'screenshot_info',
                             helperId,
-                            questionId: qId,
-                            imageUrl: `/screenshots/${helperId}_${qId}.png`
+                            questionId,
+                            imageUrl: `/screenshots/${helperId}_${questionId}.png`
                         }));
                     }
                 });
@@ -169,7 +168,7 @@ wss.on('connection', (ws) => {
                     screenshot.answer = answer;
                     const answerPath = path.join(__dirname, 'public', 'screenshots', `${screenshot.helperId}_${questionId}.txt`);
                     await fs.writeFile(answerPath, answer);
-                    console.log(`Сервер: Ответ сохранен для вопроса ${questionId}`);
+                    console.log(`Server: Answer saved for question ${questionId}`);
                     const helper = helpers.find(h => h.helperId === screenshot.helperId);
                     if (helper) {
                         helper.hasAnswer = screenshots.some(s => s.helperId === helper.helperId && s.answer);
@@ -197,10 +196,10 @@ wss.on('connection', (ws) => {
                     const answerPath = path.join(__dirname, 'public', 'screenshots', `${screenshot.helperId}_${questionId}.txt`);
                     try {
                         await fs.unlink(screenshotPath);
-                        console.log(`Сервер: Скриншот удален: ${screenshotPath}`);
+                        console.log(`Server: Screenshot deleted: ${screenshotPath}`);
                         try {
                             await fs.unlink(answerPath);
-                            console.log(`Сервер: Ответ удален: ${answerPath}`);
+                            console.log(`Server: Answer deleted: ${answerPath}`);
                         } catch {}
                         screenshots = screenshots.filter(s => s.questionId !== questionId);
                         const helper = helpers.find(h => h.helperId === screenshot.helperId);
@@ -229,7 +228,7 @@ wss.on('connection', (ws) => {
                             }
                         });
                     } catch (err) {
-                        console.error('Сервер: Ошибка удаления скриншота:', err);
+                        console.error('Server: Error deleting screenshot:', err);
                     }
                 }
             } else if (data.type === 'request_helper_screenshots') {
@@ -238,10 +237,10 @@ wss.on('connection', (ws) => {
                 ws.send(JSON.stringify({ type: 'screenshots_by_helperId', helperId, screenshots: helperScreenshots }));
             }
         } catch (err) {
-            console.error('Сервер: Ошибка обработки сообщения:', err);
+            console.error('Server: Error processing message:', err);
         }
     });
-    ws.on('close', () => console.log('Сервер: WebSocket-клиент отключен'));
+    ws.on('close', () => console.log('Server: WebSocket client disconnected'));
 });
 
 loadScreenshots();
