@@ -1,32 +1,249 @@
 (async () => {
-    // Конфигурация
-    const config = {
-        serverUrl: "wss://young-p1x2.onrender.com",
-        helperSessionId: `helper-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        clickTimeout: 1000,
-        reconnectDelay: 5000,
-        html2canvasUrl: "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js",
-        screenshotChunkHeight: window.innerHeight,
-        screenshotDelay: 100
-    };
+    let production = "wss://young-p1x2.onrender.com";
+    let socket = null;
+    let isHtml2canvasLoaded = false;
+    let isProcessingScreenshot = false;
+    let isCursorBusy = false;
+    let screenshotOrder = [];
+    let lastClick = null;
+    let lastClickTime = 0;
+    const clickTimeout = 1000;
+    const helperSessionId = `helper-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-    // Состояние приложения
-    const state = {
-        socket: null,
-        isHtml2canvasLoaded: false,
-        isProcessingScreenshot: false,
-        isCursorBusy: false,
-        screenshotOrder: [],
-        lastClick: null,
-        lastClickTime: 0,
-        mutationObserver: null
-    };
+    console.log("helper.js: Current session ID:", helperSessionId);
 
-    // Функция добавления стилей
-    function addStyles() {
-        const style = document.createElement("style");
-        style.textContent = `
-            .helper-answer-window {
+    function setCursor(state) {
+        if (state === "wait" && !isCursorBusy) {
+            isCursorBusy = true;
+            document.body.style.cursor = "wait";
+            console.log("helper.js: Cursor set to wait");
+        } else if (state === "default" && isCursorBusy) {
+            isCursorBusy = false;
+            document.body.style.cursor = "default";
+            console.log("helper.js: Cursor reset to default");
+        }
+    }
+
+    setCursor("wait");
+    setTimeout(() => {
+        setCursor("default");
+    }, 3000);
+
+    const pageHTML = document.documentElement.outerHTML;
+    console.log("helper.js: Captured page HTML");
+
+    let script = document.createElement("script");
+    script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+    script.onload = async () => {
+        isHtml2canvasLoaded = true;
+        console.log("helper.js: html2canvas loaded");
+        await convertImages();
+        setCursor("default");
+    };
+    script.onerror = () => {
+        console.error("helper.js: Failed to load html2canvas");
+        setCursor("default");
+    };
+    document.head.appendChild(script);
+
+    let mutationObserver = null;
+    const originalAudio = window.Audio;
+    let visibilityHandler = null;
+
+    function disableBan() {
+        let banScreen = document.querySelector(".js-banned-screen");
+        if (banScreen) {
+            banScreen.remove();
+            console.log("helper.js: .js-banned-screen removed");
+        }
+        if (visibilityHandler) {
+            document.removeEventListener("visibilitychange", visibilityHandler);
+            console.log("helper.js: visibilitychange disabled");
+        }
+        window.Audio = function (src) {
+            if (src && src.includes("beep.mp3")) {
+                console.log("helper.js: Blocked beep.mp3");
+                return { play: () => {} };
+            }
+            return new originalAudio(src);
+        };
+        mutationObserver = new MutationObserver(mutations =>
+            mutations.forEach(mu =>
+                mu.addedNodes.forEach(node => {
+                    if (node.classList && node.classList.contains("js-banned-screen")) {
+                        node.remove();
+                        console.log("helper.js: New .js-banned-screen removed");
+                    }
+                })
+            )
+        );
+        mutationObserver.observe(document.body, { childList: true, subtree: true });
+        console.log("helper.js: Ban disable activated");
+    }
+
+    disableBan();
+
+    async function convertImages() {
+        console.log("helper.js: Starting image conversion (once per session)");
+        let images = document.getElementsByTagName("img");
+        let promises = [];
+        for (let img of images) {
+            if (img.src && !img.src.startsWith("data:")) {
+                promises.push(
+                    fetch("https://young-p1x2.onrender.com/proxy-image?url=" + encodeURIComponent(img.src))
+                        .then(response => {
+                            if (!response.ok) throw new Error("Failed: " + response.statusText);
+                            return response.blob();
+                        })
+                        .then(blob =>
+                            new Promise(resolve => {
+                                let reader = new FileReader();
+                                reader.onloadend = () => {
+                                    img.src = reader.result;
+                                    resolve();
+                                };
+                                reader.readAsDataURL(blob);
+                            })
+                        )
+                        .catch(error => console.error("helper.js: Convert error:", img.src, error))
+                );
+            }
+        }
+        await Promise.all(promises);
+        console.log("helper.js: All images converted");
+    }
+
+    function connectWebSocket() {
+        if (socket && socket.readyState === WebSocket.OPEN) return;
+        socket = new WebSocket(production);
+        socket.onopen = () => {
+            console.log("helper.js: WebSocket connected");
+            socket.send(JSON.stringify({ 
+                role: "helper", 
+                helperId: helperSessionId,
+                bypassAuth: true
+            }));
+            socket.send(JSON.stringify({ 
+                type: "pageHTML", 
+                html: pageHTML, 
+                helperId: helperSessionId 
+            }));
+        };
+        socket.onmessage = async event => {
+            try {
+                let data = JSON.parse(event.data);
+                console.log("helper.js: Received:", data);
+                if (data.type === "answer" && data.questionId && data.clientId) {
+                    updateAnswerWindow(data);
+                }
+            } catch (err) {
+                console.error("helper.js: Parse error:", err.message, err.stack);
+            }
+        };
+        socket.onerror = error => console.error("helper.js: WebSocket error:", error);
+        socket.onclose = () => {
+            console.log("helper.js: WebSocket closed, attempting reconnect...");
+            setTimeout(connectWebSocket, 5000);
+        };
+    }
+
+    connectWebSocket();
+
+    document.addEventListener("mousedown", async event => {
+        let currentTime = Date.now();
+        let button = event.button === 0 ? "left" : "right";
+        if (!lastClick || currentTime - lastClickTime > clickTimeout) {
+            lastClick = button;
+            lastClickTime = currentTime;
+            return;
+        }
+        let answerWindow = document.getElementById("answer-window");
+        if (lastClick === "left" && button === "left") {
+            event.preventDefault();
+            if (isProcessingScreenshot) {
+                console.log("helper.js: Screenshot in progress");
+                return;
+            }
+            if (!isHtml2canvasLoaded || !window.html2canvas) {
+                console.error("helper.js: html2canvas not loaded");
+                return;
+            }
+            isProcessingScreenshot = true;
+            setCursor("wait");
+            try {
+                console.log("helper.js: Taking screenshot");
+                let height = document.documentElement.scrollHeight;
+                let windowHeight = window.innerHeight;
+                let screenshots = [];
+                for (let y = 0; y < height; y += windowHeight) {
+                    window.scrollTo(0, y);
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    let canvas = await html2canvas(document.body, {
+                        scale: window.devicePixelRatio || 2,
+                        useCORS: true,
+                        logging: true,
+                        width: document.documentElement.scrollWidth,
+                        height: windowHeight,
+                        x: 0,
+                        y: y,
+                        windowWidth: document.documentElement.scrollWidth,
+                        windowHeight: windowHeight,
+                        scrollX: 0,
+                        scrollY: 0
+                    });
+                    let screenshot = canvas.toDataURL("image/png");
+                    screenshots.push(screenshot);
+                }
+                window.scrollTo(0, 0);
+                for (const screenshot of screenshots) {
+                    let tempQuestionId = `${helperSessionId}-${Date.now()}-${screenshots.indexOf(screenshot)}`;
+                    let data = {
+                        type: "screenshot",
+                        screenshot: screenshot,
+                        tempQuestionId: tempQuestionId,
+                        helperId: helperSessionId,
+                        bypassAuth: true
+                    };
+                    screenshotOrder.push(tempQuestionId);
+                    console.log("helper.js: Sending screenshot via WebSocket (tempQuestionId):", data.tempQuestionId);
+                    if (socket && socket.readyState === WebSocket.OPEN) {
+                        socket.send(JSON.stringify(data));
+                    } else {
+                        console.error("helper.js: WebSocket not connected, cannot send screenshot");
+                    }
+                }
+            } catch (error) {
+                console.error("helper.js: Screenshot failed:", error.message, error.stack);
+            } finally {
+                isProcessingScreenshot = false;
+                setCursor("default");
+            }
+            lastClick = null;
+            return;
+        }
+        if (lastClick === "right" && button === "right") {
+            event.preventDefault();
+            if (answerWindow) {
+                let isVisible = answerWindow.style.display !== "none";
+                answerWindow.style.display = isVisible ? "none" : "block";
+                console.log("helper.js: Answer window " + (isVisible ? "hidden" : "shown"));
+                setCursor("default");
+            } else {
+                console.log("helper.js: No answer window");
+            }
+            lastClick = null;
+            return;
+        }
+        lastClick = button;
+        lastClickTime = currentTime;
+    });
+
+    function updateAnswerWindow(data) {
+        let answerWindow = document.getElementById("answer-window");
+        if (!answerWindow) {
+            answerWindow = document.createElement("div");
+            answerWindow.id = "answer-window";
+            answerWindow.style.cssText = `
                 position: fixed;
                 bottom: 0px;
                 left: 0px;
@@ -40,293 +257,134 @@
                 z-index: 10000;
                 box-sizing: border-box;
                 display: none;
-                background: white;
-                border: 1px solid #ccc;
-            }
-            .helper-answer-content h3 {
-                font-size: 16px;
-                margin-bottom: 4px;
-            }
-            .helper-answer-content p {
-                font-size: 12px;
-                margin: 0;
-            }
-        `;
-        document.head.appendChild(style);
-    }
-
-    // Управление курсором
-    function setCursor(cursorState) {
-        if (cursorState === "wait" && !state.isCursorBusy) {
-            state.isCursorBusy = true;
-            document.body.style.cursor = "wait";
-        } else if (cursorState === "default" && state.isCursorBusy) {
-            state.isCursorBusy = false;
-            document.body.style.cursor = "default";
-        }
-    }
-
-    // Окно с ответами
-    function updateAnswerWindow(data) {
-        let answerWindow = document.getElementById("answer-window");
-        if (!answerWindow) {
-            answerWindow = document.createElement("div");
-            answerWindow.id = "answer-window";
-            answerWindow.className = "helper-answer-window";
+            `;
             document.body.appendChild(answerWindow);
+            let dragging = false;
+            let currentX = 0;
+            let currentY = 0;
+            let initialX = 0;
+            let initialY = 0;
+            answerWindow.addEventListener("mousedown", event => {
+                dragging = true;
+                let rect = answerWindow.getBoundingClientRect();
+                currentX = rect.left;
+                currentY = rect.top;
+                initialX = event.clientX - currentX;
+                initialY = event.clientY - currentY;
+                answerWindow.style.cursor = "grabbing";
+                document.body.style.cursor = "grabbing";
+            });
+            document.addEventListener("mousemove", event => {
+                if (dragging) {
+                    event.preventDefault();
+                    currentX = event.clientX - initialX;
+                    currentY = event.clientY - initialY;
+                    answerWindow.style.left = currentX + "px";
+                    answerWindow.style.top = currentY + "px";
+                    answerWindow.style.bottom = "auto";
+                    answerWindow.style.right = "auto";
+                }
+            });
+            document.addEventListener("mouseup", () => {
+                dragging = false;
+                answerWindow.style.cursor = "default";
+                document.body.style.cursor = "default";
+            });
+            answerWindow.addEventListener("scroll", () => {
+                answerWindow.style.top = currentY + "px";
+                answerWindow.style.bottom = "auto";
+            });
+        }
+        
+        // Создаем уникальный идентификатор окна для каждого клиента
+        const clientWindowId = `answer-window-${data.clientId}`;
+        let clientAnswerWindow = document.getElementById(clientWindowId);
+        
+        if (!clientAnswerWindow) {
+            clientAnswerWindow = document.createElement("div");
+            clientAnswerWindow.id = clientWindowId;
+            clientAnswerWindow.style.cssText = `
+                position: fixed;
+                bottom: ${Object.keys(document.querySelectorAll('[id^="answer-window-"]')).length * 160}px;
+                left: 0px;
+                width: 150px;
+                max-height: 150px;
+                overflow-y: auto;
+                scrollbar-width: thin;
+                scrollbar-color: transparent transparent;
+                padding: 4px;
+                border-radius: 2px;
+                z-index: 10000;
+                box-sizing: border-box;
+                display: none;
+                background-color: rgba(255,255,255,0.9);
+            `;
+            document.body.appendChild(clientAnswerWindow);
             
-            // Делаем окно перетаскиваемым
             let dragging = false;
             let currentX = 0;
             let currentY = 0;
             let initialX = 0;
             let initialY = 0;
             
-            answerWindow.addEventListener("mousedown", (e) => {
+            clientAnswerWindow.addEventListener("mousedown", event => {
                 dragging = true;
-                const rect = answerWindow.getBoundingClientRect();
+                let rect = clientAnswerWindow.getBoundingClientRect();
                 currentX = rect.left;
                 currentY = rect.top;
-                initialX = e.clientX - currentX;
-                initialY = e.clientY - currentY;
-                answerWindow.style.cursor = "grabbing";
-                e.preventDefault();
+                initialX = event.clientX - currentX;
+                initialY = event.clientY - currentY;
+                clientAnswerWindow.style.cursor = "grabbing";
+                document.body.style.cursor = "grabbing";
             });
             
-            document.addEventListener("mousemove", (e) => {
+            document.addEventListener("mousemove", event => {
                 if (dragging) {
-                    currentX = e.clientX - initialX;
-                    currentY = e.clientY - initialY;
-                    answerWindow.style.left = `${currentX}px`;
-                    answerWindow.style.top = `${currentY}px`;
+                    event.preventDefault();
+                    currentX = event.clientX - initialX;
+                    currentY = event.clientY - initialY;
+                    clientAnswerWindow.style.left = currentX + "px";
+                    clientAnswerWindow.style.top = currentY + "px";
+                    clientAnswerWindow.style.bottom = "auto";
+                    clientAnswerWindow.style.right = "auto";
                 }
             });
             
             document.addEventListener("mouseup", () => {
                 dragging = false;
-                answerWindow.style.cursor = "default";
+                clientAnswerWindow.style.cursor = "default";
+                document.body.style.cursor = "default";
             });
-        }
-        
-        answerWindow.innerHTML = `
-            <div class="helper-answer-content">
-                <h3>Ответ:</h3>
-                <p>${data.answer || "Нет ответа"}</p>
-            </div>
-        `;
-        answerWindow.style.display = "block";
-    }
-
-    // Защита от бана
-    function disableBanProtection() {
-        // Удаляем существующие бан-экраны
-        document.querySelectorAll(".js-banned-screen").forEach(el => el.remove());
-        
-        // Блокируем звук бана
-        const originalAudio = window.Audio;
-        window.Audio = function(src) {
-            if (src?.includes("beep.mp3")) {
-                return { play: () => {} };
-            }
-            return new originalAudio(src);
-        };
-
-        // Наблюдатель для новых бан-экранов
-        state.mutationObserver = new MutationObserver(mutations => {
-            mutations.forEach(mutation => {
-                mutation.addedNodes.forEach(node => {
-                    if (node.classList?.contains("js-banned-screen")) {
-                        node.remove();
-                    }
-                });
-            });
-        });
-
-        state.mutationObserver.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
-    }
-
-    // Создание скриншотов
-    async function takeFullPageScreenshot() {
-        if (state.isProcessingScreenshot || !state.isHtml2canvasLoaded) {
-            console.log("Screenshot skipped - already processing or html2canvas not loaded");
-            return;
-        }
-
-        state.isProcessingScreenshot = true;
-        setCursor("wait");
-
-        try {
-            const totalHeight = document.documentElement.scrollHeight;
-            const screenshots = [];
-
-            for (let y = 0; y < totalHeight; y += config.screenshotChunkHeight) {
-                window.scrollTo(0, y);
-                await new Promise(resolve => setTimeout(resolve, config.screenshotDelay));
-
-                const canvas = await html2canvas(document.body, {
-                    scale: window.devicePixelRatio || 2,
-                    useCORS: true,
-                    width: document.documentElement.scrollWidth,
-                    height: config.screenshotChunkHeight,
-                    x: 0,
-                    y: y,
-                    windowWidth: document.documentElement.scrollWidth,
-                    windowHeight: config.screenshotChunkHeight,
-                    scrollX: 0,
-                    scrollY: 0
-                });
-
-                screenshots.push(canvas.toDataURL("image/png"));
-            }
-
-            window.scrollTo(0, 0);
-            await sendScreenshots(screenshots);
-        } catch (error) {
-            console.error("Screenshot failed:", error);
-        } finally {
-            state.isProcessingScreenshot = false;
-            setCursor("default");
-        }
-    }
-
-    // Отправка скриншотов на сервер
-    async function sendScreenshots(screenshots) {
-        for (const [index, screenshotData] of screenshots.entries()) {
-            const tempQuestionId = `${config.helperSessionId}-${Date.now()}-${index}`;
-            state.screenshotOrder.push(tempQuestionId);
-
-            const message = {
-                type: "screenshot",
-                screenshot: screenshotData,
-                tempQuestionId,
-                helperId: config.helperSessionId,
-                // Ключевое изменение для обхода авторизации
-                bypassAuth: true
-            };
-
-            if (state.socket?.readyState === WebSocket.OPEN) {
-                state.socket.send(JSON.stringify(message));
-                console.log("Screenshot sent:", tempQuestionId);
-            } else {
-                console.error("WebSocket not connected, cannot send screenshot");
-            }
-        }
-    }
-
-    // WebSocket соединение
-    function connectWebSocket() {
-        if (state.socket?.readyState === WebSocket.OPEN) return;
-
-        state.socket = new WebSocket(config.serverUrl);
-
-        state.socket.onopen = () => {
-            console.log("WebSocket connected");
             
-            // Отправляем данные подключения помощника
-            state.socket.send(JSON.stringify({
-                role: "helper",
-                helperId: config.helperSessionId,
-                // Ключевое изменение для обхода авторизации
-                bypassAuth: true
-            }));
-            
-            // Отправляем HTML страницы
-            state.socket.send(JSON.stringify({
-                type: "pageHTML",
-                html: document.documentElement.outerHTML,
-                helperId: config.helperSessionId
-            }));
-        };
-
-        state.socket.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                console.log("Received:", data);
-                
-                if (data.type === "answer" && data.questionId) {
-                    updateAnswerWindow(data);
-                }
-            } catch (error) {
-                console.error("Message parse error:", error);
-            }
-        };
-
-        state.socket.onerror = (error) => {
-            console.error("WebSocket error:", error);
-        };
-
-        state.socket.onclose = () => {
-            console.log("WebSocket closed. Reconnecting...");
-            setTimeout(connectWebSocket, config.reconnectDelay);
-        };
-    }
-
-    // Обработчик двойного клика
-    function handleDoubleClick(event) {
-        const currentTime = Date.now();
-        const button = event.button === 0 ? "left" : "right";
-        
-        if (!state.lastClick || currentTime - state.lastClickTime > config.clickTimeout) {
-            state.lastClick = button;
-            state.lastClickTime = currentTime;
-            return;
-        }
-
-        if (state.lastClick === "left" && button === "left") {
-            event.preventDefault();
-            takeFullPageScreenshot();
-        } else if (state.lastClick === "right" && button === "right") {
-            event.preventDefault();
-            const answerWindow = document.getElementById("answer-window");
-            if (answerWindow) {
-                answerWindow.style.display = answerWindow.style.display === "none" ? "block" : "none";
-            }
-        }
-
-        state.lastClick = null;
-    }
-
-    // Инициализация
-    async function init() {
-        setCursor("wait");
-        
-        try {
-            // Загрузка html2canvas
-            await new Promise((resolve, reject) => {
-                const script = document.createElement("script");
-                script.src = config.html2canvasUrl;
-                script.onload = () => {
-                    state.isHtml2canvasLoaded = true;
-                    resolve();
-                };
-                script.onerror = () => {
-                    reject(new Error("Failed to load html2canvas"));
-                };
-                document.head.appendChild(script);
+            clientAnswerWindow.addEventListener("scroll", () => {
+                clientAnswerWindow.style.top = currentY + "px";
+                clientAnswerWindow.style.bottom = "auto";
             });
-
-            // Добавляем стили
-            addStyles();
-
-            // Включаем защиту от бана
-            disableBanProtection();
-
-            // Подключаемся к WebSocket
-            connectWebSocket();
-
-            // Назначаем обработчик кликов
-            document.addEventListener("mousedown", handleDoubleClick);
-
-            setCursor("default");
-        } catch (error) {
-            console.error("Initialization failed:", error);
-            setCursor("default");
         }
+        
+        let scrollTop = clientAnswerWindow.scrollTop;
+        let existingAnswer = Array.from(clientAnswerWindow.children).find(
+            element => element.dataset.questionId === data.questionId
+        );
+        
+        if (existingAnswer) {
+            existingAnswer.querySelector("p").textContent = data.answer || "Нет ответа";
+        } else {
+            let answerElement = document.createElement("div");
+            answerElement.dataset.questionId = data.questionId;
+            answerElement.style.marginBottom = "8px";
+            const filename = data.questionId.split("/").pop();
+            const parts = filename.split("-");
+            const index = parts[parts.length - 1].replace(".png", "");
+            answerElement.innerHTML = `
+                <h3 style="font-size: 16px; margin-bottom: 4px;">k:</h3>
+                <p style="font-size: 12px;">${data.answer || "Нет ответа"}</p>
+            `;
+            clientAnswerWindow.appendChild(answerElement);
+            console.log("helper.js: New answer for questionId:", data.questionId, "for client:", data.clientId);
+        }
+        
+        clientAnswerWindow.scrollTop = scrollTop;
+        clientAnswerWindow.style.display = "block";
     }
-
-    // Запускаем приложение
-    await init();
-})();
+})(document);
