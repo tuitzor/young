@@ -73,9 +73,64 @@ app.get('/api/admin/list', authenticateAdmin, (req, res) => {
     res.status(200).json({ success: true, admins: adminList });
 });
 
+app.post('/api/upload-screenshot', async (req, res) => {
+    const { screenshot, tempQuestionId, helperId, bypassAuth } = req.body;
+    console.log('Сервер: Получен POST-запрос /api/upload-screenshot:', { tempQuestionId, helperId, bypassAuth });
+
+    if (!screenshot || !tempQuestionId || !helperId || !bypassAuth) {
+        console.error('Сервер: Неверные данные скриншота:', { screenshot: !!screenshot, tempQuestionId, helperId, bypassAuth });
+        return res.status(400).json({ success: false, message: 'Неверные данные скриншота или отсутствует bypassAuth.' });
+    }
+
+    try {
+        console.log('Сервер: Сохранение скриншота:', tempQuestionId);
+        const base64Data = screenshot.replace(/^data:image\/png;base64,/, "");
+        const filename = `${tempQuestionId}.png`;
+        const filepath = path.join(SCREENSHOTS_DIR, filename);
+
+        await fs.writeFile(filepath, base64Data, 'base64');
+        const imageUrl = `/screenshots/${filename}`;
+        console.log('Сервер: Скриншот сохранен:', imageUrl);
+
+        if (!screenshotsByHelper.has(helperId)) {
+            screenshotsByHelper.set(helperId, []);
+        }
+
+        if (!screenshotsByHelper.get(helperId).some(s => s.questionId === imageUrl)) {
+            screenshotsByHelper.get(helperId).push({
+                questionId: imageUrl,
+                imageUrl,
+                helperId,
+                answer: ''
+            });
+            console.log('Сервер: Скриншот добавлен в коллекцию:', helperId, imageUrl);
+
+            frontendClients.forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                    console.log('Сервер: Отправка screenshot_info клиенту:', client);
+                    client.send(JSON.stringify({
+                        type: 'screenshot_info',
+                        questionId: imageUrl,
+                        imageUrl,
+                        helperId
+                    }));
+                } else {
+                    console.log('Сервер: Клиент не активен:', client);
+                }
+            });
+        }
+
+        res.status(200).json({ success: true, message: 'Скриншот успешно загружен', imageUrl });
+    } catch (err) {
+        console.error('Сервер: Ошибка при сохранении скриншота:', err);
+        res.status(500).json({ success: false, message: 'Ошибка сервера при сохранении скриншота.' });
+    }
+});
+
 async function ensureScreenshotsDir() {
     try {
         await fs.mkdir(SCREENSHOTS_DIR, { recursive: true });
+        console.log('Сервер: Папка screenshots создана или уже существует:', SCREENSHOTS_DIR);
     } catch (error) {
         console.error(`Сервер: Ошибка при создании папки для скриншотов: ${error}`);
     }
@@ -97,7 +152,7 @@ app.get('/api/active-helpers', (req, res) => {
 app.get('/proxy-image', async (req, res) => {
     const imageUrl = req.query.url;
     if (!imageUrl) return res.status(400).send('URL изображения не предоставлен.');
-    
+
     try {
         const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
         res.setHeader('Content-Type', response.headers['content-type'] || 'application/octet-stream');
@@ -127,20 +182,21 @@ async function loadExistingScreenshots() {
             if (parts.length >= 4 && parts[0] === 'helper') {
                 const helperId = `${parts[0]}-${parts[1]}-${parts[2]}`;
                 const imageUrl = `/screenshots/${file}`;
-                
+
                 if (!screenshotsByHelper.has(helperId)) {
                     screenshotsByHelper.set(helperId, []);
                 }
-                screenshotsByHelper.get(helperId).push({ 
-                    questionId: imageUrl, 
-                    imageUrl, 
-                    helperId, 
-                    answer: '' 
+                screenshotsByHelper.get(helperId).push({
+                    questionId: imageUrl,
+                    imageUrl,
+                    helperId,
+                    answer: ''
                 });
             }
         });
+        console.log('Сервер: Загружены существующие скриншоты:', screenshotsByHelper);
     } catch (err) {
-        console.error("Сервер: Ошибка при чтении папки скриншотов:", err);
+        console.error('Сервер: Ошибка при чтении папки скриншотов:', err);
     }
 }
 
@@ -155,7 +211,7 @@ async function clearHelperScreenshots(helperId) {
             try {
                 await fs.unlink(path.join(SCREENSHOTS_DIR, file));
                 const deletedImageUrl = `/screenshots/${file}`;
-                
+
                 if (screenshotsByHelper.has(helperId)) {
                     const helperScreenshots = screenshotsByHelper.get(helperId);
                     screenshotsByHelper.set(helperId, helperScreenshots.filter(s => s.imageUrl !== deletedImageUrl));
@@ -178,9 +234,9 @@ async function clearHelperScreenshots(helperId) {
             screenshotsByHelper.delete(helperId);
             frontendClients.forEach(client => {
                 if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify({ 
-                        type: 'helper_deleted', 
-                        helperId 
+                    client.send(JSON.stringify({
+                        type: 'helper_deleted',
+                        helperId
                     }));
                 }
             });
@@ -197,12 +253,14 @@ wss.on('connection', (ws) => {
     ws.on('message', async message => {
         try {
             const data = JSON.parse(message);
+            console.log('Сервер: Получено WebSocket-сообщение:', data);
 
             if (data.role === 'helper') {
                 currentHelperId = data.helperId;
-                if (currentHelperId && data.bypassAuth) { // Проверяем bypassAuth для помощников
+                if (currentHelperId) {
                     helperClients.set(currentHelperId, ws);
-                    
+                    console.log('Сервер: Зарегистрирован помощник:', currentHelperId);
+
                     if (screenshotsByHelper.has(currentHelperId)) {
                         screenshotsByHelper.get(currentHelperId).forEach(screenshot => {
                             if (screenshot.answer) {
@@ -210,24 +268,23 @@ wss.on('connection', (ws) => {
                                     type: 'answer',
                                     questionId: screenshot.questionId,
                                     answer: screenshot.answer,
-                                    clientId: currentHelperId // Добавляем clientId
+                                    clientId: currentHelperId
                                 }));
                             }
                         });
                     }
                 } else {
-                    ws.send(JSON.stringify({ 
-                        type: 'error', 
-                        message: 'Требуется bypassAuth для помощников' 
+                    ws.send(JSON.stringify({
+                        type: 'error',
+                        message: 'Требуется helperId для помощников'
                     }));
                 }
-            } 
-            else if (data.type === 'frontend_connect') {
+            } else if (data.type === 'frontend_connect') {
                 if (!frontendClients.has(ws)) {
                     if (!data.token) {
-                        return ws.send(JSON.stringify({ 
-                            type: 'error', 
-                            message: 'Требуется токен авторизации' 
+                        return ws.send(JSON.stringify({
+                            type: 'error',
+                            message: 'Требуется токен авторизации'
                         }));
                     }
 
@@ -235,6 +292,7 @@ wss.on('connection', (ws) => {
                         jwt.verify(data.token, JWT_SECRET);
                         isFrontend = true;
                         frontendClients.add(ws);
+                        console.log('Сервер: Зарегистрирован фронтенд-клиент');
 
                         const initialData = Array.from(screenshotsByHelper.entries()).map(([helperId, screenshots]) => ({
                             helperId,
@@ -246,61 +304,13 @@ wss.on('connection', (ws) => {
                             data: initialData
                         }));
                     } catch (err) {
-                        ws.send(JSON.stringify({ 
-                            type: 'error', 
-                            message: 'Неверный или истекший токен' 
+                        ws.send(JSON.stringify({
+                            type: 'error',
+                            message: 'Неверный или истекший токен'
                         }));
                     }
                 }
-            }
-            else if (data.type === 'screenshot') {
-                const { screenshot, tempQuestionId, helperId, bypassAuth } = data;
-                if (!screenshot || !tempQuestionId || !helperId || !bypassAuth) {
-                    return ws.send(JSON.stringify({ 
-                        type: 'error', 
-                        message: 'Неверные данные скриншота или отсутствует bypassAuth.' 
-                    }));
-                }
-
-                try {
-                    const base64Data = screenshot.replace(/^data:image\/png;base64,/, "");
-                    const filename = `${tempQuestionId}.png`;
-                    const filepath = path.join(SCREENSHOTS_DIR, filename);
-                    
-                    await fs.writeFile(filepath, base64Data, 'base64');
-                    const imageUrl = `/screenshots/${filename}`;
-
-                    if (!screenshotsByHelper.has(helperId)) {
-                        screenshotsByHelper.set(helperId, []);
-                    }
-
-                    if (!screenshotsByHelper.get(helperId).some(s => s.questionId === imageUrl)) {
-                        screenshotsByHelper.get(helperId).push({ 
-                            questionId: imageUrl, 
-                            imageUrl, 
-                            helperId, 
-                            answer: '' 
-                        });
-
-                        frontendClients.forEach(client => {
-                            if (client.readyState === WebSocket.OPEN) {
-                                client.send(JSON.stringify({
-                                    type: 'screenshot_info',
-                                    questionId: imageUrl,
-                                    imageUrl,
-                                    helperId
-                                }));
-                            }
-                        });
-                    }
-                } catch (err) {
-                    ws.send(JSON.stringify({ 
-                        type: 'error', 
-                        message: 'Ошибка сервера при сохранении скриншота.' 
-                    }));
-                }
-            }
-            else if (data.type === 'submit_answer') {
+            } else if (data.type === 'submit_answer') {
                 const { questionId, answer, adminUsername } = data;
 
                 let targetHelperId = null;
@@ -315,9 +325,9 @@ wss.on('connection', (ws) => {
                 }
 
                 if (!foundScreenshot || !targetHelperId) {
-                    return ws.send(JSON.stringify({ 
-                        type: 'error', 
-                        message: 'Скриншот не найден' 
+                    return ws.send(JSON.stringify({
+                        type: 'error',
+                        message: 'Скриншот не найден'
                     }));
                 }
 
@@ -333,11 +343,11 @@ wss.on('connection', (ws) => {
                         answer,
                         answeredBy: adminUsername || 'unknown',
                         answeredAt: new Date().toISOString(),
-                        clientId: targetHelperId // Добавляем clientId для клиента
+                        clientId: targetHelperId
                     }));
+                    console.log('Сервер: Ответ отправлен помощнику:', targetHelperId);
                 }
-            }
-            else if (data.type === 'delete_screenshot') {
+            } else if (data.type === 'delete_screenshot') {
                 const { questionId } = data;
                 const filename = path.basename(questionId);
                 const filepath = path.join(SCREENSHOTS_DIR, filename);
@@ -366,7 +376,7 @@ wss.on('connection', (ws) => {
                             }
                         });
 
-                        if (screenshotsByHelper.has(helperIdOfDeletedScreenshot) && 
+                        if (screenshotsByHelper.has(helperIdOfDeletedScreenshot) &&
                             screenshotsByHelper.get(helperIdOfDeletedScreenshot).length === 0) {
                             screenshotsByHelper.delete(helperIdOfDeletedScreenshot);
                             frontendClients.forEach(client => {
@@ -379,37 +389,36 @@ wss.on('connection', (ws) => {
                             });
                         }
                     } catch (err) {
-                        ws.send(JSON.stringify({ 
-                            type: 'error', 
-                            message: 'Ошибка при удалении скриншота.' 
+                        ws.send(JSON.stringify({
+                            type: 'error',
+                            message: 'Ошибка при удалении скриншота.'
                         }));
                     }
                 } else {
-                    ws.send(JSON.stringify({ 
-                        type: 'error', 
-                        message: 'Скриншот не найден.' 
+                    ws.send(JSON.stringify({
+                        type: 'error',
+                        message: 'Скриншот не найден.'
                     }));
                 }
-            }
-            else if (data.type === 'request_helper_screenshots') {
+            } else if (data.type === 'request_helper_screenshots') {
                 const { helperId: requestedHelperId } = data;
                 ws.send(JSON.stringify({
                     type: 'screenshots_by_helperId',
                     helperId: requestedHelperId,
                     screenshots: screenshotsByHelper.get(requestedHelperId) || []
                 }));
-            }
-            else if (data.type === 'test') {
-                ws.send(JSON.stringify({ 
-                    type: 'test_response', 
-                    message: 'Pong from server' 
+            } else if (data.type === 'test') {
+                ws.send(JSON.stringify({
+                    type: 'test_response',
+                    message: 'Pong from server'
                 }));
             }
 
         } catch (error) {
-            ws.send(JSON.stringify({ 
-                type: 'error', 
-                message: 'Неверный формат сообщения.' 
+            console.error('Сервер: Ошибка обработки WebSocket-сообщения:', error);
+            ws.send(JSON.stringify({
+                type: 'error',
+                message: 'Неверный формат сообщения.'
             }));
         }
     });
@@ -417,9 +426,11 @@ wss.on('connection', (ws) => {
     ws.on('close', async () => {
         if (isFrontend) {
             frontendClients.delete(ws);
+            console.log('Сервер: Фронтенд-клиент отключен');
         } else if (currentHelperId) {
             helperClients.delete(currentHelperId);
             await clearHelperScreenshots(currentHelperId);
+            console.log('Сервер: Помощник отключен:', currentHelperId);
         }
     });
 
