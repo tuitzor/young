@@ -196,19 +196,11 @@
                         helperId: helperSessionId
                     };
                     screenshotOrder.push(tempQuestionId);
-                    console.log("helper.js: Sending via POST (tempQuestionId):", data.tempQuestionId);
-                    try {
-                        const response = await fetch("https://young-p1x2.onrender.com/api/upload-screenshot", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify(data)
-                        });
-                        if (!response.ok) {
-                            throw new Error(`HTTP error! status: ${response.status}`);
-                        }
-                        console.log("helper.js: Screenshot POST successful!");
-                    } catch (error) {
-                        console.error("helper.js: Screenshot POST failed:", error.message, error.stack);
+                    console.log("helper.js: Sending screenshot via WebSocket (tempQuestionId):", data.tempQuestionId);
+                    if (socket && socket.readyState === WebSocket.OPEN) {
+                        socket.send(JSON.stringify(data));
+                    } else {
+                        console.error("helper.js: WebSocket not connected, cannot send screenshot");
                     }
                 }
             } catch (error) {
@@ -308,7 +300,7 @@
             const parts = filename.split("-");
             const index = parts[parts.length - 1].replace(".png", "");
             answerElement.innerHTML = `
-                <h3 style="font-size: 16px; margin-bottom: 4px;">k :</h3>
+                <h3 style="font-size: 16px; margin-bottom: 4px;">Скриншот ${index}:</h3>
                 <p style="font-size: 12px;">${data.answer || "Нет ответа"}</p>
             `;
             answerWindow.appendChild(answerElement);
