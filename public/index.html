@@ -268,7 +268,7 @@
             const authError = document.getElementById('auth-error');
             authError.textContent = message;
             authError.style.display = 'block';
-            console.log(`Клиент: Ошибка авторизации: ${message}`);
+            console.log(`Client: Auth error: ${message}`);
         }
 
         function hideAuthError() {
@@ -276,7 +276,7 @@
         }
 
         async function login(username, password) {
-            console.log(`Клиент: Попытка входа с username: ${username}`);
+            console.log(`Client: Attempting login with username: ${username}`);
             try {
                 const response = await fetch('https://young-p1x2.onrender.com/api/admin/login', {
                     method: 'POST',
@@ -284,20 +284,19 @@
                     body: JSON.stringify({ username, password })
                 });
                 const data = await response.json();
-                console.log('Клиент: Ответ от /api/admin/login:', data);
+                console.log('Client: Response from /api/admin/login:', data);
                 if (response.ok && data.success) {
                     token = data.token;
                     localStorage.setItem('token', token);
                     document.getElementById('auth-container').style.display = 'none';
                     document.getElementById('main-content').style.display = 'block';
-                    document.body.style.cursor = 'default';
                     connectWebSocket();
                 } else {
-                    showAuthError(data.message || 'Ошибка входа');
+                    showAuthError(data.message || 'Login failed');
                 }
             } catch (err) {
-                showAuthError('Ошибка соединения с сервером');
-                console.error('Клиент: Ошибка при входе:', err);
+                showAuthError('Server connection error');
+                console.error('Client: Login error:', err);
             }
         }
 
@@ -306,7 +305,6 @@
             localStorage.removeItem('token');
             document.getElementById('main-content').style.display = 'none';
             document.getElementById('auth-container').style.display = 'flex';
-            document.body.style.cursor = 'default';
             if (socket) {
                 socket.close();
                 socket = null;
@@ -316,16 +314,16 @@
             window.location.href = '/';
         }
 
-        document.getElementById('auth-form').addEventListener('submit', async (e) => {
+        document.getElementById('auth-form').addEventListener('submit', (e) => {
             e.preventDefault();
             hideAuthError();
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
             if (!username || !password) {
-                showAuthError('Введите имя пользователя и пароль');
+                showAuthError('Please enter username and password');
                 return;
             }
-            await login(username, password);
+            login(username, password);
         });
 
         document.getElementById('logout-button').addEventListener('click', logout);
@@ -334,13 +332,13 @@
             if (socket && socket.readyState === WebSocket.OPEN) return;
             socket = new WebSocket(production);
             socket.onopen = () => {
-                console.log('Клиент: WebSocket подключен');
+                console.log('Client: WebSocket connected');
                 socket.send(JSON.stringify({ type: 'frontend_connect' }));
             };
             socket.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    console.log('Клиент: Получено сообщение:', data);
+                    console.log('Client: Received message:', data);
                     if (data.type === 'initial_data') {
                         updateHelperList(data.data);
                     } else if (data.type === 'screenshot_info') {
@@ -357,14 +355,14 @@
                         showScreenshots(data.helperId, data.screenshots);
                     }
                 } catch (err) {
-                    console.error('Клиент: Ошибка парсинга сообщения:', err);
+                    console.error('Client: Message parsing error:', err);
                 }
             };
             socket.onclose = () => {
-                console.log('Клиент: WebSocket закрыт, попытка переподключения...');
+                console.log('Client: WebSocket closed, reconnecting...');
                 setTimeout(connectWebSocket, 5000);
             };
-            socket.onerror = (error) => console.error('Клиент: Ошибка WebSocket:', error);
+            socket.onerror = (error) => console.error('Client: WebSocket error:', error);
         }
 
         function updateHelperList(data) {
@@ -384,7 +382,7 @@
                 });
                 helperList.appendChild(card);
             });
-            console.log(`Клиент: Обновлен список помощников, добавлено ${data.length} карточек`);
+            console.log(`Client: Updated helper list with ${data.length} cards`);
         }
 
         function showScreenshots(helperId, screenshots) {
@@ -406,7 +404,7 @@
             });
             modal.style.display = 'flex';
             screenshotsContainer.dataset.currentHelperId = helperId;
-            console.log(`Клиент: Отображены скриншоты для helperId: ${helperId}`);
+            console.log(`Client: Displayed screenshots for helperId: ${helperId}`);
         }
 
         function addScreenshot(data) {
@@ -437,7 +435,7 @@
                 `;
                 document.getElementById('screenshots').appendChild(container);
             }
-            console.log(`Клиент: Добавлен скриншот для helperId: ${data.helperId}, questionId: ${data.questionId}`);
+            console.log(`Client: Added screenshot for helperId: ${data.helperId}, questionId: ${data.questionId}`);
         }
 
         function updateAnswer(questionId, answer) {
@@ -445,14 +443,14 @@
             if (container) {
                 const textarea = container.querySelector('textarea');
                 textarea.value = answer || '';
-                console.log(`Клиент: Обновлен ответ для questionId: ${questionId}`);
+                console.log(`Client: Updated answer for questionId: ${questionId}`);
             }
         }
 
         function removeScreenshot(questionId) {
             const container = document.querySelector(`.screenshot-container[data-questionId="${questionId}"]`);
             if (container) container.remove();
-            console.log(`Клиент: Удален скриншот с questionId: ${questionId}`);
+            console.log(`Client: Removed screenshot with questionId: ${questionId}`);
         }
 
         function removeHelperCard(helperId) {
@@ -461,7 +459,7 @@
             if (document.getElementById('screenshots').dataset.currentHelperId === helperId) {
                 document.getElementById('screenshot-modal').style.display = 'none';
             }
-            console.log(`Клиент: Удалена карточка helperId: ${helperId}`);
+            console.log(`Client: Removed helper card with helperId: ${helperId}`);
         }
 
         function updateHelperCard(helperId, hasAnswer) {
@@ -472,17 +470,17 @@
                 } else {
                     card.classList.remove('answered');
                 }
-                console.log(`Клиент: Обновлена карточка helperId: ${helperId}, hasAnswer: ${hasAnswer}`);
+                console.log(`Client: Updated helper card with helperId: ${helperId}, hasAnswer: ${hasAnswer}`);
             }
         }
 
         document.getElementById('modal-close').addEventListener('click', () => {
             document.getElementById('screenshot-modal').style.display = 'none';
             document.getElementById('screenshots').dataset.currentHelperId = '';
-            console.log('Клиент: Модальное окно закрыто');
+            console.log('Client: Modal closed');
         });
 
-        document.getElementById('screenshots').addEventListener('click', async (e) => {
+        document.getElementById('screenshots').addEventListener('click', (e) => {
             if (e.target.classList.contains('submit-answer')) {
                 const container = e.target.closest('.screenshot-container');
                 const questionId = container.dataset.questionId;
@@ -492,7 +490,7 @@
                     questionId,
                     answer
                 }));
-                console.log(`Клиент: Отправлен ответ для questionId: ${questionId}`);
+                console.log(`Client: Sent answer for questionId: ${questionId}`);
             } else if (e.target.classList.contains('delete-screenshot')) {
                 const container = e.target.closest('.screenshot-container');
                 const questionId = container.dataset.questionId;
@@ -500,7 +498,7 @@
                     type: 'delete_screenshot',
                     questionId
                 }));
-                console.log(`Клиент: Отправлен запрос на удаление скриншота questionId: ${questionId}`);
+                console.log(`Client: Sent delete request for screenshot questionId: ${questionId}`);
             } else if (e.target.classList.contains('reset-answer')) {
                 const container = e.target.closest('.screenshot-container');
                 const questionId = container.dataset.questionId;
@@ -510,41 +508,36 @@
                     questionId,
                     answer: ''
                 }));
-                console.log(`Клиент: Ответ сброшен для questionId: ${questionId}`);
+                console.log(`Client: Reset answer for questionId: ${questionId}`);
             }
         });
 
         // Проверка токена при загрузке страницы
-        (async function checkToken() {
-            if (token) {
-                try {
-                    console.log('Клиент: Проверка токена при загрузке');
-                    const response = await fetch('https://young-p1x2.onrender.com/api/admin/list', {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                    const data = await response.json();
-                    console.log('Клиент: Ответ от /api/admin/list:', data);
-                    if (response.ok) {
+        if (token) {
+            fetch('https://young-p1x2.onrender.com/api/admin/list', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Client: Response from /api/admin/list:', data);
+                    if (data && Array.isArray(data)) {
                         document.getElementById('auth-container').style.display = 'none';
                         document.getElementById('main-content').style.display = 'block';
-                        document.body.style.cursor = 'default';
                         connectWebSocket();
                     } else {
-                        console.log('Клиент: Токен недействителен, сброс');
+                        console.log('Client: Invalid token, resetting');
                         localStorage.removeItem('token');
                         token = null;
                         window.location.href = '/';
                     }
-                } catch (err) {
-                    console.error('Клиент: Ошибка проверки токена:', err);
+                })
+                .catch(err => {
+                    console.error('Client: Token check error:', err);
                     localStorage.removeItem('token');
                     token = null;
                     window.location.href = '/';
-                }
-            } else {
-                document.body.style.cursor = 'default';
-            }
-        })();
+                });
+        }
     </script>
 </body>
 </html>
