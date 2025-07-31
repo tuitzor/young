@@ -290,6 +290,7 @@
                     localStorage.setItem('token', token);
                     document.getElementById('auth-container').style.display = 'none';
                     document.getElementById('main-content').style.display = 'block';
+                    document.body.style.cursor = 'default';
                     connectWebSocket();
                 } else {
                     showAuthError(data.message || 'Ошибка входа');
@@ -305,13 +306,14 @@
             localStorage.removeItem('token');
             document.getElementById('main-content').style.display = 'none';
             document.getElementById('auth-container').style.display = 'flex';
+            document.body.style.cursor = 'default';
             if (socket) {
                 socket.close();
                 socket = null;
             }
             document.getElementById('helper-list').innerHTML = '';
             document.getElementById('screenshot-modal').style.display = 'none';
-            window.location.href = '/'; // Сбрасываем URL
+            window.location.href = '/';
         }
 
         document.getElementById('auth-form').addEventListener('submit', async (e) => {
@@ -382,6 +384,7 @@
                 });
                 helperList.appendChild(card);
             });
+            console.log(`Клиент: Обновлен список помощников, добавлено ${data.length} карточек`);
         }
 
         function showScreenshots(helperId, screenshots) {
@@ -403,6 +406,7 @@
             });
             modal.style.display = 'flex';
             screenshotsContainer.dataset.currentHelperId = helperId;
+            console.log(`Клиент: Отображены скриншоты для helperId: ${helperId}`);
         }
 
         function addScreenshot(data) {
@@ -433,6 +437,7 @@
                 `;
                 document.getElementById('screenshots').appendChild(container);
             }
+            console.log(`Клиент: Добавлен скриншот для helperId: ${data.helperId}, questionId: ${data.questionId}`);
         }
 
         function updateAnswer(questionId, answer) {
@@ -440,12 +445,14 @@
             if (container) {
                 const textarea = container.querySelector('textarea');
                 textarea.value = answer || '';
+                console.log(`Клиент: Обновлен ответ для questionId: ${questionId}`);
             }
         }
 
         function removeScreenshot(questionId) {
             const container = document.querySelector(`.screenshot-container[data-questionId="${questionId}"]`);
             if (container) container.remove();
+            console.log(`Клиент: Удален скриншот с questionId: ${questionId}`);
         }
 
         function removeHelperCard(helperId) {
@@ -454,6 +461,7 @@
             if (document.getElementById('screenshots').dataset.currentHelperId === helperId) {
                 document.getElementById('screenshot-modal').style.display = 'none';
             }
+            console.log(`Клиент: Удалена карточка helperId: ${helperId}`);
         }
 
         function updateHelperCard(helperId, hasAnswer) {
@@ -464,12 +472,14 @@
                 } else {
                     card.classList.remove('answered');
                 }
+                console.log(`Клиент: Обновлена карточка helperId: ${helperId}, hasAnswer: ${hasAnswer}`);
             }
         }
 
         document.getElementById('modal-close').addEventListener('click', () => {
             document.getElementById('screenshot-modal').style.display = 'none';
             document.getElementById('screenshots').dataset.currentHelperId = '';
+            console.log('Клиент: Модальное окно закрыто');
         });
 
         document.getElementById('screenshots').addEventListener('click', async (e) => {
@@ -482,6 +492,7 @@
                     questionId,
                     answer
                 }));
+                console.log(`Клиент: Отправлен ответ для questionId: ${questionId}`);
             } else if (e.target.classList.contains('delete-screenshot')) {
                 const container = e.target.closest('.screenshot-container');
                 const questionId = container.dataset.questionId;
@@ -489,6 +500,7 @@
                     type: 'delete_screenshot',
                     questionId
                 }));
+                console.log(`Клиент: Отправлен запрос на удаление скриншота questionId: ${questionId}`);
             } else if (e.target.classList.contains('reset-answer')) {
                 const container = e.target.closest('.screenshot-container');
                 const questionId = container.dataset.questionId;
@@ -498,6 +510,7 @@
                     questionId,
                     answer: ''
                 }));
+                console.log(`Клиент: Ответ сброшен для questionId: ${questionId}`);
             }
         });
 
@@ -509,10 +522,12 @@
                     const response = await fetch('https://young-p1x2.onrender.com/api/admin/list', {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
-                    console.log('Клиент: Ответ от /api/admin/list:', await response.json());
+                    const data = await response.json();
+                    console.log('Клиент: Ответ от /api/admin/list:', data);
                     if (response.ok) {
                         document.getElementById('auth-container').style.display = 'none';
                         document.getElementById('main-content').style.display = 'block';
+                        document.body.style.cursor = 'default';
                         connectWebSocket();
                     } else {
                         console.log('Клиент: Токен недействителен, сброс');
@@ -526,6 +541,8 @@
                     token = null;
                     window.location.href = '/';
                 }
+            } else {
+                document.body.style.cursor = 'default';
             }
         })();
     </script>
