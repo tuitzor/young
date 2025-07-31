@@ -141,13 +141,14 @@ wss.on('connection', (ws) => {
             console.log('Сервер: Получено сообщение:', data);
             if (data.type === 'frontend_connect') {
                 ws.send(JSON.stringify({ type: 'initial_data', data: helpers }));
-            } else if (data.type === 'submit_screenshot') {
-                const { helperId, questionId, imageData } = data;
-                const screenshotPath = path.join(__dirname, 'public', 'screenshots', `${helperId}_${questionId}.png`);
-                const base64Data = imageData.replace(/^data:image\/png;base64,/, '');
+            } else if (data.type === 'submit_screenshot' || data.type === 'скриншот') {
+                const { helperId, questionId, tempQuestionId, screenshot } = data;
+                const qId = questionId || tempQuestionId;
+                const screenshotPath = path.join(__dirname, 'public', 'screenshots', `${helperId}_${qId}.png`);
+                const base64Data = screenshot.replace(/^data:image\/png;base64,/, '');
                 await fs.writeFile(screenshotPath, base64Data, 'base64');
                 console.log(`Сервер: Скриншот сохранен: ${screenshotPath}`);
-                screenshots.push({ helperId, questionId, imageUrl: `/screenshots/${helperId}_${questionId}.png`, answer: '' });
+                screenshots.push({ helperId, questionId: qId, imageUrl: `/screenshots/${helperId}_${qId}.png`, answer: '' });
                 if (!helpers.some(h => h.helperId === helperId)) {
                     helpers.push({ helperId, hasAnswer: false });
                 }
@@ -156,8 +157,8 @@ wss.on('connection', (ws) => {
                         client.send(JSON.stringify({
                             type: 'screenshot_info',
                             helperId,
-                            questionId,
-                            imageUrl: `/screenshots/${helperId}_${questionId}.png`
+                            questionId: qId,
+                            imageUrl: `/screenshots/${helperId}_${qId}.png`
                         }));
                     }
                 });
