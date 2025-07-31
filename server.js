@@ -5,6 +5,8 @@ const path = require('path');
 const fs = require('fs').promises;
 const axios = require('axios');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 
 const app = express();
 const server = http.createServer(app);
@@ -12,14 +14,99 @@ const wss = new WebSocket.Server({ server });
 
 const PORT = process.env.PORT || 10000;
 const SCREENSHOTS_DIR = path.join(__dirname, 'public', 'screenshots');
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secure-jwt-secret'; // Replace with env variable in production
+const ADMIN_LIMIT = 6;
+
+// In-memory admin store (replace with database in production)
+const admins = [];
 
 app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: false
 }));
 
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Middleware to verify JWT
+const authenticateAdmin = (req, res, next) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+        return res.status(401).json({ success: false, message: 'Требуется токен авторизации' });
+    }
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        req.admin = decoded;
+        next();
+    } catch (err) {
+        return res.status(401).json({ success: false, message: 'Неверный или истекший токен' });
+    }
+};
+
+// Admin registration endpoint
+app.post('/api/admin/register', async (req, res) => {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+        return res.status(400).json({ success: false, message: 'Требуются имя пользователя и пароль' });
+    }
+
+    if (admins.length >= ADMIN_LIMIT) {
+        return res.status(403).json({ success: false, message: 'Достигнут лимит администраторов' });
+    }
+
+    if (admins.find(admin => admin.username === username)) {
+        return res.status(400).json({ success: false, message: 'Имя пользователя уже занято' });
+    }
+
+    try {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        admins.push({ username, password: hashedPassword });
+        console.log(`Сервер: Зарегистрирован новый админ: ${username}, всего админов: ${admins.length}`);
+        res.status(201).json({ success: true, message: 'Администратор успешно зарегистрирован' });
+    } catch (err) {
+        console.error('Сервер: Ошибка при регистрации админа:', err);
+        res.status(500).json({ success: false, message: 'Ошибка сервера при регистрации' });
+    }
+});
+
+// Admin login endpoint
+app.post('/api/admin/login', async (req, res) => {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+        return res.status(400).json({ success: false, message: 'Требуются имя пользователя и пароль' });
+    }
+
+    const admin = admins.find(a => a.username === username);
+    if (!admin) {
+        return res.status(401).json({ success: false, message: 'Неверное имя пользователя или пароль' });
+    }
+
+    try {
+        const isMatch = await bcrypt.compare(password, admin.password);
+        if (!isMatch) {
+            return res.status(401).json({ success: false, message: 'Неверное имя пользователя или пароль' });
+        }
+
+        const token = jwt.sign({ username: admin.username }, JWT_SECRET, { expiresIn: '1h' });
+        res.status(200).json({ success: true, token });
+    } catch (err) {
+        console.error('Сервер: Ошибка при входе админа:', err);
+        res.status(500).json({ success: false, message: 'Ошибка сервера при входе' });
+    }
+});
+
+// Protected route example (e.g., to get list of admins)
+app.get('/api/admin/list', authenticateAdmin, (req, res) => {
+    const adminList = admins.map(admin => ({ username: admin.username }));
+    res.status(200).json({ success: true, admins: adminList });
+});
+
+// Existing code with added admin protection for sensitive routes
 async function ensureScreenshotsDir() {
     try {
         await fs.mkdir(SCREENSHOTS_DIR, { recursive: true });
@@ -29,10 +116,6 @@ async function ensureScreenshotsDir() {
     }
 }
 ensureScreenshotsDir();
-
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -69,7 +152,8 @@ app.get('/proxy-image', async (req, res) => {
     }
 });
 
-app.post('/api/upload-screenshot', async (req, res) => {
+// Protect screenshot upload route
+app.post('/api/upload-screenshot', authenticateAdmin, async (req, res) => {
     const { type, screenshot, tempQuestionId, helperId } = req.body;
     console.log("Сервер (POST): Получен запрос на загрузку скриншота.", { tempQuestionId, helperId });
 
