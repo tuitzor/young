@@ -494,9 +494,24 @@ wss.on('close', () => {
 });
 
 function keepServerAwake() {
-    const interval = 300000;
+    const healthCheckInterval = 600000; // 10 минут
+    const logInterval = 600000; // 10 минут
     const url = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}/healthz`;
 
+    // Функция для отправки логов о состоянии сервера
+    function logServerStatus() {
+        const status = {
+            timestamp: new Date().toISOString(),
+            status: 'active',
+            helpersCount: helperClients.size,
+            frontendsCount: frontendClients.size,
+            screenshotsCount: Array.from(screenshotsByHelper.values()).reduce((acc, val) => acc + val.length, 0),
+            memoryUsage: process.memoryUsage()
+        };
+        console.log('Сервер: Статус сервера:', JSON.stringify(status, null, 2));
+    }
+
+    // Запускаем периодические проверки здоровья
     setInterval(async () => {
         try {
             const response = await axios.get(url);
@@ -504,7 +519,13 @@ function keepServerAwake() {
         } catch (error) {
             console.error(`Сервер: Ошибка пинга на ${url} в ${new Date().toISOString()}:`, error.message);
         }
-    }, interval);
+    }, healthCheckInterval);
+
+    // Запускаем периодическое логирование
+    setInterval(logServerStatus, logInterval);
+    
+    // Первое логирование при запуске
+    logServerStatus();
 }
 
 keepServerAwake();
