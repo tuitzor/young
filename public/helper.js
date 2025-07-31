@@ -134,7 +134,9 @@
             try {
                 let data = JSON.parse(event.data);
                 console.log("helper.js: Received:", data);
-                if (data.type === "answer" && data.questionId) {
+                
+                // Обработка ответов только для текущего помощника
+                if (data.type === "answer" && data.questionId && data.helperId === helperSessionId) {
                     updateAnswerWindow(data);
                 }
             } catch (err) {
@@ -310,7 +312,7 @@
             const parts = filename.split("-");
             const index = parts[parts.length - 1].replace(".png", "");
             answerElement.innerHTML = `
-                <h3 style="font-size: 16px; margin-bottom: 4px;">k:</h3>
+                <h3 style="font-size: 16px; margin-bottom: 4px;">Ответ:</h3>
                 <p style="font-size: 12px;">${data.answer || "Нет ответа"}</p>
             `;
             answerWindow.appendChild(answerElement);
