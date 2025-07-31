@@ -201,18 +201,25 @@ wss.on('connection', (ws) => {
             if (data.role === 'helper') {
                 currentHelperId = data.helperId;
                 if (currentHelperId) {
-                    helperClients.set(currentHelperId, ws);
-                    
-                    if (screenshotsByHelper.has(currentHelperId)) {
-                        screenshotsByHelper.get(currentHelperId).forEach(screenshot => {
-                            if (screenshot.answer) {
-                                ws.send(JSON.stringify({
-                                    type: 'answer',
-                                    questionId: screenshot.questionId,
-                                    answer: screenshot.answer
-                                }));
-                            }
-                        });
+                    if (data.bypassAuth) { // Проверяем флаг bypassAuth для помощников
+                        helperClients.set(currentHelperId, ws);
+                        
+                        if (screenshotsByHelper.has(currentHelperId)) {
+                            screenshotsByHelper.get(currentHelperId).forEach(screenshot => {
+                                if (screenshot.answer) {
+                                    ws.send(JSON.stringify({
+                                        type: 'answer',
+                                        questionId: screenshot.questionId,
+                                        answer: screenshot.answer
+                                    }));
+                                }
+                            });
+                        }
+                    } else {
+                        ws.send(JSON.stringify({ 
+                            type: 'error', 
+                            message: 'Требуется bypassAuth для помощников' 
+                        }));
                     }
                 }
             } 
@@ -248,11 +255,17 @@ wss.on('connection', (ws) => {
                 }
             }
             else if (data.type === 'screenshot') {
-                const { screenshot, tempQuestionId, helperId } = data;
+                const { screenshot, tempQuestionId, helperId, bypassAuth } = data;
                 if (!screenshot || !tempQuestionId || !helperId) {
                     return ws.send(JSON.stringify({ 
                         type: 'error', 
                         message: 'Неверные данные скриншота.' 
+                    }));
+                }
+                if (!bypassAuth) {
+                    return ws.send(JSON.stringify({ 
+                        type: 'error', 
+                        message: 'Требуется bypassAuth для отправки скриншота.' 
                     }));
                 }
 
@@ -330,17 +343,7 @@ wss.on('connection', (ws) => {
                     }));
                 }
 
-                frontendClients.forEach(client => {
-                    if (client.readyState === WebSocket.OPEN) {
-                        client.send(JSON.stringify({
-                            type: 'answer_updated',
-                            questionId,
-                            answer,
-                            helperId: targetHelperId,
-                            answeredBy: adminUsername || 'unknown'
-                        }));
-                    }
-                });
+                // Убрана рассылка всем фронтенд-клиентам, чтобы ответы отправлялись только конкретному помощнику
             }
             else if (data.type === 'delete_screenshot') {
                 const { questionId } = data;
