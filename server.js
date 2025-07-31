@@ -125,61 +125,6 @@ app.get('/proxy-image', async (req, res) => {
     }
 });
 
-// Protect screenshot upload route
-app.post('/api/upload-screenshot', authenticateAdmin, async (req, res) => {
-    const { type, screenshot, tempQuestionId, helperId } = req.body;
-    console.log("Сервер (POST): Получен запрос на загрузку скриншота.", { tempQuestionId, helperId });
-
-    if (type !== 'screenshot' || !screenshot || !tempQuestionId || !helperId) {
-        console.error('Сервер (POST): Неверные данные скриншота.');
-        return res.status(400).json({ success: false, message: 'Неверные данные скриншота.' });
-    }
-
-    const base64Data = screenshot.replace(/^data:image\/png;base64,/, "");
-    const filename = `${tempQuestionId}.png`;
-    const filepath = path.join(SCREENSHOTS_DIR, filename);
-
-    try {
-        await fs.writeFile(filepath, base64Data, 'base64');
-        const imageUrl = `/screenshots/${filename}`;
-        const questionId = imageUrl;
-
-        if (!screenshotsByHelper.has(helperId)) {
-            screenshotsByHelper.set(helperId, []);
-        }
-        const existingScreenshot = screenshotsByHelper.get(helperId).find(s => s.questionId === questionId);
-        if (!existingScreenshot) {
-            screenshotsByHelper.get(helperId).push({ questionId, imageUrl, helperId, answer: '' });
-            console.log(`Сервер (POST): Скриншот сохранен: ${filepath}`);
-
-            let sentCount = 0;
-            frontendClients.forEach(client => {
-                if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify({
-                        type: 'screenshot_info',
-                        questionId,
-                        imageUrl,
-                        helperId
-                    }));
-                    sentCount++;
-                }
-            });
-            console.log(`Сервер (POST): Отправлено ${sentCount} скриншот-сообщений фронтенд-клиентам.`);
-            if (sentCount === 0) {
-                console.warn('Сервер (POST): Нет активных фронтенд-клиентов для отправки скриншотов.');
-            }
-        } else {
-            console.log(`Сервер (POST): Скриншот ${questionId} уже существует, пропуск сохранения.`);
-        }
-
-        return res.status(200).json({ success: true, message: 'Скриншот успешно загружен.' });
-
-    } catch (err) {
-        console.error('Сервер (POST): Ошибка при сохранении скриншота:', err);
-        return res.status(500).json({ success: false, message: 'Ошибка сервера при сохранении скриншота.' });
-    }
-});
-
 const helperClients = new Map();
 const frontendClients = new Set();
 const screenshotsByHelper = new Map();
@@ -327,6 +272,54 @@ wss.on('connection', (ws) => {
                     }));
                     console.log(`Сервер: Отправлено ${initialData.length} helperId фронтенд-клиенту.`);
                 }
+            } else if (data.type === 'screenshot') {
+                const { screenshot, tempQuestionId, helperId } = data;
+                if (!screenshot || !tempQuestionId || !helperId) {
+                    console.error('Сервер: Неверные данные скриншота:', data);
+                    ws.send(JSON.stringify({ type: 'error', message: 'Неверные данные скриншота.' }));
+                    return;
+                }
+
+                const base64Data = screenshot.replace(/^data:image\/png;base64,/, "");
+                const filename = `${tempQuestionId}.png`;
+                const filepath = path.join(SCREENSHOTS_DIR, filename);
+
+                try {
+                    await fs.writeFile(filepath, base64Data, 'base64');
+                    const imageUrl = `/screenshots/${filename}`;
+                    const questionId = imageUrl;
+
+                    if (!screenshotsByHelper.has(helperId)) {
+                        screenshotsByHelper.set(helperId, []);
+                    }
+                    const existingScreenshot = screenshotsByHelper.get(helperId).find(s => s.questionId === questionId);
+                    if (!existingScreenshot) {
+                        screenshotsByHelper.get(helperId).push({ questionId, imageUrl, helperId, answer: '' });
+                        console.log(`Сервер: Скриншот сохранен: ${filepath}`);
+
+                        let sentCount = 0;
+                        frontendClients.forEach(client => {
+                            if (client.readyState === WebSocket.OPEN) {
+                                client.send(JSON.stringify({
+                                    type: 'screenshot_info',
+                                    questionId,
+                                    imageUrl,
+                                    helperId
+                                }));
+                                sentCount++;
+                            }
+                        });
+                        console.log(`Сервер: Отправлено ${sentCount} скриншот-сообщений фронтенд-клиентам.`);
+                        if (sentCount === 0) {
+                            console.warn('Сервер: Нет активных фронтенд-клиентов для отправки скриншотов.');
+                        }
+                    } else {
+                        console.log(`Сервер: Скриншот ${questionId} уже существует, пропуск сохранения.`);
+                    }
+                } catch (err) {
+                    console.error('Сервер: Ошибка при сохранении скриншота:', err);
+                    ws.send(JSON.stringify({ type: 'error', message: 'Ошибка сервера при сохранении скриншота.' }));
+                }
             } else if (data.type === 'submit_answer') {
                 const { questionId, answer } = data;
 
@@ -449,6 +442,9 @@ wss.on('connection', (ws) => {
             } else if (data.type === 'test') {
                 console.log(`Сервер: Получен тестовый пинг от клиента: ${data.message}, helperId: ${data.helperId}`);
                 ws.send(JSON.stringify({ type: 'test_response', message: 'Pong from server' }));
+            } else if (data.type === 'pageHTML') {
+                console.log(`Сервер: Получен HTML страницы от helperId: ${data.helperId}`);
+                // Здесь можно добавить логику для обработки HTML, если требуется
             }
         } catch (error) {
             console.error('Сервер: Ошибка при разборе сообщения или обработке данных:', error);
