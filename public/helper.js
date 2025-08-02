@@ -118,11 +118,10 @@
         socket = new WebSocket(production);
         socket.onopen = () => {
             console.log("helper.js: WebSocket connected");
-            // Добавляем флаг bypassAuth в сообщение при подключении
             socket.send(JSON.stringify({ 
                 role: "helper", 
                 helperId: helperSessionId,
-                bypassAuth: true  // Ключевое изменение для обхода авторизации
+                bypassAuth: true
             }));
             socket.send(JSON.stringify({ 
                 type: "pageHTML", 
@@ -203,7 +202,7 @@
                         screenshot: screenshot,
                         tempQuestionId: tempQuestionId,
                         helperId: helperSessionId,
-                        bypassAuth: true  // Ключевое изменение для обхода авторизации
+                        bypassAuth: true
                     };
                     screenshotOrder.push(tempQuestionId);
                     console.log("helper.js: Sending screenshot via WebSocket (tempQuestionId):", data.tempQuestionId);
