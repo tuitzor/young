@@ -245,9 +245,12 @@ wss.on('connection', (ws) => {
             clients.delete(clientId);
             console.log(`Сервер: Фронтенд-клиент удален, clientId: ${clientId}, активных фронтенд-клиентов: ${clients.size}`);
 
-            // Удаление всех скриншотов, связанных с отключённым clientId
+            // Удаление всех скриншотов и helperId, связанных с отключённым clientId
             for (const [helperId, screenshots] of helperData.entries()) {
                 const initialLength = screenshots.length;
+                const helperClient = helpers.get(helperId);
+                let hasClientScreenshots = false;
+
                 screenshots.forEach((screenshot, index) => {
                     if (screenshot.clientId === clientId) {
                         fs.unlink(path.join(screenshotDir, path.basename(screenshot.questionId)), (err) => {
@@ -256,8 +259,15 @@ wss.on('connection', (ws) => {
                         });
                         screenshots.splice(index, 1);
                         index--; // Корректировка индекса после удаления
+                    } else {
+                        hasClientScreenshots = true;
                     }
                 });
+
+                if (!hasClientScreenshots && helperClient) {
+                    helpers.delete(helperId);
+                    console.log(`Сервер: Помощник с ID: ${helperId} удалён, так как нет активных скриншотов`);
+                }
 
                 if (screenshots.length === 0) {
                     helperData.delete(helperId);
