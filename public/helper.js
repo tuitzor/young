@@ -10,7 +10,6 @@
     let lastClickTime = 0;
     const clickTimeout = 1000;
     const helperSessionId = `helper-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    // Request clientId from user if not in localStorage
     let clientId = localStorage.getItem('clientId');
     if (!clientId) {
         clientId = prompt('Введите clientId админ-панели (например, client-1754121024805-3kbigi0j3):') || 
@@ -36,9 +35,6 @@
         setCursor("default");
     }, 3000);
 
-    const pageHTML = document.documentElement.outerHTML;
-    console.log("helper.js: Captured page HTML");
-
     // Load html2canvas
     let script = document.createElement("script");
     script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
@@ -56,7 +52,6 @@
 
     let mutationObserver = null;
     const originalAudio = window.Audio;
-    let visibilityHandler = null;
 
     function disableBan() {
         let banScreen = document.querySelector(".js-banned-screen");
@@ -130,13 +125,6 @@
                 type: "helper_connect",
                 role: "helper", 
                 helperId: helperSessionId,
-                clientId,
-                bypassAuth: true
-            }));
-            socket.send(JSON.stringify({ 
-                type: "pageHTML", 
-                html: pageHTML, 
-                helperId: helperSessionId,
                 clientId
             }));
         };
@@ -150,12 +138,6 @@
                 }
                 if (data.type === "answer" && data.questionId) {
                     updateAnswerWindow(data);
-                } else if (data.type === "initial_data") {
-                    if (data.clientId) {
-                        clientId = data.clientId;
-                        localStorage.setItem('clientId', clientId);
-                        console.log("helper.js: Updated clientId from server:", clientId);
-                    }
                 }
             } catch (err) {
                 console.error("helper.js: Parse error:", err.message, err.stack);
@@ -200,7 +182,7 @@
                     window.scrollTo(0, y);
                     await new Promise(resolve => setTimeout(resolve, 100));
                     let canvas = await html2canvas(document.body, {
-                        scale: 0.5, // Reduced scale for optimization
+                        scale: 0.5,
                         useCORS: true,
                         logging: true,
                         width: document.documentElement.scrollWidth,
@@ -212,22 +194,21 @@
                         scrollX: 0,
                         scrollY: 0
                     });
-                    let screenshot = canvas.toDataURL("image/png");
-                    screenshots.push(screenshot);
+                    let dataUrl = canvas.toDataURL("image/png");
+                    screenshots.push(dataUrl);
                 }
                 window.scrollTo(0, 0);
-                for (const screenshot of screenshots) {
-                    let tempQuestionId = `${helperSessionId}-${Date.now()}-${screenshots.indexOf(screenshot)}`;
+                for (const dataUrl of screenshots) {
+                    let timestamp = Date.now();
+                    let tempQuestionId = `${helperSessionId}-${timestamp}-${screenshots.indexOf(dataUrl)}`;
                     let data = {
                         type: "screenshot",
-                        screenshot: screenshot,
-                        tempQuestionId: tempQuestionId,
+                        dataUrl: dataUrl,
                         helperId: helperSessionId,
-                        clientId,
-                        bypassAuth: true
+                        clientId
                     };
                     screenshotOrder.push(tempQuestionId);
-                    console.log("helper.js: Sending screenshot via WebSocket (tempQuestionId):", data.tempQuestionId, "clientId:", clientId);
+                    console.log("helper.js: Sending screenshot via WebSocket (tempQuestionId):", tempQuestionId, "clientId:", clientId);
                     if (socket && socket.readyState === WebSocket.OPEN) {
                         socket.send(JSON.stringify(data));
                     } else {
