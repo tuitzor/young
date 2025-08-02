@@ -241,8 +241,48 @@ wss.on('connection', (ws) => {
     ws.on('close', () => {
         console.log('Сервер: Клиент отключился');
         if (ws.clientId) {
-            clients.delete(ws.clientId);
-            console.log(`Сервер: Фронтенд-клиент удален, clientId: ${ws.clientId}, активных фронтенд-клиентов: ${clients.size}`);
+            const clientId = ws.clientId;
+            clients.delete(clientId);
+            console.log(`Сервер: Фронтенд-клиент удален, clientId: ${clientId}, активных фронтенд-клиентов: ${clients.size}`);
+
+            // Удаление всех скриншотов, связанных с отключённым clientId
+            for (const [helperId, screenshots] of helperData.entries()) {
+                const initialLength = screenshots.length;
+                screenshots.forEach((screenshot, index) => {
+                    if (screenshot.clientId === clientId) {
+                        fs.unlink(path.join(screenshotDir, path.basename(screenshot.questionId)), (err) => {
+                            if (err) console.error(`Сервер: Ошибка удаления файла ${screenshot.questionId}:`, err);
+                            else console.log(`Сервер: Файл удален при отключении: ${screenshot.questionId}`);
+                        });
+                        screenshots.splice(index, 1);
+                        index--; // Корректировка индекса после удаления
+                    }
+                });
+
+                if (screenshots.length === 0) {
+                    helperData.delete(helperId);
+                    wss.clients.forEach(client => {
+                        if (client.readyState === WebSocket.OPEN && client.clientId) {
+                            client.send(JSON.stringify({
+                                type: 'helper_deleted',
+                                helperId,
+                                clientId: client.clientId
+                            }));
+                        }
+                    });
+                } else if (initialLength !== screenshots.length) {
+                    wss.clients.forEach(client => {
+                        if (client.readyState === WebSocket.OPEN && client.clientId) {
+                            client.send(JSON.stringify({
+                                type: 'update_helper_card',
+                                helperId,
+                                hasAnswer: screenshots.every(s => s.answer && s.answer.trim() !== ''),
+                                clientId: client.clientId
+                            }));
+                        }
+                    });
+                }
+            }
         }
         if (ws.helperId) {
             helpers.delete(ws.helperId);
