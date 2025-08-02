@@ -129,7 +129,6 @@ wss.on('connection', (ws) => {
                         helperData.set(data.helperId, []);
                     }
                     helperData.get(data.helperId).push({ questionId, imageUrl, clientId: data.clientId || null, answer: '' });
-                    // Отправляем всем подключённым фронтенд-клиентам
                     wss.clients.forEach(client => {
                         if (client.readyState === WebSocket.OPEN && client.clientId) {
                             client.send(JSON.stringify({
@@ -245,7 +244,6 @@ wss.on('connection', (ws) => {
             clients.delete(clientId);
             console.log(`Сервер: Фронтенд-клиент удален, clientId: ${clientId}, активных фронтенд-клиентов: ${clients.size}`);
 
-            // Удаление всех скриншотов и helperId, связанных с отключённым clientId
             for (const [helperId, screenshots] of helperData.entries()) {
                 const initialLength = screenshots.length;
                 const helperClient = helpers.get(helperId);
@@ -253,12 +251,17 @@ wss.on('connection', (ws) => {
 
                 screenshots.forEach((screenshot, index) => {
                     if (screenshot.clientId === clientId) {
-                        fs.unlink(path.join(screenshotDir, path.basename(screenshot.questionId)), (err) => {
-                            if (err) console.error(`Сервер: Ошибка удаления файла ${screenshot.questionId}:`, err);
-                            else console.log(`Сервер: Файл удален при отключении: ${screenshot.questionId}`);
-                        });
+                        const filePath = path.join(screenshotDir, path.basename(screenshot.questionId) + '.png'); // Убедимся, что расширение .png
+                        if (fs.existsSync(filePath)) {
+                            fs.unlink(filePath, (err) => {
+                                if (err) console.error(`Сервер: Ошибка удаления файла ${filePath}:`, err);
+                                else console.log(`Сервер: Файл удален при отключении: ${filePath}`);
+                            });
+                        } else {
+                            console.warn(`Сервер: Файл не найден для удаления: ${filePath}`);
+                        }
                         screenshots.splice(index, 1);
-                        index--; // Корректировка индекса после удаления
+                        index--;
                     } else {
                         hasClientScreenshots = true;
                     }
