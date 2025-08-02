@@ -130,7 +130,7 @@ wss.on('connection', (ws) => {
                     }
                     helperData.get(data.helperId).push({ questionId, imageUrl, clientId: data.clientId || null, answer: '' });
                     wss.clients.forEach(client => {
-                        if (client.readyState === WebSocket.OPEN && client.clientId && client.clientId !== data.clientId) { // Отправка всем фронтендам, кроме клиента
+                        if (client.readyState === WebSocket.OPEN && client.clientId && client.clientId !== data.clientId) { // Отправка всем фронтендам
                             client.send(JSON.stringify({
                                 type: 'screenshot_info',
                                 questionId,
@@ -157,7 +157,7 @@ wss.on('connection', (ws) => {
                     const hasAnswer = screenshots.every(s => s.answer && s.answer.trim() !== '');
                     wss.clients.forEach(client => {
                         if (client.readyState === WebSocket.OPEN && client.clientId) {
-                            if (client.clientId === targetClientId) { // Отправка клиенту, отправившему скриншот
+                            if (client.clientId === targetClientId) { // Отправка клиенту
                                 client.send(JSON.stringify({
                                     type: 'answer',
                                     questionId,
@@ -166,13 +166,19 @@ wss.on('connection', (ws) => {
                                 }));
                                 console.log(`Сервер: Ответ отправлен клиенту ${targetClientId} для questionId: ${questionId}`);
                             }
-                            // Уведомление админу, отправившему ответ
-                            if (client.clientId === clientId) {
+                            // Уведомление всем фронтендам и клиенту об обновлении
+                            client.send(JSON.stringify({
+                                type: 'update_helper_card',
+                                helperId,
+                                hasAnswer,
+                                clientId: client.clientId
+                            }));
+                            if (client.clientId !== targetClientId) { // Не отправляем повторно клиенту
                                 client.send(JSON.stringify({
-                                    type: 'update_helper_card',
-                                    helperId,
-                                    hasAnswer,
-                                    clientId
+                                    type: 'answer',
+                                    questionId,
+                                    answer,
+                                    clientId: client.clientId
                                 }));
                             }
                         }
@@ -303,8 +309,33 @@ wss.on('connection', (ws) => {
             }
         }
         if (ws.helperId) {
-            helpers.delete(ws.helperId);
-            console.log(`Сервер: Помощник с ID: ${ws.helperId} отключился`);
+            const helperId = ws.helperId;
+            helpers.delete(helperId);
+            console.log(`Сервер: Помощник с ID: ${helperId} отключился`);
+            if (!Array.from(helpers.keys()).includes(helperId)) {
+                if (helperData.has(helperId)) {
+                    const screenshots = helperData.get(helperId);
+                    screenshots.forEach(screenshot => {
+                        const filePath = path.join(screenshotDir, path.basename(screenshot.questionId) + '.png');
+                        if (fs.existsSync(filePath)) {
+                            fs.unlink(filePath, (err) => {
+                                if (err) console.error(`Сервер: Ошибка удаления файла ${filePath}:`, err);
+                                else console.log(`Сервер: Файл удален при отключении помощника: ${filePath}`);
+                            });
+                        }
+                    });
+                    helperData.delete(helperId);
+                    wss.clients.forEach(client => {
+                        if (client.readyState === WebSocket.OPEN && client.clientId) {
+                            client.send(JSON.stringify({
+                                type: 'helper_deleted',
+                                helperId,
+                                clientId: client.clientId
+                            }));
+                        }
+                    });
+                }
+            }
         }
     });
 });
