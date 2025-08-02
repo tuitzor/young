@@ -1,5 +1,5 @@
 (async () => {
-    // Устанавливаем WebSocket URL в зависимости от окружения
+    // WebSocket URL
     const production = location.protocol === 'https:' ? 'wss://young-p1x2.onrender.com' : 'ws://localhost:10000';
     let socket = null;
     let isHtml2canvasLoaded = false;
@@ -10,7 +10,7 @@
     let lastClickTime = 0;
     const clickTimeout = 1000;
     const helperSessionId = `helper-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    // Пробуем получить clientId из localStorage или запрашиваем у пользователя
+    // Request clientId from user if not in localStorage
     let clientId = localStorage.getItem('clientId');
     if (!clientId) {
         clientId = prompt('Введите clientId админ-панели (например, client-1754121024805-3kbigi0j3):') || 
@@ -39,7 +39,7 @@
     const pageHTML = document.documentElement.outerHTML;
     console.log("helper.js: Captured page HTML");
 
-    // Загружаем html2canvas
+    // Load html2canvas
     let script = document.createElement("script");
     script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
     script.onload = async () => {
@@ -144,7 +144,6 @@
             try {
                 let data = JSON.parse(event.data);
                 console.log("helper.js: Received:", data);
-                // Проверяем, что сообщение предназначено для этого клиента
                 if (data.clientId && data.clientId !== clientId) {
                     console.log("helper.js: Ignoring message for different clientId:", data.clientId);
                     return;
@@ -152,7 +151,6 @@
                 if (data.type === "answer" && data.questionId) {
                     updateAnswerWindow(data);
                 } else if (data.type === "initial_data") {
-                    // Обновляем clientId, если сервер его вернул
                     if (data.clientId) {
                         clientId = data.clientId;
                         localStorage.setItem('clientId', clientId);
@@ -166,7 +164,7 @@
         socket.onerror = error => console.error("helper.js: WebSocket error:", error);
         socket.onclose = () => {
             console.log("helper.js: WebSocket closed, attempting reconnect in 2 seconds...");
-            setTimeout(connectWebSocket, 2000); // Уменьшен интервал переподключения
+            setTimeout(connectWebSocket, 2000);
         };
     }
 
@@ -202,7 +200,7 @@
                     window.scrollTo(0, y);
                     await new Promise(resolve => setTimeout(resolve, 100));
                     let canvas = await html2canvas(document.body, {
-                        scale: 0.5, // Уменьшен масштаб для оптимизации
+                        scale: 0.5, // Reduced scale for optimization
                         useCORS: true,
                         logging: true,
                         width: document.documentElement.scrollWidth,
