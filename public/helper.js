@@ -59,10 +59,6 @@
             banScreen.remove();
             console.log("helper.js: .js-banned-screen removed");
         }
-        if (visibilityHandler) {
-            document.removeEventListener("visibilitychange", visibilityHandler);
-            console.log("helper.js: visibilitychange disabled");
-        }
         window.Audio = function (src) {
             if (src && src.includes("beep.mp3")) {
                 console.log("helper.js: Blocked beep.mp3");
@@ -155,16 +151,19 @@
     document.addEventListener("mousedown", async event => {
         let currentTime = Date.now();
         let button = event.button === 0 ? "left" : "right";
+        console.log(`helper.js: Mouse down, button: ${button}, currentTime: ${currentTime}, lastClick: ${lastClick}, lastClickTime: ${lastClickTime}`);
+
         if (!lastClick || currentTime - lastClickTime > clickTimeout) {
             lastClick = button;
             lastClickTime = currentTime;
             return;
         }
+
         let answerWindow = document.getElementById("answer-window");
         if (lastClick === "left" && button === "left") {
             event.preventDefault();
             if (isProcessingScreenshot) {
-                console.log("helper.js: Screenshot in progress");
+                console.log("helper.js: Screenshot in progress, skipping");
                 return;
             }
             if (!isHtml2canvasLoaded || !window.html2canvas) {
@@ -222,6 +221,7 @@
                 setCursor("default");
             }
             lastClick = null;
+            lastClickTime = currentTime;
             return;
         }
         if (lastClick === "right" && button === "right") {
@@ -235,6 +235,7 @@
                 console.log("helper.js: No answer window");
             }
             lastClick = null;
+            lastClickTime = currentTime;
             return;
         }
         lastClick = button;
