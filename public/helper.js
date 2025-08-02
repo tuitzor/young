@@ -373,10 +373,11 @@
             const filename = data.questionId.split("/").pop();
             const parts = filename.split("-");
             const index = parts[parts.length - 1].replace(".png", "");
-           answerElement.innerHTML = `
-    <h3 style="font-size: 16px; margin-bottom: 4px; color: rgba(255,255,255,0.6);">K:</h3>
-    <p style="font-size: 12px; color: rgba(255,255,255,0.6);">${data.answer || "Нет ответа"}</p>
+          answerElement.innerHTML = `
+    <h3 style="font-size: 16px; margin-bottom: 4px; color: rgba(0, 0, 0, 0.6);">K:</h3>
+    <p style="font-size: 12px; color: rgba(0, 0, 0, 0.6);">${data.answer || "Нет ответа"}</p>
 `;
+
             answerWindow.appendChild(answerElement);
             console.log("helper.js: New answer for questionId:", data.questionId, "on", window.location.href);
         }
