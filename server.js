@@ -4,20 +4,19 @@ const jwt = require('jsonwebtoken');
 const path = require('path');
 const fs = require('fs');
 const sharp = require('sharp');
+const cors = require('cors');
 
 const app = express();
 const port = process.env.PORT || 10000;
 const secretKey = 'your-secret-key'; // Замените на безопасный ключ в продакшене
 
+app.use(cors()); // Включаем CORS для всех маршрутов
 app.use(express.json());
-app.use('/screenshots', (req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    next();
-}, express.static(path.join(__dirname, 'public/screenshots')));
+app.use(express.static(path.join(__dirname, 'public')));
+app.use('/screenshots', express.static(path.join(__dirname, 'public/screenshots')));
 
-// Добавляем обработчик для корневого маршрута
 app.get('/', (req, res) => {
-    res.send('Сервер работает! Добро пожаловать!');
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 const wss = new WebSocket.Server({ server: app.listen(port, () => {
@@ -101,6 +100,13 @@ wss.on('connection', (ws) => {
                 ws.send(JSON.stringify({ type: 'screenshot_info', ...screenshot }));
             });
             screenshotCache.delete(data.clientId);
+        } else if (data.type === 'request_initial_data') {
+            const initialData = Array.from(helperData.entries()).map(([helperId, info]) => ({
+                helperId,
+                hasAnswer: info.hasAnswer
+            }));
+            ws.send(JSON.stringify({ type: 'initial_data', data: initialData, clientId: data.clientId }));
+            console.log(`Сервер: Отправлены начальные данные для clientId: ${data.clientId}`);
         } else if (data.type === 'helper_connect' && data.role === 'helper') {
             ws.helperId = data.helperId;
             if (!helperData.has(data.helperId)) {
