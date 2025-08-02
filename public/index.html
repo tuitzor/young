@@ -645,11 +645,11 @@
                             screenshot.answer = answer;
                             helperInfo.hasAnswer = helperInfo.screenshots.every(s => s.answer && s.answer.trim() !== '');
                             addOrUpdateHelperCard(helperId, helperInfo.hasAnswer);
+                            if (currentOpenHelperId === helperId) {
+                                updateAnswerInModal(questionId, answer);
+                            }
                             break;
                         }
-                    }
-                    if (currentOpenHelperId && frontendHelperData.has(currentOpenHelperId)) {
-                        updateAnswerInModal(questionId, answer);
                     }
                 } else if (data.type === 'update_helper_card') {
                     const { helperId, hasAnswer } = data;
@@ -657,6 +657,9 @@
                         const helperInfo = frontendHelperData.get(helperId);
                         helperInfo.hasAnswer = hasAnswer !== undefined ? hasAnswer : helperInfo.hasAnswer;
                         addOrUpdateHelperCard(helperId, helperInfo.hasAnswer);
+                        if (currentOpenHelperId === helperId) {
+                            openFullScreenModal(helperId); // Переоткрываем модал для обновления
+                        }
                     }
                 } else if (data.type === 'helper_deleted') {
                     const { helperId } = data;
@@ -845,7 +848,7 @@
 
                     const textarea = document.createElement('textarea');
                     textarea.placeholder = 'Введите ответ...';
-                    textarea.value = ss.answer;
+                    textarea.value = ss.answer || '';
                     screenshotItem.appendChild(textarea);
 
                     const actionButtonsDiv = document.createElement('div');
@@ -954,5 +957,3 @@
             }
         });
     </script>
-</body>
-</html>
