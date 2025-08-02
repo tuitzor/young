@@ -15,6 +15,11 @@ app.use('/screenshots', (req, res, next) => {
     next();
 }, express.static(path.join(__dirname, 'public/screenshots')));
 
+// Добавляем обработчик для корневого маршрута
+app.get('/', (req, res) => {
+    res.send('Сервер работает! Добро пожаловать!');
+});
+
 const wss = new WebSocket.Server({ server: app.listen(port, () => {
     console.log(`Сервер запущен на порту: ${port}`);
     console.log(`WebSocket-сервер запущен на ws://localhost:${port}`);
