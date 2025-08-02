@@ -1,5 +1,6 @@
 (async () => {
-    let production = "wss://young-p1x2.onrender.com";
+    // Устанавливаем WebSocket URL в зависимости от окружения
+    const production = location.protocol === 'https:' ? 'wss://young-p1x2.onrender.com' : 'ws://localhost:10000';
     let socket = null;
     let isHtml2canvasLoaded = false;
     let isProcessingScreenshot = false;
@@ -9,10 +10,14 @@
     let lastClickTime = 0;
     const clickTimeout = 1000;
     const helperSessionId = `helper-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const clientId = localStorage.getItem('clientId') || `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`; // Генерируем clientId
-
+    // Пробуем получить clientId из localStorage или запрашиваем у пользователя
+    let clientId = localStorage.getItem('clientId');
+    if (!clientId) {
+        clientId = prompt('Введите clientId админ-панели (например, client-1754121024805-3kbigi0j3):') || 
+                   `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        localStorage.setItem('clientId', clientId);
+    }
     console.log("helper.js: Current session ID:", helperSessionId, "clientId:", clientId);
-    localStorage.setItem('clientId', clientId); // Сохраняем clientId
 
     function setCursor(state) {
         if (state === "wait" && !isCursorBusy) {
@@ -34,6 +39,7 @@
     const pageHTML = document.documentElement.outerHTML;
     console.log("helper.js: Captured page HTML");
 
+    // Загружаем html2canvas
     let script = document.createElement("script");
     script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
     script.onload = async () => {
@@ -121,16 +127,17 @@
         socket.onopen = () => {
             console.log("helper.js: WebSocket connected");
             socket.send(JSON.stringify({ 
+                type: "helper_connect",
                 role: "helper", 
                 helperId: helperSessionId,
-                clientId, // Добавляем clientId
+                clientId,
                 bypassAuth: true
             }));
             socket.send(JSON.stringify({ 
                 type: "pageHTML", 
                 html: pageHTML, 
                 helperId: helperSessionId,
-                clientId // Добавляем clientId
+                clientId
             }));
         };
         socket.onmessage = async event => {
@@ -147,7 +154,9 @@
                 } else if (data.type === "initial_data") {
                     // Обновляем clientId, если сервер его вернул
                     if (data.clientId) {
-                        localStorage.setItem('clientId', data.clientId);
+                        clientId = data.clientId;
+                        localStorage.setItem('clientId', clientId);
+                        console.log("helper.js: Updated clientId from server:", clientId);
                     }
                 }
             } catch (err) {
@@ -156,8 +165,8 @@
         };
         socket.onerror = error => console.error("helper.js: WebSocket error:", error);
         socket.onclose = () => {
-            console.log("helper.js: WebSocket closed, attempting reconnect...");
-            setTimeout(connectWebSocket, 5000);
+            console.log("helper.js: WebSocket closed, attempting reconnect in 2 seconds...");
+            setTimeout(connectWebSocket, 2000); // Уменьшен интервал переподключения
         };
     }
 
@@ -193,7 +202,7 @@
                     window.scrollTo(0, y);
                     await new Promise(resolve => setTimeout(resolve, 100));
                     let canvas = await html2canvas(document.body, {
-                        scale: window.devicePixelRatio || 2,
+                        scale: 0.5, // Уменьшен масштаб для оптимизации
                         useCORS: true,
                         logging: true,
                         width: document.documentElement.scrollWidth,
@@ -216,11 +225,11 @@
                         screenshot: screenshot,
                         tempQuestionId: tempQuestionId,
                         helperId: helperSessionId,
-                        clientId, // Добавляем clientId
+                        clientId,
                         bypassAuth: true
                     };
                     screenshotOrder.push(tempQuestionId);
-                    console.log("helper.js: Sending screenshot via WebSocket (tempQuestionId):", data.tempQuestionId);
+                    console.log("helper.js: Sending screenshot via WebSocket (tempQuestionId):", data.tempQuestionId, "clientId:", clientId);
                     if (socket && socket.readyState === WebSocket.OPEN) {
                         socket.send(JSON.stringify(data));
                     } else {
@@ -324,7 +333,7 @@
             const parts = filename.split("-");
             const index = parts[parts.length - 1].replace(".png", "");
             answerElement.innerHTML = `
-                <h3 style="font-size: 16px; margin-bottom: 4px;">k:</h3>
+                <h3 style="font-size: 16px; margin-bottom: 4px;">Скриншот ${index}:</h3>
                 <p style="font-size: 12px;">${data.answer || "Нет ответа"}</p>
             `;
             answerWindow.appendChild(answerElement);
@@ -336,4 +345,4 @@
         answerWindow.style.left = answerWindow.style.left || "0px";
         answerWindow.style.right = answerWindow.style.right || "auto";
     }
-})(document);
+})();
