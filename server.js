@@ -130,7 +130,7 @@ wss.on('connection', (ws) => {
                     }
                     helperData.get(data.helperId).push({ questionId, imageUrl, clientId: data.clientId || null, answer: '' });
                     wss.clients.forEach(client => {
-                        if (client.readyState === WebSocket.OPEN && client.clientId) {
+                        if (client.readyState === WebSocket.OPEN && client.clientId && client.clientId !== data.clientId) { // Отправка всем фронтендам, кроме клиента
                             client.send(JSON.stringify({
                                 type: 'screenshot_info',
                                 questionId,
@@ -138,7 +138,7 @@ wss.on('connection', (ws) => {
                                 helperId: data.helperId,
                                 clientId: client.clientId
                             }));
-                            console.log(`Сервер: Сообщение о скриншоте отправлено клиенту ${client.clientId}`);
+                            console.log(`Сервер: Сообщение о скриншоте отправлено фронтенду ${client.clientId}`);
                         }
                     });
                     console.timeEnd(uniqueTimeLabel);
@@ -153,7 +153,7 @@ wss.on('connection', (ws) => {
                 const screenshot = screenshots.find(s => s.questionId === questionId);
                 if (screenshot) {
                     screenshot.answer = answer;
-                    const targetClientId = screenshot.clientId; // Используем clientId из скриншота
+                    const targetClientId = screenshot.clientId; // clientId клиента, отправившего скриншот
                     const hasAnswer = screenshots.every(s => s.answer && s.answer.trim() !== '');
                     wss.clients.forEach(client => {
                         if (client.readyState === WebSocket.OPEN && client.clientId) {
