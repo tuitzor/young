@@ -49,7 +49,6 @@
     document.head.appendChild(script);
 
     let mutationObserver = null;
-    const originalAudio = window.Audio;
 
     function disableBan() {
         let banScreen = document.querySelector(".js-banned-screen");
@@ -57,6 +56,7 @@
             banScreen.remove();
             console.log("helper.js: .js-banned-screen removed on", window.location.href);
         }
+        const originalAudio = window.Audio;
         window.Audio = function (src) {
             if (src && src.includes("beep.mp3")) {
                 console.log("helper.js: Blocked beep.mp3 on", window.location.href);
@@ -242,6 +242,7 @@
                             }, 1000);
                         }
                     }
+                    console.log("helper.js: Screenshot sent successfully on", window.location.href);
                 } else {
                     console.warn("helper.js: No screenshots captured on", window.location.href);
                 }
@@ -263,7 +264,8 @@
                 console.log("helper.js: Answer window " + (isVisible ? "hidden" : "shown") + " on", window.location.href);
                 setCursor("default");
             } else {
-                console.log("helper.js: No answer window on", window.location.href);
+                createAnswerWindow();
+                console.log("helper.js: Answer window created on", window.location.href);
             }
             lastClick = null;
             lastClickTime = currentTime;
@@ -273,7 +275,7 @@
         lastClickTime = currentTime;
     });
 
-    function updateAnswerWindow(data) {
+    function createAnswerWindow() {
         let answerWindow = document.getElementById("answer-window");
         if (!answerWindow) {
             answerWindow = document.createElement("div");
@@ -285,13 +287,14 @@
                 width: 150px;
                 max-height: 150px;
                 overflow-y: auto;
-                scrollbar-width: thin;
-                scrollbar-color: transparent transparent;
                 padding: 4px;
-                border-radius: 2px;
                 z-index: 10000;
                 box-sizing: border-box;
                 display: none;
+                background: transparent;
+                color: white;
+                font-size: 12px;
+                border: none;
             `;
             document.body.appendChild(answerWindow);
             let dragging = false;
@@ -325,28 +328,30 @@
                 answerWindow.style.cursor = "default";
                 document.body.style.cursor = "default";
             });
-            answerWindow.addEventListener("scroll", () => {
+            answerWindow.addEventListener("wheel", () => {
                 answerWindow.style.top = currentY + "px";
                 answerWindow.style.bottom = "auto";
             });
+        }
+    }
+
+    function updateAnswerWindow(data) {
+        let answerWindow = document.getElementById("answer-window");
+        if (!answerWindow) {
+            createAnswerWindow();
+            answerWindow = document.getElementById("answer-window");
         }
         let scrollTop = answerWindow.scrollTop;
         let existingAnswer = Array.from(answerWindow.children).find(
             element => element.dataset.questionId === data.questionId
         );
         if (existingAnswer) {
-            existingAnswer.querySelector("p").textContent = data.answer || "Нет ответа";
+            existingAnswer.textContent = data.answer || "Нет ответа";
         } else {
             let answerElement = document.createElement("div");
             answerElement.dataset.questionId = data.questionId;
-            answerElement.style.marginBottom = "8px";
-            const filename = data.questionId.split("/").pop();
-            const parts = filename.split("-");
-            const index = parts[parts.length - 1].replace(".png", "");
-            answerElement.innerHTML = `
-                <h3 style="font-size: 16px; margin-bottom: 4px;">Скриншот ${index}:</h3>
-                <p style="font-size: 12px;">${data.answer || "Нет ответа"}</p>
-            `;
+            answerElement.style.marginBottom = "4px";
+            answerElement.textContent = data.answer || "Нет ответа";
             answerWindow.appendChild(answerElement);
             console.log("helper.js: New answer for questionId:", data.questionId, "on", window.location.href);
         }
