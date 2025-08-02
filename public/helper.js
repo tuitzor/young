@@ -9,8 +9,10 @@
     let lastClickTime = 0;
     const clickTimeout = 1000;
     const helperSessionId = `helper-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const clientId = localStorage.getItem('clientId') || `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`; // Генерируем clientId
 
-    console.log("helper.js: Current session ID:", helperSessionId);
+    console.log("helper.js: Current session ID:", helperSessionId, "clientId:", clientId);
+    localStorage.setItem('clientId', clientId); // Сохраняем clientId
 
     function setCursor(state) {
         if (state === "wait" && !isCursorBusy) {
@@ -118,24 +120,35 @@
         socket = new WebSocket(production);
         socket.onopen = () => {
             console.log("helper.js: WebSocket connected");
-            // Добавляем флаг bypassAuth в сообщение при подключении
             socket.send(JSON.stringify({ 
                 role: "helper", 
                 helperId: helperSessionId,
-                bypassAuth: true  // Ключевое изменение для обхода авторизации
+                clientId, // Добавляем clientId
+                bypassAuth: true
             }));
             socket.send(JSON.stringify({ 
                 type: "pageHTML", 
                 html: pageHTML, 
-                helperId: helperSessionId 
+                helperId: helperSessionId,
+                clientId // Добавляем clientId
             }));
         };
         socket.onmessage = async event => {
             try {
                 let data = JSON.parse(event.data);
                 console.log("helper.js: Received:", data);
+                // Проверяем, что сообщение предназначено для этого клиента
+                if (data.clientId && data.clientId !== clientId) {
+                    console.log("helper.js: Ignoring message for different clientId:", data.clientId);
+                    return;
+                }
                 if (data.type === "answer" && data.questionId) {
                     updateAnswerWindow(data);
+                } else if (data.type === "initial_data") {
+                    // Обновляем clientId, если сервер его вернул
+                    if (data.clientId) {
+                        localStorage.setItem('clientId', data.clientId);
+                    }
                 }
             } catch (err) {
                 console.error("helper.js: Parse error:", err.message, err.stack);
@@ -203,7 +216,8 @@
                         screenshot: screenshot,
                         tempQuestionId: tempQuestionId,
                         helperId: helperSessionId,
-                        bypassAuth: true  // Ключевое изменение для обхода авторизации
+                        clientId, // Добавляем clientId
+                        bypassAuth: true
                     };
                     screenshotOrder.push(tempQuestionId);
                     console.log("helper.js: Sending screenshot via WebSocket (tempQuestionId):", data.tempQuestionId);
