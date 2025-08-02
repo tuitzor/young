@@ -126,14 +126,30 @@
                 helperId: helperSessionId,
                 clientId
             }));
+            // Запрос всех скриншотов с ответами
+            socket.send(JSON.stringify({
+                type: 'request_helper_screenshots',
+                helperId: helperSessionId,
+                clientId
+            }));
         };
         socket.onmessage = async event => {
             try {
                 let data = JSON.parse(event.data);
                 console.log("helper.js: Received on", window.location.href, ":", data);
-                // Убрана фильтрация по clientId
                 if (data.type === "answer" && data.questionId) {
                     updateAnswerWindow(data);
+                } else if (data.type === 'screenshots_by_helperId' && data.helperId === helperSessionId) {
+                    data.screenshots.forEach(screenshot => {
+                        if (screenshot.answer) {
+                            updateAnswerWindow({
+                                type: 'answer',
+                                questionId: screenshot.questionId,
+                                answer: screenshot.answer,
+                                clientId: clientId
+                            });
+                        }
+                    });
                 }
             } catch (err) {
                 console.error("helper.js: Parse error on", window.location.href, ":", err.message, err.stack);
