@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title id="page-title">Панель авторизации</title>
     <style>
-        /* Общие стили для BODY */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
@@ -21,7 +20,6 @@
             transition: background-color 0.3s ease, color 0.3s ease;
         }
 
-        /* КОНТЕЙНЕРЫ ДЛЯ СТРАНИЦ */
         #auth-page-container,
         #error-page-container,
         #main-app-container {
@@ -31,7 +29,6 @@
             flex-grow: 1;
         }
 
-        /* Стили для страницы авторизации */
         #auth-page-content {
             display: flex;
             flex-direction: column;
@@ -86,7 +83,6 @@
             margin-top: 10px;
         }
 
-        /* Стили для содержимого страницы 502 Bad Gateway */
         #error-page-content {
             display: flex;
             flex-direction: column;
@@ -137,7 +133,6 @@
             color: #777;
         }
 
-        /* Стили для основного приложения (панели скриншотов) */
         #main-app-content {
             background-color: #f0f2f5;
             color: #333;
@@ -169,15 +164,19 @@
         #main-app-content button:hover {
             background-color: #0056b3;
         }
+        #client-id-display {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 1em;
+            color: #333;
+        }
 
-        /* Стили для контейнера карточек пользователей (пользователей-помощников) */
         #helper-cards-container {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
             gap: 20px;
         }
 
-        /* Стили для отдельной карточки пользователя */
         .helper-card {
             background-color: white;
             border: 1px solid #e0e0e0;
@@ -240,7 +239,6 @@
             padding: 50px;
         }
 
-        /* Стили для полноэкранного модального окна */
         #full-screen-modal {
             display: none;
             position: fixed;
@@ -294,7 +292,6 @@
             align-items: center;
         }
 
-        /* Стили для индивидуального контейнера скриншота */
         #modal-screenshots-container .screenshot-item {
             background-color: white;
             border: 1px solid #e0e0e0;
@@ -463,6 +460,9 @@
                 <h1>Панель скриншотов</h1>
                 <button id="clearAllScreenshots">Очистить все (с этой страницы)</button>
             </div>
+            <div id="client-id-display">
+                Ваш clientId: <span id="client-id-text"></span> (передайте этот ID помощнику)
+            </div>
             <div id="helper-cards-container">
                 <p class="no-helpers-message" id="no-helpers-message">Ожидание скриншотов от пользователей...</p>
             </div>
@@ -508,7 +508,6 @@
         localStorage.setItem('clientId', clientId);
         console.log('Frontend: Current clientId:', clientId);
 
-        // Функция для переключения между страницами
         function showPage(pageName) {
             authPageContainer.style.display = 'none';
             errorPageContainer.style.display = 'none';
@@ -537,7 +536,6 @@
             }
         }
 
-        // Обработка отправки формы авторизации
         authForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             authError.textContent = '';
@@ -582,6 +580,7 @@
             ws.onopen = () => {
                 console.log('Frontend: WebSocket подключен');
                 ws.send(JSON.stringify({ type: 'frontend_connect', role: 'frontend', clientId }));
+                ws.send(JSON.stringify({ type: 'request_initial_data', clientId }));
             };
 
             ws.onmessage = (event) => {
@@ -594,18 +593,12 @@
                     return;
                 }
 
-                // Пропускаем сообщения, не предназначенные для этого клиента
                 if (data.clientId && data.clientId !== clientId) {
                     console.log('Frontend: Игнорируем сообщение для другого clientId:', data.clientId);
                     return;
                 }
 
                 if (data.type === 'initial_data') {
-                    // Обновляем clientId, если сервер вернул новый
-                    if (data.clientId) {
-                        localStorage.setItem('clientId', data.clientId);
-                        console.log('Frontend: Обновлен clientId:', data.clientId);
-                    }
                     data.data.forEach(item => {
                         frontendHelperData.set(item.helperId, {
                             hasAnswer: item.hasAnswer,
@@ -616,9 +609,7 @@
                     checkNoHelpers();
                 } else if (data.type === 'screenshot_info') {
                     const { questionId, imageUrl, helperId, clientId: receivedClientId } = data;
-                    // Проверяем, что скриншот принадлежит этому клиенту
-                    if (receivedClientId !== clientId) return;
-
+                    console.log('Frontend: Обработка screenshot_info:', { questionId, imageUrl, helperId, clientId });
                     const filename = questionId.split('/').pop();
                     const index = filename.split('-').pop().replace('.png', '');
 
@@ -648,8 +639,6 @@
                     checkNoHelpers();
                 } else if (data.type === 'answer') {
                     const { questionId, answer, clientId: receivedClientId } = data;
-                    if (receivedClientId !== clientId) return;
-
                     for (const [helperId, helperInfo] of frontendHelperData.entries()) {
                         const screenshot = helperInfo.screenshots.find(s => s.questionId === questionId);
                         if (screenshot) {
@@ -663,18 +652,14 @@
                         updateAnswerInModal(questionId, answer);
                     }
                 } else if (data.type === 'update_helper_card') {
-                    const { helperId, hasAnswer, clientId: receivedClientId } = data;
-                    if (receivedClientId !== clientId) return;
-
+                    const { helperId, hasAnswer } = data;
                     if (frontendHelperData.has(helperId)) {
                         const helperInfo = frontendHelperData.get(helperId);
                         helperInfo.hasAnswer = hasAnswer !== undefined ? hasAnswer : helperInfo.hasAnswer;
                         addOrUpdateHelperCard(helperId, helperInfo.hasAnswer);
                     }
                 } else if (data.type === 'helper_deleted') {
-                    const { helperId, clientId: receivedClientId } = data;
-                    if (receivedClientId && receivedClientId !== clientId) return;
-
+                    const { helperId } = data;
                     deleteHelperCard(helperId);
                     frontendHelperData.delete(helperId);
                     checkNoHelpers();
@@ -682,9 +667,7 @@
                         closeFullScreenModal();
                     }
                 } else if (data.type === 'screenshot_deleted_specific') {
-                    const { questionId, clientId: receivedClientId } = data;
-                    if (receivedClientId !== clientId) return;
-
+                    const { questionId } = data;
                     let helperIdOfDeletedScreenshot = null;
 
                     for (const [hId, helperInfo] of frontendHelperData.entries()) {
@@ -713,12 +696,10 @@
                         }
                     }
                 } else if (data.type === 'screenshots_by_helperId') {
-                    const { helperId, screenshots, clientId: receivedClientId } = data;
-                    if (receivedClientId !== clientId) return;
-
+                    const { helperId, screenshots } = data;
                     const helperInfo = frontendHelperData.get(helperId);
                     if (helperInfo) {
-                        helperInfo.screenshots = screenshots.filter(s => s.clientId === clientId || !s.clientId); // Фильтруем скриншоты по clientId
+                        helperInfo.screenshots = screenshots.filter(s => !s.clientId || s.clientId === clientId);
                         helperInfo.screenshots.sort((a, b) => {
                             const timeA = parseInt(a.questionId.split('-')[1]) || 0;
                             const timeB = parseInt(b.questionId.split('-')[1]) || 0;
@@ -733,8 +714,8 @@
             };
 
             ws.onclose = () => {
-                console.log('Frontend: WebSocket отключен. Попытка переподключения через 5 секунд...');
-                setTimeout(initWebSocket, 5000);
+                console.log('Frontend: WebSocket отключен. Переподключение через 2 секунды...');
+                setTimeout(initWebSocket, 2000);
             };
 
             ws.onerror = (error) => {
@@ -820,7 +801,7 @@
         }
 
         function openFullScreenModal(helperId) {
-            console.log('openFullScreenModal вызван для helperId:', helperId);
+            console.log('Frontend: openFullScreenModal вызван для helperId:', helperId, 'clientId:', clientId);
             const helperInfo = frontendHelperData.get(helperId);
             modalScreenshotsContainer.innerHTML = '';
 
@@ -829,8 +810,11 @@
                 screenshotCounter.textContent = '';
             } else {
                 helperInfo.screenshots.forEach((ss, index) => {
-                    if (ss.clientId && ss.clientId !== clientId) return; // Пропускаем скриншоты других клиентов
-
+                    if (ss.clientId && ss.clientId !== clientId) {
+                        console.log('Frontend: Пропущен скриншот, clientId не совпадает:', ss.clientId);
+                        return;
+                    }
+                    console.log('Frontend: Обрабатываем скриншот:', ss.questionId, 'URL:', ss.imageUrl);
                     const filename = ss.questionId.split('/').pop();
                     const parts = filename.split('-');
                     const screenshotNumber = parts[parts.length - 1].replace('.png', '');
@@ -850,6 +834,8 @@
                     const img = document.createElement('img');
                     img.src = ss.imageUrl;
                     img.alt = `Скриншот ${ss.questionId}`;
+                    img.onerror = () => console.error(`Frontend: Ошибка загрузки изображения: ${ss.imageUrl}`);
+                    img.onload = () => console.log(`Frontend: Изображение загружено: ${ss.imageUrl}`);
                     imageWrapper.appendChild(img);
 
                     const answerDisplay = document.createElement('div');
@@ -962,6 +948,10 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             showPage('auth');
+            const clientIdText = document.getElementById('client-id-text');
+            if (clientIdText) {
+                clientIdText.textContent = clientId;
+            }
         });
     </script>
 </body>
