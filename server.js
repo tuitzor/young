@@ -153,16 +153,21 @@ wss.on('connection', (ws) => {
                 const screenshot = screenshots.find(s => s.questionId === questionId);
                 if (screenshot) {
                     screenshot.answer = answer;
+                    const targetClientId = screenshot.clientId; // Используем clientId из скриншота
                     const hasAnswer = screenshots.every(s => s.answer && s.answer.trim() !== '');
                     wss.clients.forEach(client => {
                         if (client.readyState === WebSocket.OPEN && client.clientId) {
-                            if (client.clientId === clientId) {
+                            if (client.clientId === targetClientId) { // Отправка клиенту, отправившему скриншот
                                 client.send(JSON.stringify({
                                     type: 'answer',
                                     questionId,
                                     answer,
-                                    clientId
+                                    clientId: targetClientId
                                 }));
+                                console.log(`Сервер: Ответ отправлен клиенту ${targetClientId} для questionId: ${questionId}`);
+                            }
+                            // Уведомление админу, отправившему ответ
+                            if (client.clientId === clientId) {
                                 client.send(JSON.stringify({
                                     type: 'update_helper_card',
                                     helperId,
@@ -178,7 +183,7 @@ wss.on('connection', (ws) => {
                             type: 'answer',
                             questionId,
                             answer,
-                            clientId
+                            clientId: targetClientId
                         }));
                     }
                     break;
@@ -251,7 +256,7 @@ wss.on('connection', (ws) => {
 
                 screenshots.forEach((screenshot, index) => {
                     if (screenshot.clientId === clientId) {
-                        const filePath = path.join(screenshotDir, path.basename(screenshot.questionId) + '.png'); // Убедимся, что расширение .png
+                        const filePath = path.join(screenshotDir, path.basename(screenshot.questionId) + '.png');
                         if (fs.existsSync(filePath)) {
                             fs.unlink(filePath, (err) => {
                                 if (err) console.error(`Сервер: Ошибка удаления файла ${filePath}:`, err);
