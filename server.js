@@ -31,7 +31,7 @@ if (!fs.existsSync(screenshotDir)) {
 }
 
 const helperData = new Map(); // helperId -> [screenshots]
-const clients = new Map();    // clientId -> WebSocket (для отслеживания активных соединений)
+const clients = new Map();    // clientId -> WebSocket
 const helpers = new Map();    // helperId -> WebSocket
 
 function loadExistingScreenshots() {
@@ -56,7 +56,10 @@ app.post('/api/admin/login', (req, res) => {
     const validCredentials = {
         'AYAZ': 'AYAZ1',
         'admin1': 'admin1A',
-        'admin2': 'admin2A'
+        'admin2': 'admin2A',
+        'admin3': 'admin3A',
+        'admin4': 'admin4A',
+        'admin5': 'admin5A'
     };
 
     if (validCredentials[username] && validCredentials[username] === password) {
