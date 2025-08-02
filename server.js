@@ -10,7 +10,7 @@ const app = express();
 const port = process.env.PORT || 10000;
 const secretKey = 'your-secret-key'; // Замените на безопасный ключ в продакшене
 
-app.use(cors()); // Включаем CORS для всех маршрутов
+app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/screenshots', express.static(path.join(__dirname, 'public/screenshots')));
@@ -33,6 +33,7 @@ if (!fs.existsSync(screenshotDir)) {
 const helperData = new Map();
 const screenshotCache = new Map();
 const clients = new Map();
+const helpers = new Map(); // Для хранения WebSocket-соединений помощников
 
 function loadExistingScreenshots() {
     fs.readdirSync(screenshotDir).forEach(file => {
@@ -109,10 +110,11 @@ wss.on('connection', (ws) => {
             console.log(`Сервер: Отправлены начальные данные для clientId: ${data.clientId}`);
         } else if (data.type === 'helper_connect' && data.role === 'helper') {
             ws.helperId = data.helperId;
+            helpers.set(data.helperId, ws); // Сохраняем соединение помощника
             if (!helperData.has(data.helperId)) {
                 helperData.set(data.helperId, { hasAnswer: false, screenshots: [] });
             }
-            console.log(`Сервер: Подключился помощник с ID: ${data.helperId}, активных помощников: ${helperData.size}`);
+            console.log(`Сервер: Подключился помощник с ID: ${data.helperId}, активных помощников: ${helpers.size}`);
         } else if (data.type === 'screenshot') {
             console.time(`save-screenshot-${data.helperId}`);
             const timestamp = Date.now();
@@ -172,6 +174,18 @@ wss.on('connection', (ws) => {
                             hasAnswer: info.hasAnswer,
                             clientId: data.clientId
                         }));
+                        console.log(`Сервер: Ответ отправлен фронтенд-клиенту ${data.clientId}`);
+                    }
+                    // Отправка ответа помощнику
+                    const helperClient = helpers.get(helperId);
+                    if (helperClient && helperClient.readyState === WebSocket.OPEN) {
+                        helperClient.send(JSON.stringify({
+                            type: 'answer',
+                            questionId: data.questionId,
+                            answer: data.answer,
+                            clientId: data.clientId
+                        }));
+                        console.log(`Сервер: Ответ отправлен помощнику ${helperId}`);
                     }
                     break;
                 }
@@ -196,16 +210,17 @@ wss.on('connection', (ws) => {
                             questionId: data.questionId,
                             clientId: data.clientId
                         }));
+                        console.log(`Сервер: Уведомление об удалении отправлено фронтенд-клиенту ${data.clientId}`);
                     }
                     if (info.screenshots.length === 0) {
                         helperData.delete(helperId);
-                        const frontendClient = clients.get(data.clientId);
                         if (frontendClient && frontendClient.readyState === WebSocket.OPEN) {
                             frontendClient.send(JSON.stringify({
                                 type: 'helper_deleted',
                                 helperId,
                                 clientId: data.clientId
                             }));
+                            console.log(`Сервер: Уведомление об удалении помощника отправлено фронтенд-клиенту ${data.clientId}`);
                         }
                     }
                     break;
@@ -237,6 +252,7 @@ wss.on('connection', (ws) => {
         }
         if (ws.helperId) {
             console.log(`Сервер: Помощник с ID: ${ws.helperId} отключился. Запускаю очистку скриншотов`);
+            helpers.delete(ws.helperId); // Удаляем соединение помощника
             const helperInfo = helperData.get(ws.helperId);
             if (helperInfo) {
                 console.log(`Сервер: Удаление ${helperInfo.screenshots.length} скриншотов для helperId: ${ws.helperId}`);
