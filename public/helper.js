@@ -131,10 +131,7 @@
             try {
                 let data = JSON.parse(event.data);
                 console.log("helper.js: Received on", window.location.href, ":", data);
-                if (data.clientId && data.clientId !== clientId) {
-                    console.log("helper.js: Ignoring message for different clientId:", data.clientId, "on", window.location.href);
-                    return;
-                }
+                // Убрана фильтрация по clientId
                 if (data.type === "answer" && data.questionId) {
                     updateAnswerWindow(data);
                 }
