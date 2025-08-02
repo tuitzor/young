@@ -30,9 +30,9 @@ if (!fs.existsSync(screenshotDir)) {
     console.log('Сервер: Папка для скриншотов создана:', screenshotDir);
 }
 
-const helperData = new Map(); // Хранит данные по helperId с привязкой к clientId
-const clients = new Map();   // Хранит активных фронтенд-клиентов
-const helpers = new Map();   // Хранит активных помощников
+const helperData = new Map(); // helperId -> Map(clientId -> [screenshots])
+const clients = new Map();    // clientId -> WebSocket
+const helpers = new Map();    // helperId -> WebSocket
 
 function loadExistingScreenshots() {
     fs.readdirSync(screenshotDir).forEach(file => {
@@ -41,7 +41,7 @@ function loadExistingScreenshots() {
             const helperId = `helper-${match[1]}`;
             const questionId = `${helperId}-${match[2]}`;
             if (!helperData.has(helperId)) {
-                helperData.set(helperId, new Map()); // Map для clientId -> screenshots
+                helperData.set(helperId, new Map());
             }
             helperData.get(helperId).set('legacy', [{ questionId, imageUrl: `/screenshots/${file}`, clientId: 'legacy', answer: '' }]);
         }
@@ -97,7 +97,7 @@ wss.on('connection', (ws) => {
         } else if (data.type === 'request_initial_data') {
             const initialData = Array.from(helperData.entries()).map(([helperId, clientMap]) => ({
                 helperId,
-                hasAnswer: Array.from(clientMap.values()).every(screenshots => screenshots.every(s => s.answer && s.answer.trim() !== ''))
+                hasAnswer: Array.from(clientMap.values()).some(screenshots => screenshots.some(s => s.clientId === data.clientId && s.answer && s.answer.trim() !== ''))
             }));
             ws.send(JSON.stringify({ type: 'initial_data', data: initialData, clientId: data.clientId || 'anonymous' }));
         } else if (data.type === 'helper_connect' && data.role === 'helper') {
@@ -151,12 +151,13 @@ wss.on('connection', (ws) => {
         } else if (data.type === 'submit_answer') {
             const { questionId, answer, clientId } = data;
             for (const [helperId, clientMap] of helperData.entries()) {
-                for (const [storedClientId, screenshots] of clientMap.entries()) {
-                    const screenshot = screenshots.find(s => s.questionId === questionId && s.clientId === clientId);
+                const screenshots = clientMap.get(clientId);
+                if (screenshots) {
+                    const screenshot = screenshots.find(s => s.questionId === questionId);
                     if (screenshot) {
                         screenshot.answer = answer;
                         const hasAnswer = screenshots.every(s => s.answer && s.answer.trim() !== '');
-                        clientMap.set(storedClientId, screenshots);
+                        clientMap.set(clientId, screenshots);
                         const frontendClient = clients.get(clientId);
                         if (frontendClient && frontendClient.readyState === WebSocket.OPEN) {
                             frontendClient.send(JSON.stringify({
