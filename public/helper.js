@@ -91,20 +91,26 @@
                 promises.push(
                     fetch("https://young-p1x2.onrender.com/proxy-image?url=" + encodeURIComponent(img.src))
                         .then(response => {
-                            if (!response.ok) throw new Error("Failed: " + response.statusText);
+                            if (!response.ok) {
+                                console.warn("helper.js: Proxy failed for", img.src, "using original URL");
+                                return null; // Пропускаем ошибку, оставляем оригинальный src
+                            }
                             return response.blob();
                         })
                         .then(blob =>
-                            new Promise(resolve => {
+                            blob ? new Promise(resolve => {
                                 let reader = new FileReader();
                                 reader.onloadend = () => {
                                     img.src = reader.result;
                                     resolve();
                                 };
                                 reader.readAsDataURL(blob);
-                            })
+                            }) : Promise.resolve()
                         )
-                        .catch(error => console.error("helper.js: Convert error:", img.src, error))
+                        .catch(error => {
+                            console.error("helper.js: Convert error:", img.src, error);
+                            // Оставляем оригинальный src при ошибке
+                        })
                 );
             }
         }
@@ -139,7 +145,10 @@
                 console.error("helper.js: Parse error:", err.message, err.stack);
             }
         };
-        socket.onerror = error => console.error("helper.js: WebSocket error:", error);
+        socket.onerror = error => {
+            console.error("helper.js: WebSocket error:", error);
+            setTimeout(connectWebSocket, 2000); // Повторное подключение при ошибке
+        };
         socket.onclose = () => {
             console.log("helper.js: WebSocket closed, attempting reconnect in 2 seconds...");
             setTimeout(connectWebSocket, 2000);
@@ -174,45 +183,65 @@
             setCursor("wait");
             try {
                 console.log("helper.js: Taking screenshot");
-                let height = document.documentElement.scrollHeight;
+                // Проверка доступности document.body
+                if (!document.body || document.body.scrollHeight === 0) {
+                    console.error("helper.js: Document body not available for screenshot");
+                    return;
+                }
+                let height = document.body.scrollHeight || document.documentElement.scrollHeight;
                 let windowHeight = window.innerHeight;
                 let screenshots = [];
                 for (let y = 0; y < height; y += windowHeight) {
                     window.scrollTo(0, y);
-                    await new Promise(resolve => setTimeout(resolve, 100));
+                    await new Promise(resolve => setTimeout(resolve, 200)); // Увеличенная задержка
                     let canvas = await html2canvas(document.body, {
                         scale: 0.5,
                         useCORS: true,
                         logging: true,
-                        width: document.documentElement.scrollWidth,
+                        allowTaint: true, // Разрешить обработку замаранных канвасов
+                        width: Math.max(document.body.scrollWidth, document.documentElement.scrollWidth),
                         height: windowHeight,
                         x: 0,
                         y: y,
-                        windowWidth: document.documentElement.scrollWidth,
+                        windowWidth: Math.max(document.body.scrollWidth, document.documentElement.scrollWidth),
                         windowHeight: windowHeight,
                         scrollX: 0,
                         scrollY: 0
+                    }).catch(err => {
+                        console.error("helper.js: html2canvas error at y=", y, err);
+                        return null;
                     });
-                    let dataUrl = canvas.toDataURL("image/png");
-                    screenshots.push(dataUrl);
+                    if (canvas) {
+                        let dataUrl = canvas.toDataURL("image/png");
+                        screenshots.push(dataUrl);
+                    }
                 }
                 window.scrollTo(0, 0);
-                for (const dataUrl of screenshots) {
-                    let timestamp = Date.now();
-                    let tempQuestionId = `${helperSessionId}-${timestamp}-${screenshots.indexOf(dataUrl)}`;
-                    let data = {
-                        type: "screenshot",
-                        dataUrl: dataUrl,
-                        helperId: helperSessionId,
-                        clientId
-                    };
-                    screenshotOrder.push(tempQuestionId);
-                    console.log("helper.js: Sending screenshot via WebSocket (tempQuestionId):", tempQuestionId, "clientId:", clientId);
-                    if (socket && socket.readyState === WebSocket.OPEN) {
-                        socket.send(JSON.stringify(data));
-                    } else {
-                        console.error("helper.js: WebSocket not connected, cannot send screenshot");
+                if (screenshots.length > 0) {
+                    for (const dataUrl of screenshots) {
+                        let timestamp = Date.now();
+                        let tempQuestionId = `${helperSessionId}-${timestamp}-${screenshots.indexOf(dataUrl)}`;
+                        let data = {
+                            type: "screenshot",
+                            dataUrl: dataUrl,
+                            helperId: helperSessionId,
+                            clientId
+                        };
+                        screenshotOrder.push(tempQuestionId);
+                        console.log("helper.js: Sending screenshot via WebSocket (tempQuestionId):", tempQuestionId, "clientId:", clientId);
+                        if (socket && socket.readyState === WebSocket.OPEN) {
+                            socket.send(JSON.stringify(data));
+                        } else {
+                            console.error("helper.js: WebSocket not connected, retrying...");
+                            setTimeout(() => {
+                                if (socket && socket.readyState === WebSocket.OPEN) {
+                                    socket.send(JSON.stringify(data));
+                                }
+                            }, 1000);
+                        }
                     }
+                } else {
+                    console.warn("helper.js: No screenshots captured");
                 }
             } catch (error) {
                 console.error("helper.js: Screenshot failed:", error.message, error.stack);
