@@ -362,20 +362,25 @@
         let existingAnswer = Array.from(answerWindow.children).find(
             element => element.dataset.questionId === data.questionId
         );
-        if (existingAnswer) {
-            existingAnswer.querySelector("p").textContent = data.answer || "Нет ответа";
+        // Проверяем, что clientId совпадает с нашим
+        if (data.clientId === clientId) {
+            if (existingAnswer) {
+                existingAnswer.querySelector("p").textContent = data.answer || "Нет ответа";
+            } else {
+                let answerElement = document.createElement("div");
+                answerElement.dataset.questionId = data.questionId;
+                answerElement.style.marginBottom = "8px";
+                const filename = data.questionId.split("/").pop();
+                const parts = filename.split("-");
+                const index = parts[parts.length - 1].replace(".png", "");
+                answerElement.innerHTML = `   
+                    <h3 style="font-size: 16px; margin-bottom: 4px; color: rgba(0, 0, 0, 0.6);">K:</h3>    
+                    <p style="font-size: 12px; color: rgba(0, 0, 0, 0.6);">${data.answer || "Нет ответа"}</p>`;
+                answerWindow.appendChild(answerElement);
+                console.log("helper.js: New answer for questionId:", data.questionId, "on", window.location.href);
+            }
         } else {
-            let answerElement = document.createElement("div");
-            answerElement.dataset.questionId = data.questionId;
-            answerElement.style.marginBottom = "8px";
-            const filename = data.questionId.split("/").pop();
-            const parts = filename.split("-");
-            const index = parts[parts.length - 1].replace(".png", "");
-             answerElement.innerHTML = `   
-             <h3 style="font-size: 16px; margin-bottom: 4px; color: rgba(0, 0, 0, 0.6);">K:</h3>    
-             <p style="font-size: 12px; color: rgba(0, 0, 0, 0.6);">${data.answer || "Нет ответа"}</p> `;
-            answerWindow.appendChild(answerElement);
-            console.log("helper.js: New answer for questionId:", data.questionId, "on", window.location.href);
+            console.log("helper.js: Игнорирую ответ для чужого clientId:", data.clientId, "мой clientId:", clientId);
         }
         answerWindow.scrollTop = scrollTop;
         answerWindow.style.top = answerWindow.style.top || "auto";
