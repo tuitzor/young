@@ -218,10 +218,11 @@
                     window.scrollTo(0, y);
                     await new Promise(resolve => setTimeout(resolve, 200));
                     let canvas = await html2canvas(body, {
-                        scale: 0.5,
+                        scale: 1.5,
                         useCORS: true,
                         allowTaint: true,
                         logging: true,
+                        imageSmoothingEnabled: false,
                         width: Math.max(body.scrollWidth, document.documentElement.scrollWidth),
                         height: windowHeight,
                         x: 0,
@@ -302,6 +303,7 @@
         if (!answerWindow) {
             answerWindow = document.createElement("div");
             answerWindow.id = "answer-window";
+            // Минимальные стили для контейнера
             answerWindow.style.cssText = `
                 position: fixed;
                 bottom: 20px;
@@ -310,17 +312,14 @@
                 max-height: 250px;
                 overflow-y: auto;
                 scrollbar-width: thin;
-                scrollbar-color: #007bff #f0f2f5;
+                scrollbar-color: #888 transparent; /* Едва заметный ползунок */
                 padding: 10px;
                 z-index: 10000;
                 box-sizing: border-box;
                 display: none;
-                background: rgba(255, 255, 255, 0.9);
-                border: 1px solid #ddd;
-                border-radius: 8px;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-                color: #333;
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background: transparent;
+                border: none;
+                box-shadow: none;
             `;
             document.body.appendChild(answerWindow);
             let dragging = false;
@@ -376,25 +375,28 @@
             element => element.dataset.questionId === data.questionId
         );
 
-        // Убран неверный if (data.clientId === clientId)
         if (existingAnswer) {
             existingAnswer.querySelector("p").textContent = data.answer || "Нет ответа";
         } else {
             let answerElement = document.createElement("div");
             answerElement.dataset.questionId = data.questionId;
-            answerElement.style.marginBottom = "10px";
-            answerElement.style.padding = "8px";
-            answerElement.style.backgroundColor = "#f0f2f5";
-            answerElement.style.borderRadius = "5px";
+            // Стили для каждого отдельного ответа
+            answerElement.style.cssText = `
+                margin-bottom: 10px;
+                padding: 8px;
+                background: rgba(0, 0, 0, 0.1); /* Очень прозрачный фон для выделения текста */
+                border-radius: 5px;
+                border: none;
+            `;
 
             const filename = data.questionId.split("/").pop();
             const parts = filename.split("-");
             const timestamp = parseInt(parts[2]);
 
             answerElement.innerHTML = `
-                <h3 style="font-size: 14px; margin: 0 0 5px 0; color: #007bff;">Ответ:</h3>
-                <p style="font-size: 13px; margin: 0; color: #333; word-wrap: break-word;">${data.answer || "Нет ответа"}</p>
-                <span style="display: block; font-size: 10px; color: #888; margin-top: 5px;">${new Date(timestamp).toLocaleString()}</span>
+                <h3 style="font-size: 14px; margin: 0 0 5px 0; color: #88c0ff; text-shadow: 1px 1px 2px #000;">Ответ:</h3>
+                <p style="font-size: 13px; margin: 0; color: #f0f0f0; word-wrap: break-word; text-shadow: 1px 1px 2px #000;">${data.answer || "Нет ответа"}</p>
+                <span style="display: block; font-size: 10px; color: #aaa; margin-top: 5px; text-shadow: 1px 1px 2px #000;">${new Date(timestamp).toLocaleString()}</span>
             `;
             
             answerWindow.insertBefore(answerElement, answerWindow.firstChild);
