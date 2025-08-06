@@ -3,270 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title id="page-title">Панель администратора</title>
+    <title>Панель администратора (Простой дизайн)</title>
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f0f2f5;
-            color: #333;
-            line-height: 1.6;
-        }
-        #auth-page {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            text-align: center;
-        }
-        #auth-page h2 {
-            font-size: 2em;
-            color: #333;
-            margin-bottom: 20px;
-        }
-        #auth-page form {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            width: 100%;
-            max-width: 400px;
-            padding: 20px;
-            background-color: #fff;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        #auth-page input {
-            padding: 12px;
-            font-size: 1em;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }
-        #auth-page button {
-            background-color: #007bff;
-            color: white;
-            padding: 12px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 1em;
-            transition: background-color 0.2s ease;
-        }
-        #auth-page button:hover {
-            background-color: #0056b3;
-        }
-        #auth-page .error-message {
-            color: #dc3545;
-            font-size: 0.9em;
-            margin-top: 10px;
-        }
-        #main-app {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        .header-container {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            background-color: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        }
-        .header-container h1 {
-            margin: 0;
-            font-size: 1.5em;
-        }
-        .header-container button {
-            background-color: #dc3545;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background-color 0.2s ease;
-        }
-        .header-container button:hover {
-            background-color: #c82333;
-        }
-        .helper-list-container {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-            background-color: #fff;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-        }
-        .helper-list-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px 20px;
-            border-bottom: 1px solid #e0e0e0;
-            cursor: pointer;
-            transition: background-color 0.2s ease;
-        }
-        .helper-list-item:last-child {
-            border-bottom: none;
-        }
-        .helper-list-item:hover {
-            background-color: #f7f9fc;
-        }
-        .helper-list-item .user-info {
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-        }
-        .helper-list-item h3 {
-            font-size: 1.1em;
-            margin: 0;
-            color: #333;
-            word-break: break-all;
-        }
-        .helper-list-item .meta-info {
-            font-size: 0.9em;
-            color: #777;
-            margin-top: 5px;
-        }
-        .helper-list-item .status-container {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .helper-list-item .screenshot-count {
-            font-size: 1em;
-            font-weight: bold;
-            color: #007bff;
-            padding: 5px 10px;
-            background-color: #e9f5ff;
-            border-radius: 5px;
-        }
-        .helper-list-item .status-indicator {
-            font-size: 0.9em;
-            color: #666;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        .helper-list-item .status-indicator.answered {
-            color: #28a745;
-        }
-        .helper-list-item .status-indicator.pending {
-            color: #ffc107;
-        }
-        .helper-list-item .status-indicator::before {
-            content: '';
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-right: 5px;
-        }
-        .helper-list-item .status-indicator.answered::before {
-            background-color: #28a745;
-        }
-        .helper-list-item .status-indicator.pending::before {
-            background-color: #ffc107;
-        }
-        .no-helpers-message {
-            text-align: center;
-            font-size: 1.2em;
-            color: #777;
-            padding: 50px;
-        }
-        #modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            background-color: rgba(0, 0, 0, 0.8);
-            padding: 20px;
-        }
-        .modal-content {
-            background-color: #fff;
-            margin: 20px auto;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-            position: relative;
-            max-width: 1200px; /* Увеличена ширина модального окна */
-            width: 95%;
-        }
-        #modal-close {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-        #modal-close:hover,
-        #modal-close:focus {
-            color: #333;
-            text-decoration: none;
-        }
-        .screenshot-item {
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 20px;
-            background-color: #f9f9f9;
-        }
-        .screenshot-item img {
-            max-width: 100%;
-            height: auto;
-            display: block;
-            margin-top: 10px;
-            border-radius: 5px;
-        }
-        .screenshot-item textarea {
-            width: 100%;
-            min-height: 80px;
-            padding: 10px;
-            border-radius: 5px;
-            border: 1px solid #ddd;
-            margin-top: 10px;
-        }
-        .screenshot-item button {
-            margin-top: 10px;
-            padding: 10px 15px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            color: white;
-            font-size: 1em;
-        }
-        .screenshot-item .submit-button {
-            background-color: #28a745;
-            margin-right: 10px;
-        }
-        .screenshot-item .delete-button {
-            background-color: #dc3545;
-        }
-        .screenshot-item .edit-button {
-            background-color: #ffc107;
-            margin-left: 10px;
-        }
-        .screenshot-item .answer-display {
-            margin-top: 10px;
-            padding: 10px;
-            background-color: #e9f5ff;
-            border-left: 4px solid #007bff;
-            border-radius: 5px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .screenshot-item .answer-text {
-            word-break: break-all;
-            white-space: pre-wrap; /* Сохраняет форматирование переносов строки */
-        }
+        body { font-family: monospace; font-size: 14px; margin: 20px; color: #333; background-color: #f0f0f0; }
+        #auth-page { max-width: 400px; margin: 100px auto; padding: 20px; border: 1px solid #ccc; background-color: #fff; }
+        input, button { display: block; width: 100%; margin-bottom: 10px; padding: 5px; box-sizing: border-box; }
+        h1, h2 { margin-top: 0; }
+        #main-app { display: none; max-width: 800px; margin: 0 auto; }
+        .helper-list-item { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; cursor: pointer; background-color: #fff; }
+        .helper-list-item h3 { margin: 0; }
+        .status-indicator.answered { color: green; }
+        .status-indicator.pending { color: red; }
+        #modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7); overflow-y: auto; padding: 20px; }
+        .modal-content { background-color: #fff; margin: 20px auto; padding: 20px; max-width: 900px; border: 1px solid #ccc; }
+        #modal-close { float: right; font-size: 20px; cursor: pointer; }
+        .screenshot-item { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; }
+        .screenshot-item img { max-width: 100%; height: auto; display: block; margin-bottom: 10px; }
+        .screenshot-item textarea { width: 100%; min-height: 80px; }
+        .screenshot-item button { display: inline-block; width: auto; margin-right: 5px; }
     </style>
 </head>
 <body>
@@ -276,18 +30,14 @@
             <input type="text" id="username" placeholder="Имя пользователя" required>
             <input type="password" id="password" placeholder="Пароль" required>
             <button type="submit">Войти</button>
-            <div id="auth-error" class="error-message"></div>
+            <div id="auth-error"></div>
         </form>
     </div>
 
-    <div id="main-app" style="display: none;">
-        <div class="header-container">
-            <h1>Панель скриншотов</h1>
-            <button id="logout-button">Выйти</button>
-        </div>
-        <ul id="helper-list" class="helper-list-container">
-            <li id="no-helpers-message" class="no-helpers-message">Нет активных помощников.</li>
-        </ul>
+    <div id="main-app">
+        <h1>Панель скриншотов</h1>
+        <button id="logout-button">Выйти</button>
+        <ul id="helper-list"></ul>
     </div>
 
     <div id="modal">
@@ -296,7 +46,6 @@
             <div id="modal-content-inner"></div>
         </div>
     </div>
-
     <script>
         const authPage = document.getElementById('auth-page');
         const mainApp = document.getElementById('main-app');
@@ -353,12 +102,12 @@
         }
 
         function showAuthPage() {
-            authPage.style.display = 'flex';
+            authPage.style.display = 'block';
             mainApp.style.display = 'none';
             if (ws) ws.close();
             localStorage.removeItem('token');
         }
-
+        
         function connectWebSocket() {
             const token = localStorage.getItem('token');
             if (!token) {
@@ -447,7 +196,6 @@
                     if (currentHelperId === data.helperId) {
                         requestHelperScreenshots(currentHelperId);
                     } else {
-                        // Обновляем список, чтобы счётчик сработал
                         requestHelperScreenshots(data.helperId, 'update_list');
                     }
                     break;
@@ -455,7 +203,6 @@
                     if (currentHelperId === data.helperId) {
                         requestHelperScreenshots(currentHelperId);
                     } else {
-                        // Обновляем список, чтобы счётчик сработал
                         requestHelperScreenshots(data.helperId, 'update_list');
                     }
                     break;
@@ -498,31 +245,19 @@
                 item.dataset.helperId = helperId;
                 item.addEventListener('click', () => requestHelperScreenshots(helperId));
 
-                const userInfo = document.createElement('div');
-                userInfo.className = 'user-info';
-                
                 const h3 = document.createElement('h3');
                 h3.textContent = `Пользователь: ${helperId}`;
-                userInfo.appendChild(h3);
+                item.appendChild(h3);
 
-                const metaInfo = document.createElement('div');
+                const metaInfo = document.createElement('p');
                 metaInfo.className = 'meta-info';
-                userInfo.appendChild(metaInfo);
-                item.appendChild(userInfo);
+                item.appendChild(metaInfo);
                 
-                const statusContainer = document.createElement('div');
-                statusContainer.className = 'status-container';
-                item.appendChild(statusContainer);
-
                 const statusDiv = document.createElement('div');
                 statusDiv.className = 'status-indicator';
-                statusContainer.appendChild(statusDiv);
+                item.appendChild(statusDiv);
                 
                 helperList.prepend(item);
-                const noHelpersMessage = document.getElementById('no-helpers-message');
-                if (noHelpersMessage) {
-                    noHelpersMessage.remove();
-                }
             }
             
             const metaInfo = item.querySelector('.meta-info');
@@ -544,6 +279,8 @@
                 statusDiv.textContent = hasAnswer ? 'Отвечено' : 'Ожидание';
                 statusDiv.className = `status-indicator ${hasAnswer ? 'answered' : 'pending'}`;
             }
+            
+            updateNoHelpersMessage();
         }
         
         function deleteHelperItem(helperId) {
@@ -559,12 +296,17 @@
 
         function updateNoHelpersMessage() {
             const noHelpersMessage = document.getElementById('no-helpers-message');
-            if (helperList.children.length === 0 && !noHelpersMessage) {
-                const li = document.createElement('li');
-                li.id = 'no-helpers-message';
-                li.className = 'no-helpers-message';
-                li.textContent = 'Нет активных помощников.';
-                helperList.appendChild(li);
+            if (helperList.children.length === 0) {
+                if (!noHelpersMessage) {
+                    const li = document.createElement('li');
+                    li.id = 'no-helpers-message';
+                    li.textContent = 'Нет активных помощников.';
+                    helperList.appendChild(li);
+                }
+            } else {
+                if (noHelpersMessage) {
+                    noHelpersMessage.remove();
+                }
             }
         }
 
@@ -596,22 +338,19 @@
                 screenshotItem.appendChild(img);
                 
                 const deleteButton = document.createElement('button');
-                deleteButton.className = 'delete-button';
                 deleteButton.textContent = 'Удалить скриншот';
                 deleteButton.addEventListener('click', () => deleteScreenshot(ss.questionId));
                 screenshotItem.appendChild(deleteButton);
 
                 if (ss.answer && ss.answer.trim() !== '') {
                     const answerDisplay = document.createElement('div');
-                    answerDisplay.className = 'answer-display';
-                    answerDisplay.innerHTML = `<span class="answer-text">${ss.answer}</span>`;
+                    answerDisplay.innerHTML = `<p>${ss.answer}</p>`;
                     screenshotItem.appendChild(answerDisplay);
 
                     const editButton = document.createElement('button');
-                    editButton.className = 'edit-button';
                     editButton.textContent = 'Изменить';
                     editButton.addEventListener('click', () => toggleEditMode(screenshotItem, ss.answer));
-                    answerDisplay.appendChild(editButton);
+                    screenshotItem.appendChild(editButton);
 
                 } else {
                     const textarea = document.createElement('textarea');
@@ -619,7 +358,6 @@
                     screenshotItem.appendChild(textarea);
 
                     const submitButton = document.createElement('button');
-                    submitButton.className = 'submit-button';
                     submitButton.textContent = 'Ответить';
                     submitButton.addEventListener('click', () => submitAnswer(helperId, ss.questionId, textarea.value));
                     screenshotItem.appendChild(submitButton);
@@ -630,29 +368,37 @@
         }
         
         function toggleEditMode(screenshotItem, currentAnswer) {
-            const answerDisplay = screenshotItem.querySelector('.answer-display');
-            const deleteButton = screenshotItem.querySelector('.delete-button');
+            const answerDisplay = screenshotItem.querySelector('div');
+            const editButton = screenshotItem.querySelector('button[textContent="Изменить"]');
             
             if (answerDisplay) {
-                // Включаем режим редактирования
                 answerDisplay.style.display = 'none';
+                editButton.style.display = 'none';
 
                 const textarea = document.createElement('textarea');
                 textarea.value = currentAnswer;
-                textarea.placeholder = 'Введите новый ответ...';
-                screenshotItem.insertBefore(textarea, deleteButton);
+                screenshotItem.appendChild(textarea);
 
                 const submitButton = document.createElement('button');
-                submitButton.className = 'submit-button';
                 submitButton.textContent = 'Сохранить';
                 submitButton.addEventListener('click', () => {
                     submitAnswer(currentHelperId, screenshotItem.dataset.questionId, textarea.value, 'edit_answer');
                 });
-                screenshotItem.insertBefore(submitButton, deleteButton);
+                screenshotItem.appendChild(submitButton);
+
+                const cancelButton = document.createElement('button');
+                cancelButton.textContent = 'Отмена';
+                cancelButton.addEventListener('click', () => {
+                    textarea.remove();
+                    submitButton.remove();
+                    cancelButton.remove();
+                    answerDisplay.style.display = 'block';
+                    editButton.style.display = 'block';
+                });
+                screenshotItem.appendChild(cancelButton);
             }
         }
         
-
         function closeModal() {
             modal.style.display = 'none';
             currentHelperId = null;
@@ -690,8 +436,11 @@
             }
         }
         
-        // При загрузке страницы всегда показываем страницу авторизации
-        window.onload = showAuthPage;
+        if (localStorage.getItem('token')) {
+            showMainApp();
+        } else {
+            showAuthPage();
+        }
     </script>
 </body>
 </html>
