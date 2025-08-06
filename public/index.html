@@ -131,17 +131,39 @@
             background-color: #f7f9fc;
         }
 
+        .helper-list-item .user-info {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
         .helper-list-item h3 {
             font-size: 1.1em;
             margin: 0;
-            flex-grow: 1;
             color: #333;
             word-break: break-all;
+        }
+        .helper-list-item .meta-info {
+            font-size: 0.9em;
+            color: #777;
+            margin-top: 5px;
+        }
+
+        .helper-list-item .status-container {
             display: flex;
             align-items: center;
             gap: 10px;
         }
-
+        
+        .helper-list-item .screenshot-count {
+            font-size: 1em;
+            font-weight: bold;
+            color: #007bff;
+            padding: 5px 10px;
+            background-color: #e9f5ff;
+            border-radius: 5px;
+        }
+        
         .helper-list-item .status-indicator {
             font-size: 0.9em;
             color: #666;
@@ -150,15 +172,12 @@
             align-items: center;
             gap: 5px;
         }
-        
         .helper-list-item .status-indicator.answered {
             color: #28a745;
         }
-        
         .helper-list-item .status-indicator.pending {
             color: #ffc107;
         }
-        
         .helper-list-item .status-indicator::before {
             content: '';
             display: inline-block;
@@ -167,11 +186,9 @@
             border-radius: 50%;
             margin-right: 5px;
         }
-        
         .helper-list-item .status-indicator.answered::before {
             background-color: #28a745;
         }
-        
         .helper-list-item .status-indicator.pending::before {
             background-color: #ffc107;
         }
@@ -199,7 +216,7 @@
 
         .modal-content {
             background-color: #fff;
-            margin: auto;
+            margin: 20px auto;
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
@@ -271,6 +288,22 @@
             background-color: #e9f5ff;
             border-left: 4px solid #007bff;
             border-radius: 5px;
+        }
+        
+        .screenshot-item .meta-info {
+            font-size: 0.9em;
+            color: #777;
+            margin-bottom: 15px;
+        }
+
+        .screenshot-item .meta-info a {
+            color: #007bff;
+            text-decoration: none;
+            word-break: break-all;
+        }
+        
+        .screenshot-item .meta-info a:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
@@ -411,20 +444,23 @@
                     if (data.helperId) {
                         const existing = frontendData.get(data.helperId);
                         if (!existing) {
-                            frontendData.set(data.helperId, { hasAnswer: false });
-                        } else {
-                            existing.hasAnswer = false;
+                            frontendData.set(data.helperId, { hasAnswer: false, screenshots: [] });
                         }
-                        addOrUpdateHelperItem(frontendData.get(data.helperId), data.helperId);
+                        // Отправляем запрос на получение скриншотов, чтобы обновить данные в списке
+                        requestHelperScreenshots(data.helperId, 'update_list');
                     }
                     updateNoHelpersMessage();
                     break;
-                case 'update_helper_card':
+                case 'screenshots_by_helperId':
                     if (data.helperId) {
                         const helperInfo = frontendData.get(data.helperId);
                         if (helperInfo) {
-                            helperInfo.hasAnswer = data.hasAnswer;
+                            helperInfo.screenshots = data.screenshots;
+                            helperInfo.hasAnswer = data.screenshots.every(s => s.answer && s.answer.trim() !== '');
                             addOrUpdateHelperItem(helperInfo, data.helperId);
+                        }
+                        if (currentHelperId === data.helperId) {
+                             openModal(data.helperId, data.screenshots);
                         }
                     }
                     break;
@@ -435,46 +471,102 @@
                     }
                     updateNoHelpersMessage();
                     break;
-                case 'screenshots_by_helperId':
-                    if (data.helperId) {
-                        openModal(data.helperId, data.screenshots);
-                    }
-                    break;
                 case 'auth_error':
                     alert(data.message);
                     showAuthPage();
                     break;
                 case 'screenshot_deleted_specific':
                 case 'answer':
-                    // Refresh modal if open
                     if (currentHelperId) {
-                         requestHelperScreenshots(currentHelperId);
+                        requestHelperScreenshots(currentHelperId);
+                    }
+                    // Обновляем список, чтобы счётчик сработал
+                    if (data.helperId) {
+                        requestHelperScreenshots(data.helperId, 'update_list');
                     }
                     break;
             }
         }
+        
+        function formatTimeAgo(timestamp) {
+            const now = new Date();
+            const date = new Date(timestamp);
+            const seconds = Math.floor((now - date) / 1000);
+            
+            if (seconds < 60) return `${seconds} сек. назад`;
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return `${minutes} мин. назад`;
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `${hours} ч. назад`;
+            const days = Math.floor(hours / 24);
+            return `${days} дн. назад`;
+        }
 
         function addOrUpdateHelperItem(data, helperId = data.helperId) {
             let item = document.querySelector(`.helper-list-item[data-helper-id="${helperId}"]`);
-            const hasAnswer = data.hasAnswer;
+            const screenshots = data.screenshots || [];
+            const unreadCount = screenshots.filter(s => !s.answer).length;
+            const hasAnswer = screenshots.every(s => s.answer && s.answer.trim() !== '');
             
             if (!item) {
                 item = document.createElement('li');
                 item.className = 'helper-list-item';
                 item.dataset.helperId = helperId;
-                item.innerHTML = `
-                    <h3>Пользователь: ${helperId}</h3>
-                    <div class="status-indicator ${hasAnswer ? 'answered' : 'pending'}">${hasAnswer ? 'Отвечено' : 'Ожидание'}</div>
-                `;
                 item.addEventListener('click', () => requestHelperScreenshots(helperId));
+
+                const userInfo = document.createElement('div');
+                userInfo.className = 'user-info';
+                
+                const h3 = document.createElement('h3');
+                h3.textContent = `Пользователь: ${helperId}`;
+                userInfo.appendChild(h3);
+
+                const metaInfo = document.createElement('div');
+                metaInfo.className = 'meta-info';
+                userInfo.appendChild(metaInfo);
+                item.appendChild(userInfo);
+                
+                const statusContainer = document.createElement('div');
+                statusContainer.className = 'status-container';
+                item.appendChild(statusContainer);
+
+                const screenshotCount = document.createElement('span');
+                screenshotCount.className = 'screenshot-count';
+                statusContainer.appendChild(screenshotCount);
+
+                const statusDiv = document.createElement('div');
+                statusDiv.className = 'status-indicator';
+                statusContainer.appendChild(statusDiv);
+                
                 helperList.prepend(item);
-            } else {
-                const statusDiv = item.querySelector('.status-indicator');
+                const noHelpersMessage = document.getElementById('no-helpers-message');
+                if (noHelpersMessage) {
+                    noHelpersMessage.remove();
+                }
+            }
+            
+            const screenshotCountSpan = item.querySelector('.screenshot-count');
+            const metaInfo = item.querySelector('.meta-info');
+            const statusDiv = item.querySelector('.status-indicator');
+
+            if (screenshotCountSpan) {
+                screenshotCountSpan.textContent = unreadCount > 0 ? `Неотвеченные: ${unreadCount}` : '';
+            }
+            
+            const lastScreenshot = screenshots.length > 0 ? screenshots[screenshots.length - 1] : null;
+            if (lastScreenshot && metaInfo) {
+                const timeAgo = formatTimeAgo(lastScreenshot.timestamp);
+                metaInfo.textContent = `Последний скриншот: ${timeAgo}`;
+            } else if (metaInfo) {
+                 metaInfo.textContent = '';
+            }
+
+            if (statusDiv) {
                 statusDiv.textContent = hasAnswer ? 'Отвечено' : 'Ожидание';
                 statusDiv.className = `status-indicator ${hasAnswer ? 'answered' : 'pending'}`;
             }
         }
-
+        
         function deleteHelperItem(helperId) {
             const item = document.querySelector(`.helper-list-item[data-helper-id="${helperId}"]`);
             if (item) {
@@ -488,23 +580,21 @@
 
         function updateNoHelpersMessage() {
             const noHelpersMessage = document.getElementById('no-helpers-message');
-            if (frontendData.size === 0) {
-                if (!noHelpersMessage) {
-                     const li = document.createElement('li');
-                     li.id = 'no-helpers-message';
-                     li.className = 'no-helpers-message';
-                     li.textContent = 'Нет активных помощников.';
-                     helperList.appendChild(li);
-                }
-            } else if (noHelpersMessage) {
-                noHelpersMessage.remove();
+            if (helperList.children.length === 0 && !noHelpersMessage) {
+                const li = document.createElement('li');
+                li.id = 'no-helpers-message';
+                li.className = 'no-helpers-message';
+                li.textContent = 'Нет активных помощников.';
+                helperList.appendChild(li);
             }
         }
 
-        function requestHelperScreenshots(helperId) {
+        function requestHelperScreenshots(helperId, purpose = 'open_modal') {
             if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({ type: 'request_helper_screenshots', helperId, clientId }));
-                currentHelperId = helperId;
+                if (purpose === 'open_modal') {
+                    currentHelperId = helperId;
+                }
             }
         }
 
@@ -517,14 +607,19 @@
                 screenshotItem.dataset.questionId = ss.questionId;
 
                 const header = document.createElement('h4');
-                header.textContent = `Скриншот: ${ss.questionId}`;
+                header.textContent = `Запрос от ${ss.timestamp}`;
                 screenshotItem.appendChild(header);
+                
+                const metaInfo = document.createElement('div');
+                metaInfo.className = 'meta-info';
+                metaInfo.innerHTML = `URL страницы: <a href="${ss.pageUrl}" target="_blank">${ss.pageUrl}</a>`;
+                screenshotItem.appendChild(metaInfo);
 
                 const img = document.createElement('img');
                 img.src = ss.imageUrl;
                 screenshotItem.appendChild(img);
 
-                if (ss.answer) {
+                if (ss.answer && ss.answer.trim() !== '') {
                     const answerDisplay = document.createElement('div');
                     answerDisplay.className = 'answer-display';
                     answerDisplay.textContent = ss.answer;
@@ -599,7 +694,6 @@
             }
         });
         
-        // Check for token on page load
         if (localStorage.getItem('token')) {
             showMainApp();
         }
