@@ -1,5 +1,5 @@
 (async () => {
-    const production = location.protocol === 'https:' ? 'wss://young-z7wb.onrender.com' : 'ws://localhost:10000';
+    const production = 'wss://young-z7wb.onrender.com';
     let socket = null;
     let isHtml2canvasLoaded = false;
     let isProcessingScreenshot = false;
@@ -117,17 +117,17 @@
     function connectWebSocket() {
         if (socket && socket.readyState === WebSocket.OPEN) return;
         socket = new WebSocket(production);
-        const token = localStorage.getItem('token'); 
+        const token = localStorage.getItem('token');
 
         socket.onopen = () => {
             console.log("helper.js: WebSocket connected on", window.location.href, "with clientId:", clientId);
-            
+
             socket.send(JSON.stringify({
                 type: "helper_connect",
                 role: "helper",
                 helperId: helperSessionId,
                 clientId,
-                token: token || null 
+                token: token || null
             }));
 
             socket.send(JSON.stringify({
@@ -141,7 +141,7 @@
             try {
                 let data = JSON.parse(event.data);
                 console.log("helper.js: Received on", window.location.href, ":", data);
-                
+
                 if (data.type === 'answer' && data.questionId && data.helperId === helperSessionId) {
                     updateAnswerWindow(data);
                 } else if (data.type === 'screenshots_by_helperId' && data.helperId === helperSessionId) {
@@ -196,7 +196,7 @@
                 console.error("helper.js: html2canvas not loaded on", window.location.href);
                 return;
             }
-            
+
             isProcessingScreenshot = true;
             setCursor("wait");
             try {
@@ -303,7 +303,7 @@
         if (!answerWindow) {
             answerWindow = document.createElement("div");
             answerWindow.id = "answer-window";
-            // Минимальные стили для контейнера
+            // Стили для контейнера - полностью прозрачный и без рамок
             answerWindow.style.cssText = `
                 position: fixed;
                 bottom: 20px;
@@ -311,8 +311,8 @@
                 width: 300px;
                 max-height: 250px;
                 overflow-y: auto;
-                scrollbar-width: thin;
-                scrollbar-color: #888 transparent; /* Едва заметный ползунок */
+                scrollbar-width: none; /* Скрытие ползунка для Firefox */
+                -ms-overflow-style: none; /* Скрытие ползунка для Internet Explorer и Edge */
                 padding: 10px;
                 z-index: 10000;
                 box-sizing: border-box;
@@ -321,6 +321,15 @@
                 border: none;
                 box-shadow: none;
             `;
+            // Дополнительный стиль для Chrome, Safari, Opera
+            const style = document.createElement('style');
+            style.textContent = `
+                #answer-window::-webkit-scrollbar {
+                    display: none;
+                }
+            `;
+            document.head.appendChild(style);
+
             document.body.appendChild(answerWindow);
             let dragging = false;
             let currentX = 0;
@@ -370,7 +379,7 @@
             createAnswerWindow();
             answerWindow = document.getElementById("answer-window");
         }
-        
+
         let existingAnswer = Array.from(answerWindow.children).find(
             element => element.dataset.questionId === data.questionId
         );
@@ -380,11 +389,11 @@
         } else {
             let answerElement = document.createElement("div");
             answerElement.dataset.questionId = data.questionId;
-            // Стили для каждого отдельного ответа
+            // Стили для каждого отдельного ответа - прозрачный и без рамок
             answerElement.style.cssText = `
                 margin-bottom: 10px;
                 padding: 8px;
-                background: rgba(0, 0, 0, 0.1); /* Очень прозрачный фон для выделения текста */
+                background: transparent;
                 border-radius: 5px;
                 border: none;
             `;
@@ -398,7 +407,7 @@
                 <p style="font-size: 13px; margin: 0; color: #f0f0f0; word-wrap: break-word; text-shadow: 1px 1px 2px #000;">${data.answer || "Нет ответа"}</p>
                 <span style="display: block; font-size: 10px; color: #aaa; margin-top: 5px; text-shadow: 1px 1px 2px #000;">${new Date(timestamp).toLocaleString()}</span>
             `;
-            
+
             answerWindow.insertBefore(answerElement, answerWindow.firstChild);
             console.log("helper.js: New answer for questionId:", data.questionId, "on", window.location.href);
         }
