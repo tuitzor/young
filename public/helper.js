@@ -120,8 +120,7 @@
         const token = localStorage.getItem('token');
 
         socket.onopen = () => {
-            console.log("helper.js: WebSocket connected on", window.location.href, "with clientId:", clientId);
-
+            console.log("helper.js: WebSocket connected on", window.location.href, "with clientId:", clientId, "token:", token || "none");
             socket.send(JSON.stringify({
                 type: "helper_connect",
                 role: "helper",
@@ -129,7 +128,6 @@
                 clientId,
                 token: token || null
             }));
-
             socket.send(JSON.stringify({
                 type: 'request_helper_screenshots',
                 helperId: helperSessionId,
@@ -140,13 +138,16 @@
         socket.onmessage = async event => {
             try {
                 let data = JSON.parse(event.data);
-                console.log("helper.js: Received on", window.location.href, ":", data);
+                console.log("helper.js: Received message on", window.location.href, ":", data);
 
                 if (data.type === 'answer' && data.questionId && data.helperId === helperSessionId) {
+                    console.log("helper.js: Processing answer for questionId:", data.questionId, "answer:", data.answer);
                     updateAnswerWindow(data);
                 } else if (data.type === 'screenshots_by_helperId' && data.helperId === helperSessionId) {
+                    console.log("helper.js: Received screenshots_by_helperId with", data.screenshots.length, "screenshots");
                     data.screenshots.forEach(screenshot => {
                         if (screenshot.answer) {
+                            console.log("helper.js: Processing screenshot answer for questionId:", screenshot.questionId);
                             updateAnswerWindow({
                                 type: 'answer',
                                 questionId: screenshot.questionId,
@@ -155,6 +156,8 @@
                             });
                         }
                     });
+                } else {
+                    console.log("helper.js: Ignored message with type:", data.type, "helperId:", data.helperId);
                 }
             } catch (err) {
                 console.error("helper.js: Parse error on", window.location.href, ":", err.message, err.stack);
@@ -250,27 +253,30 @@
                             dataUrl: dataUrl,
                             helperId: helperSessionId,
                             clientId,
-                            token: localStorage.getItem('token')
+                            token: localStorage.getItem('token') || null
                         };
                         screenshotOrder.push(tempQuestionId);
-                        console.log("helper.js: Sending screenshot via WebSocket (tempQuestionId):", tempQuestionId, "clientId:", clientId, "on", window.location.href);
+                        console.log("helper.js: Sending screenshot via WebSocket (tempQuestionId):", tempQuestionId, "clientId:", clientId, "token:", data.token || "none");
                         if (socket && socket.readyState === WebSocket.OPEN) {
                             socket.send(JSON.stringify(data));
                         } else {
-                            console.error("helper.js: WebSocket not connected on", window.location.href, ", retrying...");
+                            console.error("helper.js: WebSocket not connected on", window.location.href, ", queuing screenshot...");
                             setTimeout(() => {
                                 if (socket && socket.readyState === WebSocket.OPEN) {
                                     socket.send(JSON.stringify(data));
+                                    console.log("helper.js: Queued screenshot sent for tempQuestionId:", tempQuestionId);
+                                } else {
+                                    console.error("helper.js: WebSocket still not connected for tempQuestionId:", tempQuestionId);
                                 }
                             }, 1000);
                         }
                     }
-                    console.log("helper.js: Screenshot sent successfully on", window.location.href);
+                    console.log("helper.js: Screenshots sent successfully on", window.location.href);
                 } else {
                     console.warn("helper.js: No screenshots captured on", window.location.href);
                 }
             } catch (error) {
-                console.error("helper.js: Screenshot failed on", window.location.href, ":", error.message, error.stack);
+                console.error("helper.js: Screenshot failed on", window.location.href, ":", error.message, err.stack);
             } finally {
                 isProcessingScreenshot = false;
                 setCursor("default");
@@ -303,7 +309,6 @@
         if (!answerWindow) {
             answerWindow = document.createElement("div");
             answerWindow.id = "answer-window";
-            // Стили для контейнера - полностью прозрачный и без рамок
             answerWindow.style.cssText = `
                 position: fixed;
                 bottom: 20px;
@@ -311,8 +316,8 @@
                 width: 300px;
                 max-height: 250px;
                 overflow-y: auto;
-                scrollbar-width: none; /* Скрытие ползунка для Firefox */
-                -ms-overflow-style: none; /* Скрытие ползунка для Internet Explorer и Edge */
+                scrollbar-width: none;
+                -ms-overflow-style: none;
                 padding: 10px;
                 z-index: 10000;
                 box-sizing: border-box;
@@ -321,7 +326,6 @@
                 border: none;
                 box-shadow: none;
             `;
-            // Дополнительный стиль для Chrome, Safari, Opera
             const style = document.createElement('style');
             style.textContent = `
                 #answer-window::-webkit-scrollbar {
@@ -386,10 +390,10 @@
 
         if (existingAnswer) {
             existingAnswer.querySelector("p").textContent = data.answer || "Нет ответа";
+            console.log("helper.js: Updated answer for questionId:", data.questionId);
         } else {
             let answerElement = document.createElement("div");
             answerElement.dataset.questionId = data.questionId;
-            // Стили для каждого отдельного ответа - прозрачный и без рамок
             answerElement.style.cssText = `
                 margin-bottom: 10px;
                 padding: 8px;
@@ -409,7 +413,9 @@
             `;
 
             answerWindow.insertBefore(answerElement, answerWindow.firstChild);
-            console.log("helper.js: New answer for questionId:", data.questionId, "on", window.location.href);
+            console.log("helper.js: New answer added for questionId:", data.questionId, "on", window.location.href);
+            // Автоматически показываем окно при новом ответе
+            answerWindow.style.display = "block";
         }
     }
 })();
