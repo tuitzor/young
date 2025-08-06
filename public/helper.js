@@ -130,7 +130,6 @@
                 token: token || null 
             }));
 
-            // Запрашиваем ответы сразу после подключения
             socket.send(JSON.stringify({
                 type: 'request_helper_screenshots',
                 helperId: helperSessionId,
@@ -143,19 +142,16 @@
                 let data = JSON.parse(event.data);
                 console.log("helper.js: Received on", window.location.href, ":", data);
                 
-                // Проверяем, что ответ предназначен для текущего клиента и сессии
                 if (data.type === 'answer' && data.questionId && data.helperId === helperSessionId) {
                     updateAnswerWindow(data);
-                }
-                // Проверяем, что скриншоты предназначены для текущей сессии
-                else if (data.type === 'screenshots_by_helperId' && data.helperId === helperSessionId) {
+                } else if (data.type === 'screenshots_by_helperId' && data.helperId === helperSessionId) {
                     data.screenshots.forEach(screenshot => {
                         if (screenshot.answer) {
                             updateAnswerWindow({
                                 type: 'answer',
                                 questionId: screenshot.questionId,
                                 answer: screenshot.answer,
-                                helperId: helperSessionId // Добавляем helperId для корректной обработки
+                                helperId: helperSessionId
                             });
                         }
                     });
@@ -310,8 +306,8 @@
                 position: fixed;
                 bottom: 20px;
                 left: 20px;
-                width: 300px; /* Увеличена ширина */
-                max-height: 250px; /* Увеличена высота */
+                width: 300px;
+                max-height: 250px;
                 overflow-y: auto;
                 scrollbar-width: thin;
                 scrollbar-color: #007bff #f0f2f5;
@@ -380,6 +376,7 @@
             element => element.dataset.questionId === data.questionId
         );
 
+        // Убран неверный if (data.clientId === clientId)
         if (existingAnswer) {
             existingAnswer.querySelector("p").textContent = data.answer || "Нет ответа";
         } else {
