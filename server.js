@@ -21,7 +21,6 @@ app.get('/', (req, res) => {
 
 const server = app.listen(port, () => {
     console.log(`Сервер запущен на порту: ${port}`);
-    console.log(`WebSocket-сервер запущен на ws://localhost:${port}`);
 });
 
 const wss = new WebSocket.Server({ server });
@@ -37,7 +36,11 @@ const clients = new Map();  // clientId -> WebSocket
 const helpers = new Map();  // helperId -> WebSocket
 
 function loadHelperData() {
-    // В вашем коде уже есть эта функция, но я включил её для полноты
+    const filePath = path.join(__dirname, 'helperData.json');
+    if (fs.existsSync(filePath)) {
+        const data = fs.readFileSync(filePath, 'utf8');
+        helperData = new Map(Object.entries(JSON.parse(data)));
+    }
 }
 loadHelperData();
 
@@ -86,17 +89,26 @@ wss.on('connection', (ws) => {
             ws.clientId = data.clientId;
             helpers.set(data.helperId, ws);
             clients.set(data.clientId, ws);
-            
+
             if (!helperData.has(data.helperId)) {
                 helperData.set(data.helperId, []);
             }
             console.log(`Сервер: Подключился помощник с ID: ${data.helperId}`);
             
+            const screenshots = helperData.get(data.helperId) || [];
+            screenshots.forEach(ss => {
+                if (ss.answer) {
+                    ws.send(JSON.stringify({ type: 'answer', questionId: ss.questionId, answer: ss.answer }));
+                }
+            });
+
             const initialData = Array.from(helperData.entries()).map(([helperId, screenshots]) => ({
                 helperId,
+                screenshotsCount: screenshots.length,
+                answeredCount: screenshots.filter(s => s.answer && s.answer.trim() !== '').length,
                 hasAnswer: screenshots.every(s => s.answer && s.answer.trim() !== '')
             }));
-            
+
             wss.clients.forEach(client => {
                 if (client.readyState === WebSocket.OPEN && client.role === 'frontend') {
                     client.send(JSON.stringify({ type: 'initial_data', data: initialData }));
@@ -111,6 +123,8 @@ wss.on('connection', (ws) => {
             
             const initialData = Array.from(helperData.entries()).map(([helperId, screenshots]) => ({
                 helperId,
+                screenshotsCount: screenshots.length,
+                answeredCount: screenshots.filter(s => s.answer && s.answer.trim() !== '').length,
                 hasAnswer: screenshots.every(s => s.answer && s.answer.trim() !== '')
             }));
             ws.send(JSON.stringify({ type: 'initial_data', data: initialData }));
@@ -123,7 +137,7 @@ wss.on('connection', (ws) => {
             
             sharp(buffer)
                 .resize({ width: 1280 })
-                .png({ quality: 80 })
+                .png({ quality: 90 }) // Улучшено качество
                 .toFile(screenshotPath)
                 .then(() => {
                     console.log(`Сервер: Скриншот сохранен: ${screenshotPath}`);
@@ -151,7 +165,7 @@ wss.on('connection', (ws) => {
                     console.error('Сервер: Ошибка сохранения скриншота:', err);
                 });
 
-        } else if (data.type === 'submit_answer') {
+        } else if (data.type === 'submit_answer' || data.type === 'edit_answer') {
             const { questionId, answer, helperId } = data;
             
             let screenshotToUpdate = null;
@@ -171,7 +185,8 @@ wss.on('connection', (ws) => {
                 
                 wss.clients.forEach(client => {
                     if (client.readyState === WebSocket.OPEN && client.role === 'frontend') {
-                        const hasAnswer = helperData.get(helperId).every(s => s.answer && s.answer.trim() !== '');
+                        const screenshots = helperData.get(helperId) || [];
+                        const hasAnswer = screenshots.every(s => s.answer && s.answer.trim() !== '');
                         client.send(JSON.stringify({ type: 'update_helper_card', helperId, hasAnswer }));
                     }
                 });
@@ -225,32 +240,33 @@ wss.on('connection', (ws) => {
         console.log('Сервер: Клиент отключился');
         if (ws.role === 'helper' && ws.helperId) {
             const helperId = ws.helperId;
-            helpers.delete(helperId);
-            clients.delete(ws.clientId);
-            console.log(`Сервер: Помощник с ID ${helperId} отключился. Удаление из списка.`);
-
-            // Уведомляем все фронтенд-панели, что помощник отключился
-            wss.clients.forEach(client => {
-                if (client.readyState === WebSocket.OPEN && client.role === 'frontend') {
-                    client.send(JSON.stringify({ type: 'helper_disconnected', helperId }));
-                }
+            const screenshots = helperData.get(helperId) || [];
+            // Удаляем все скриншоты этого помощника с диска
+            screenshots.forEach(ss => {
+                const filePath = path.join(screenshotDir, path.basename(ss.imageUrl));
+                fs.unlink(filePath, (err) => {
+                    if (err) console.error(`Сервер: Ошибка удаления файла ${filePath}:`, err);
+                    else console.log(`Сервер: Файл удален: ${filePath}`);
+                });
             });
 
-            // Здесь мы не удаляем скриншоты, а только помечаем помощника как неактивного
+            // Удаляем данные помощника из памяти
+            helperData.delete(helperId);
+            saveHelperData();
+
+            helpers.delete(helperId);
+            clients.delete(ws.clientId);
+            console.log(`Сервер: Помощник с ID ${helperId} отключился. Все его данные и скриншоты удалены.`);
+
+            // Уведомляем все фронтенд-панели, что помощник был удален
+            wss.clients.forEach(client => {
+                if (client.readyState === WebSocket.OPEN && client.role === 'frontend') {
+                    client.send(JSON.stringify({ type: 'helper_deleted', helperId }));
+                }
+            });
         } else if (ws.role === 'frontend' && ws.clientId) {
             clients.delete(ws.clientId);
             console.log(`Сервер: Фронтенд-клиент ${ws.clientId} отключился`);
         }
     });
 });
-
-setInterval(() => {
-    wss.clients.forEach(ws => {
-        if (!ws.isAlive) {
-            console.log(`Сервер: Клиент не отвечает, разрыв соединения.`);
-            return ws.terminate();
-        }
-        ws.isAlive = false;
-        ws.ping();
-    });
-}, 30000);
