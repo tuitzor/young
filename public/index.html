@@ -3,449 +3,444 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Панель администратора</title>
+    <title>Панель администратора (Простой дизайн)</title>
     <style>
-        :root {
-            --bg-color: #f4f7f9;
-            --card-bg: #ffffff;
-            --primary-color: #007bff;
-            --secondary-color: #6c757d;
-            --success-color: #28a745;
-            --danger-color: #dc3545;
-            --border-color: #e0e6ed;
-            --text-color: #333;
-            --shadow-light: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            margin: 0;
-            padding: 20px;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        #auth-page {
-            max-width: 400px;
-            margin: 100px auto;
-            background-color: var(--card-bg);
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: var(--shadow-light);
-            text-align: center;
-        }
-        #auth-page h2 {
-            margin-top: 0;
-            color: var(--primary-color);
-        }
-        #auth-form input, #auth-form button {
-            width: 100%;
-            padding: 12px;
-            margin-bottom: 15px;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            box-sizing: border-box;
-            font-size: 16px;
-        }
-        #auth-form button {
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        #auth-form button:hover {
-            background-color: #0056b3;
-        }
-        #auth-error {
-            color: var(--danger-color);
-            text-align: center;
-            margin-top: -10px;
-            margin-bottom: 10px;
-        }
-        #main-app {
-            display: none;
-        }
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-        #logout-button {
-            background-color: var(--danger-color);
-            color: white;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        #logout-button:hover {
-            background-color: #a71d2a;
-        }
-        #helper-list {
-            list-style: none;
-            padding: 0;
-            display: grid;
-            gap: 20px;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        }
-        .helper-list-item {
-            background-color: var(--card-bg);
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: var(--shadow-light);
-            transition: transform 0.2s, box-shadow 0.2s;
-            cursor: pointer;
-        }
-        .helper-list-item:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
-        }
-        .helper-list-item h3 {
-            margin-top: 0;
-            margin-bottom: 10px;
-            color: var(--primary-color);
-            font-size: 1.2rem;
-        }
-        .status-indicator {
-            font-weight: bold;
-            padding: 5px 10px;
-            border-radius: 4px;
-            display: inline-block;
-        }
-        .status-indicator.answered {
-            background-color: var(--success-color);
-            color: white;
-        }
-        .status-indicator.pending {
-            background-color: var(--danger-color);
-            color: white;
-        }
-        .meta-info {
-            font-size: 0.9rem;
-            color: var(--secondary-color);
-            margin-top: 5px;
-        }
-        #no-helpers-message {
-            grid-column: 1 / -1;
-            text-align: center;
-            color: var(--secondary-color);
-            font-size: 1.2rem;
-        }
-
-        #modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            z-index: 1000;
-            overflow-y: auto;
-            padding: 20px;
-        }
-        .modal-content {
-            background: var(--card-bg);
-            margin: 20px auto;
-            padding: 30px;
-            max-width: 900px;
-            border-radius: 8px;
-            box-shadow: var(--shadow-light);
-        }
-        #modal-close {
-            float: right;
-            font-size: 30px;
-            font-weight: bold;
-            color: #aaa;
-            cursor: pointer;
-        }
-        #modal-content-inner {
-            clear: both;
-        }
-        .screenshot-item {
-            border: 1px solid var(--border-color);
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            background-color: #fafafa;
-        }
-        .screenshot-item img {
-            max-width: 100%;
-            height: auto;
-            display: block;
-            margin: 10px 0;
-            border-radius: 4px;
-        }
-        .screenshot-item textarea {
-            width: 100%;
-            min-height: 100px;
-            padding: 10px;
-            box-sizing: border-box;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            margin-top: 10px;
-            resize: vertical;
-        }
-        .screenshot-item button {
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-right: 10px;
-            margin-top: 10px;
-        }
-        .screenshot-item button.delete-btn {
-            background-color: var(--danger-color);
-        }
-        .screenshot-item button.edit-btn {
-            background-color: var(--secondary-color);
-        }
+        body { font-family: monospace; font-size: 14px; margin: 20px; color: #333; background-color: #f0f0f0; }
+        #auth-page { max-width: 400px; margin: 100px auto; padding: 20px; border: 1px solid #ccc; background-color: #fff; }
+        input, button { display: block; width: 100%; margin-bottom: 10px; padding: 5px; box-sizing: border-box; }
+        h1, h2 { margin-top: 0; }
+        #main-app { display: none; max-width: 800px; margin: 0 auto; }
+        .helper-list-item { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; cursor: pointer; background-color: #fff; }
+        .helper-list-item h3 { margin: 0; }
+        .status-indicator.answered { color: green; }
+        .status-indicator.pending { color: red; }
+        #modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7); overflow-y: auto; padding: 20px; }
+        .modal-content { background-color: #fff; margin: 20px auto; padding: 20px; max-width: 900px; border: 1px solid #ccc; }
+        #modal-close { float: right; font-size: 20px; cursor: pointer; }
+        .screenshot-item { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; }
+        .screenshot-item img { max-width: 100%; height: auto; display: block; margin-bottom: 10px; }
+        .screenshot-item textarea { width: 100%; min-height: 80px; }
+        .screenshot-item button { display: inline-block; width: auto; margin-right: 5px; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div id="auth-page">
-            <h2>Вход для администратора</h2>
-            <form id="auth-form">
-                <input type="text" id="username" placeholder="Имя пользователя" required>
-                <input type="password" id="password" placeholder="Пароль" required>
-                <button type="submit">Войти</button>
-                <div id="auth-error"></div>
-            </form>
-        </div>
+    <div id="auth-page">
+        <h2>Вход для администратора</h2>
+        <form id="auth-form">
+            <input type="text" id="username" placeholder="Имя пользователя" required>
+            <input type="password" id="password" placeholder="Пароль" required>
+            <button type="submit">Войти</button>
+            <div id="auth-error"></div>
+        </form>
+    </div>
 
-        <div id="main-app">
-            <header>
-                <h1>Панель администратора</h1>
-                <button id="logout-button">Выйти</button>
-            </header>
-            <div id="no-helpers-message">Нет активных клиентов.</div>
-            <ul id="helper-list"></ul>
-        </div>
+    <div id="main-app">
+        <h1>Панель скриншотов</h1>
+        <button id="logout-button">Выйти</button>
+        <ul id="helper-list"></ul>
+    </div>
 
-        <div id="modal">
-            <div class="modal-content">
-                <span id="modal-close">&times;</span>
-                <div id="modal-content-inner"></div>
-            </div>
+    <div id="modal">
+        <div class="modal-content">
+            <span id="modal-close">&times;</span>
+            <div id="modal-content-inner"></div>
         </div>
     </div>
-    
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const authPage = document.getElementById('auth-page');
-            const mainApp = document.getElementById('main-app');
-            const authForm = document.getElementById('auth-form');
-            const usernameInput = document.getElementById('username');
-            const passwordInput = document.getElementById('password');
-            const authError = document.getElementById('auth-error');
-            const logoutButton = document.getElementById('logout-button');
-            const helperList = document.getElementById('helper-list');
-            const modal = document.getElementById('modal');
-            const modalClose = document.getElementById('modal-close');
-            const modalContentInner = document.getElementById('modal-content-inner');
-            const noHelpersMessage = document.getElementById('no-helpers-message');
+        const authPage = document.getElementById('auth-page');
+        const mainApp = document.getElementById('main-app');
+        const authForm = document.getElementById('auth-form');
+        const authError = document.getElementById('auth-error');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        const helperList = document.getElementById('helper-list');
+        const modal = document.getElementById('modal');
+        const modalContentInner = document.getElementById('modal-content-inner');
+        const modalCloseBtn = document.getElementById('modal-close');
+        const logoutButton = document.getElementById('logout-button');
+        
+        let ws;
+        let frontendData = new Map();
+        let currentHelperId = null;
+        const clientId = `frontend-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-            const adminPassword = "password123";
-            let socket = null;
-            let screenshots = [];
+        authForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            authError.textContent = '';
+            const username = usernameInput.value;
+            const password = passwordInput.value;
 
-            function updateNoHelpersMessage() {
-                const helperItems = document.querySelectorAll('.helper-list-item');
-                noHelpersMessage.style.display = helperItems.length === 0 ? 'block' : 'none';
-            }
+            try {
+                const response = await fetch('/api/admin/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
 
-            authForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                const username = usernameInput.value;
-                const password = passwordInput.value;
-                if (username === "admin" && password === adminPassword) {
-                    localStorage.setItem('adminAuthenticated', 'true');
-                    authError.textContent = '';
-                    login();
+                if (response.ok) {
+                    const data = await response.json();
+                    localStorage.setItem('token', data.token);
+                    showMainApp();
                 } else {
-                    authError.textContent = 'Неверное имя пользователя или пароль';
+                    const errorData = await response.json();
+                    authError.textContent = errorData.message || 'Ошибка входа.';
                 }
-            });
-
-            logoutButton.addEventListener('click', () => {
-                localStorage.removeItem('adminAuthenticated');
-                if (socket) {
-                    socket.close();
-                    socket = null;
-                }
-                authPage.style.display = 'block';
-                mainApp.style.display = 'none';
-                helperList.innerHTML = '';
-            });
-
-            function login() {
-                authPage.style.display = 'none';
-                mainApp.style.display = 'block';
-                connectWebSocket();
-            }
-
-            function connectWebSocket() {
-                if (socket && socket.readyState === WebSocket.OPEN) return;
-
-                const production = location.protocol === 'https:' ? 'wss://young-z7wb.onrender.com' : 'ws://localhost:10000';
-                socket = new WebSocket(production);
-
-                socket.onopen = () => {
-                    console.log('Admin: WebSocket connected');
-                    socket.send(JSON.stringify({ type: 'admin_connect' }));
-                };
-
-                socket.onmessage = async event => {
-                    try {
-                        let data = JSON.parse(event.data);
-                        console.log("Admin: Received:", data);
-
-                        switch (data.type) {
-                            case 'screenshots_init':
-                                screenshots = data.screenshots;
-                                renderHelperList();
-                                break;
-                            case 'new_screenshot':
-                                screenshots.push(data.screenshot);
-                                renderHelperList();
-                                break;
-                            case 'answer_updated':
-                                const screenshotToUpdate = screenshots.find(s => s.questionId === data.questionId);
-                                if (screenshotToUpdate) {
-                                    screenshotToUpdate.answer = data.answer;
-                                    screenshotToUpdate.answered = true;
-                                    renderHelperList();
-                                }
-                                break;
-                            case 'screenshot_deleted':
-                                screenshots = screenshots.filter(s => s.questionId !== data.questionId);
-                                renderHelperList();
-                                break;
-                            case 'helper_disconnected':
-                                console.log(`Admin: Helper ${data.helperId} disconnected. Removing screenshots.`);
-                                screenshots = screenshots.filter(s => s.helperId !== data.helperId);
-                                renderHelperList();
-                                break;
-                            default:
-                                console.log("Admin: Received unknown message type:", data.type);
-                                break;
-                        }
-                    } catch (err) {
-                        console.error("Admin: Failed to parse message:", err);
-                    }
-                };
-
-                socket.onclose = () => {
-                    console.log("Admin: WebSocket disconnected. Attempting to reconnect...");
-                    setTimeout(connectWebSocket, 2000);
-                };
-
-                socket.onerror = error => {
-                    console.error("Admin: WebSocket error:", error);
-                };
-            }
-
-            function renderHelperList() {
-                helperList.innerHTML = '';
-                const helpers = [...new Set(screenshots.map(s => s.helperId))];
-                
-                if (helpers.length === 0) {
-                    updateNoHelpersMessage();
-                    return;
-                }
-                
-                helpers.forEach(helperId => {
-                    const helperScreenshots = screenshots.filter(s => s.helperId === helperId);
-                    const lastScreenshot = helperScreenshots.sort((a, b) => b.timestamp - a.timestamp)[0];
-                    if (!lastScreenshot) return;
-
-                    const listItem = document.createElement('li');
-                    listItem.classList.add('helper-list-item');
-                    listItem.dataset.helperId = helperId;
-                    
-                    const answeredCount = helperScreenshots.filter(s => s.answered).length;
-                    const totalCount = helperScreenshots.length;
-
-                    const statusClass = answeredCount === totalCount ? 'answered' : 'pending';
-                    const statusText = answeredCount === totalCount ? 'Отвечено' : 'Ожидает';
-
-                    listItem.innerHTML = `
-                        <h3>Клиент ID: ${lastScreenshot.clientId.substring(0, 8)}...</h3>
-                        <p class="meta-info">Скриншотов: ${totalCount} | Отвечено: ${answeredCount}</p>
-                        <span class="status-indicator ${statusClass}">${statusText}</span>
-                        <div class="meta-info">Последний снимок: ${new Date(lastScreenshot.timestamp).toLocaleString()}</div>
-                    `;
-
-                    listItem.addEventListener('click', () => showModal(helperId));
-                    helperList.appendChild(listItem);
-                });
-                updateNoHelpersMessage();
-            }
-
-            function showModal(helperId) {
-                modal.style.display = 'block';
-                modalContentInner.innerHTML = '';
-                
-                const helperScreenshots = screenshots.filter(s => s.helperId === helperId).sort((a, b) => a.timestamp - b.timestamp);
-
-                helperScreenshots.forEach(screenshot => {
-                    const item = document.createElement('div');
-                    item.classList.add('screenshot-item');
-                    item.innerHTML = `
-                        <p><strong>Снимок:</strong> ${new Date(screenshot.timestamp).toLocaleString()}</p>
-                        <img src="${screenshot.dataUrl}" alt="Screenshot">
-                        <textarea class="answer-input" placeholder="Введите ответ...">${screenshot.answer || ''}</textarea>
-                        <div>
-                            <button class="send-btn">Отправить</button>
-                            <button class="delete-btn">Удалить</button>
-                        </div>
-                    `;
-                    
-                    const sendBtn = item.querySelector('.send-btn');
-                    const deleteBtn = item.querySelector('.delete-btn');
-                    const answerInput = item.querySelector('.answer-input');
-
-                    sendBtn.addEventListener('click', () => {
-                        const answer = answerInput.value;
-                        if (answer.trim()) {
-                            socket.send(JSON.stringify({
-                                type: 'update_answer',
-                                questionId: screenshot.questionId,
-                                answer: answer
-                            }));
-                        }
-                    });
-
-                    deleteBtn.addEventListener('click', () => {
-                        if (confirm('Вы уверены, что хотите удалить этот скриншот?')) {
-                            socket.send(JSON.stringify({
-                                type: 'delete_screenshot',
-                                questionId: screenshot.questionId
-                            }));
-                            item.remove();
-                        }
-                    });
-
-                    modalContentInner.appendChild(item);
-                });
-            }
-
-            modalClose.addEventListener('click', () => {
-                modal.style.display = 'none';
-            });
-
-            if (localStorage.getItem('adminAuthenticated')) {
-                login();
+            } catch (err) {
+                authError.textContent = 'Ошибка сети. Попробуйте позже.';
             }
         });
+
+        logoutButton.addEventListener('click', () => {
+            localStorage.removeItem('token');
+            window.location.reload();
+        });
+
+        function showMainApp() {
+            authPage.style.display = 'none';
+            mainApp.style.display = 'block';
+            connectWebSocket();
+        }
+
+        function showAuthPage() {
+            authPage.style.display = 'block';
+            mainApp.style.display = 'none';
+            if (ws) ws.close();
+            localStorage.removeItem('token');
+        }
+        
+        function connectWebSocket() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                console.error('Токен авторизации не найден.');
+                showAuthPage();
+                return;
+            }
+            
+            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+                return;
+            }
+
+            const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+            const wsUrl = `${protocol}://${window.location.host}`;
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                console.log('WebSocket подключен.');
+                ws.send(JSON.stringify({ type: 'frontend_connect', role: 'frontend', clientId, token }));
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                console.log('Получено сообщение от сервера:', data);
+                handleMessage(data);
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket отключен. Попытка переподключения через 2 секунды...');
+                setTimeout(connectWebSocket, 2000);
+            };
+
+            ws.onerror = (err) => {
+                console.error('Ошибка WebSocket:', err);
+            };
+        }
+
+        function handleMessage(data) {
+            switch (data.type) {
+                case 'initial_data':
+                    frontendData.clear();
+                    helperList.innerHTML = '';
+                    if (data.data && data.data.length > 0) {
+                        data.data.forEach(item => {
+                            frontendData.set(item.helperId, { hasAnswer: item.hasAnswer });
+                            addOrUpdateHelperItem(item);
+                        });
+                    }
+                    updateNoHelpersMessage();
+                    break;
+                case 'screenshot_info':
+                    if (data.helperId) {
+                        const existing = frontendData.get(data.helperId);
+                        if (!existing) {
+                            frontendData.set(data.helperId, { hasAnswer: false, screenshots: [] });
+                        }
+                        requestHelperScreenshots(data.helperId, 'update_list');
+                    }
+                    updateNoHelpersMessage();
+                    break;
+                case 'screenshots_by_helperId':
+                    if (data.helperId) {
+                        const helperInfo = frontendData.get(data.helperId);
+                        if (helperInfo) {
+                            helperInfo.screenshots = data.screenshots;
+                            helperInfo.hasAnswer = data.screenshots.every(s => s.answer && s.answer.trim() !== '');
+                            addOrUpdateHelperItem(helperInfo, data.helperId);
+                        }
+                        if (currentHelperId === data.helperId) {
+                            openModal(data.helperId, data.screenshots);
+                        }
+                    }
+                    break;
+                case 'helper_deleted':
+                    if (data.helperId) {
+                        frontendData.delete(data.helperId);
+                        deleteHelperItem(data.helperId);
+                    }
+                    updateNoHelpersMessage();
+                    break;
+                case 'auth_error':
+                    alert(data.message);
+                    showAuthPage();
+                    break;
+                case 'screenshot_deleted':
+                    if (currentHelperId === data.helperId) {
+                        requestHelperScreenshots(currentHelperId);
+                    } else {
+                        requestHelperScreenshots(data.helperId, 'update_list');
+                    }
+                    break;
+                case 'answer':
+                    if (currentHelperId === data.helperId) {
+                        requestHelperScreenshots(currentHelperId);
+                    } else {
+                        requestHelperScreenshots(data.helperId, 'update_list');
+                    }
+                    break;
+                case 'update_helper_card':
+                    const helper = frontendData.get(data.helperId);
+                    if (helper) {
+                        helper.hasAnswer = data.hasAnswer;
+                        const item = document.querySelector(`.helper-list-item[data-helper-id="${data.helperId}"]`);
+                        if (item) {
+                            const statusDiv = item.querySelector('.status-indicator');
+                            if (statusDiv) {
+                                statusDiv.textContent = data.hasAnswer ? 'Отвечено' : 'Ожидание';
+                                statusDiv.className = `status-indicator ${data.hasAnswer ? 'answered' : 'pending'}`;
+                            }
+                        }
+                    }
+                    break;
+            }
+        }
+        
+        function formatTimeAgo(timestamp) {
+            const now = Date.now();
+            const seconds = Math.floor((now - timestamp) / 1000);
+            
+            if (seconds < 60) return `${seconds} сек. назад`;
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return `${minutes} мин. назад`;
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `${hours} ч. назад`;
+            const days = Math.floor(hours / 24);
+            return `${days} дн. назад`;
+        }
+
+        function addOrUpdateHelperItem(data, helperId = data.helperId) {
+            let item = document.querySelector(`.helper-list-item[data-helper-id="${helperId}"]`);
+            
+            if (!item) {
+                item = document.createElement('li');
+                item.className = 'helper-list-item';
+                item.dataset.helperId = helperId;
+                item.addEventListener('click', () => requestHelperScreenshots(helperId));
+
+                const h3 = document.createElement('h3');
+                h3.textContent = `Пользователь: ${helperId}`;
+                item.appendChild(h3);
+
+                const metaInfo = document.createElement('p');
+                metaInfo.className = 'meta-info';
+                item.appendChild(metaInfo);
+                
+                const statusDiv = document.createElement('div');
+                statusDiv.className = 'status-indicator';
+                item.appendChild(statusDiv);
+                
+                helperList.prepend(item);
+            }
+            
+            const metaInfo = item.querySelector('.meta-info');
+            const statusDiv = item.querySelector('.status-indicator');
+            const screenshots = data.screenshots || [];
+
+            const lastScreenshot = screenshots.length > 0 ? screenshots[screenshots.length - 1] : null;
+            if (lastScreenshot && metaInfo) {
+                const parts = lastScreenshot.questionId.split('-');
+                const timestamp = parseInt(parts[2]);
+                const timeAgo = formatTimeAgo(timestamp);
+                metaInfo.textContent = `Последний скриншот: ${timeAgo}`;
+            } else if (metaInfo) {
+                metaInfo.textContent = '';
+            }
+
+            if (statusDiv) {
+                const hasAnswer = data.hasAnswer !== undefined ? data.hasAnswer : screenshots.every(s => s.answer && s.answer.trim() !== '');
+                statusDiv.textContent = hasAnswer ? 'Отвечено' : 'Ожидание';
+                statusDiv.className = `status-indicator ${hasAnswer ? 'answered' : 'pending'}`;
+            }
+            
+            updateNoHelpersMessage();
+        }
+        
+        function deleteHelperItem(helperId) {
+            const item = document.querySelector(`.helper-list-item[data-helper-id="${helperId}"]`);
+            if (item) {
+                item.remove();
+            }
+            if (currentHelperId === helperId) {
+                closeModal();
+            }
+            updateNoHelpersMessage();
+        }
+
+        function updateNoHelpersMessage() {
+            const noHelpersMessage = document.getElementById('no-helpers-message');
+            if (helperList.children.length === 0) {
+                if (!noHelpersMessage) {
+                    const li = document.createElement('li');
+                    li.id = 'no-helpers-message';
+                    li.textContent = 'Нет активных помощников.';
+                    helperList.appendChild(li);
+                }
+            } else {
+                if (noHelpersMessage) {
+                    noHelpersMessage.remove();
+                }
+            }
+        }
+
+        function requestHelperScreenshots(helperId, purpose = 'open_modal') {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'request_helper_screenshots', helperId, clientId }));
+                if (purpose === 'open_modal') {
+                    currentHelperId = helperId;
+                }
+            }
+        }
+
+        function openModal(helperId, screenshots) {
+            modal.style.display = 'block';
+            modalContentInner.innerHTML = '';
+            screenshots.forEach(ss => {
+                const screenshotItem = document.createElement('div');
+                screenshotItem.className = 'screenshot-item';
+                screenshotItem.dataset.questionId = ss.questionId;
+
+                const header = document.createElement('h4');
+                const parts = ss.questionId.split('-');
+                const timestamp = parseInt(parts[2]);
+                header.textContent = `Запрос от ${new Date(timestamp).toLocaleString('ru-RU')}`;
+                screenshotItem.appendChild(header);
+
+                const img = document.createElement('img');
+                img.src = ss.imageUrl;
+                screenshotItem.appendChild(img);
+                
+                const deleteButton = document.createElement('button');
+                deleteButton.textContent = 'Удалить скриншот';
+                deleteButton.addEventListener('click', () => deleteScreenshot(ss.questionId));
+                screenshotItem.appendChild(deleteButton);
+
+                if (ss.answer && ss.answer.trim() !== '') {
+                    const answerDisplay = document.createElement('div');
+                    answerDisplay.innerHTML = `<p>${ss.answer}</p>`;
+                    screenshotItem.appendChild(answerDisplay);
+
+                    const editButton = document.createElement('button');
+                    editButton.textContent = 'Изменить';
+                    editButton.addEventListener('click', () => toggleEditMode(screenshotItem, ss.answer));
+                    screenshotItem.appendChild(editButton);
+
+                } else {
+                    const textarea = document.createElement('textarea');
+                    textarea.placeholder = 'Введите ответ...';
+                    screenshotItem.appendChild(textarea);
+
+                    const submitButton = document.createElement('button');
+                    submitButton.textContent = 'Ответить';
+                    submitButton.addEventListener('click', () => submitAnswer(helperId, ss.questionId, textarea.value));
+                    screenshotItem.appendChild(submitButton);
+                }
+                
+                modalContentInner.appendChild(screenshotItem);
+            });
+        }
+        
+        function toggleEditMode(screenshotItem, currentAnswer) {
+            const answerDisplay = screenshotItem.querySelector('div');
+            const editButton = screenshotItem.querySelector('button[textContent="Изменить"]');
+            
+            if (answerDisplay) {
+                answerDisplay.style.display = 'none';
+                editButton.style.display = 'none';
+
+                const textarea = document.createElement('textarea');
+                textarea.value = currentAnswer;
+                screenshotItem.appendChild(textarea);
+
+                const submitButton = document.createElement('button');
+                submitButton.textContent = 'Сохранить';
+                submitButton.addEventListener('click', () => {
+                    submitAnswer(currentHelperId, screenshotItem.dataset.questionId, textarea.value, 'edit_answer');
+                });
+                screenshotItem.appendChild(submitButton);
+
+                const cancelButton = document.createElement('button');
+                cancelButton.textContent = 'Отмена';
+                cancelButton.addEventListener('click', () => {
+                    textarea.remove();
+                    submitButton.remove();
+                    cancelButton.remove();
+                    answerDisplay.style.display = 'block';
+                    editButton.style.display = 'block';
+                });
+                screenshotItem.appendChild(cancelButton);
+            }
+        }
+        
+        function closeModal() {
+            modal.style.display = 'none';
+            currentHelperId = null;
+        }
+
+        modalCloseBtn.addEventListener('click', closeModal);
+
+        window.addEventListener('click', (event) => {
+            if (event.target === modal) {
+                closeModal();
+            }
+        });
+
+        function submitAnswer(helperId, questionId, answer, type = 'submit_answer') {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: type,
+                    questionId,
+                    answer,
+                    helperId,
+                    clientId
+                }));
+            }
+        }
+
+        function deleteScreenshot(questionId) {
+            if (confirm('Вы уверены, что хотите удалить этот скриншот?')) {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: 'delete_screenshot',
+                        questionId,
+                        clientId
+                    }));
+                }
+            }
+        }
+        
+        if (localStorage.getItem('token')) {
+            showMainApp();
+        } else {
+            showAuthPage();
+        }
     </script>
 </body>
 </html>
