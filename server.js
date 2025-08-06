@@ -51,6 +51,27 @@ function loadExistingScreenshots() {
 
 loadExistingScreenshots();
 
+const dataFile = path.join(__dirname, 'helperData.json');
+
+function saveHelperData() {
+    const data = Object.fromEntries(helperData);
+    fs.writeFileSync(dataFile, JSON.stringify(data, null, 2), 'utf8');
+    console.log('Сервер: Данные helperData сохранены в', dataFile);
+}
+
+function loadHelperData() {
+    if (fs.existsSync(dataFile)) {
+        const rawData = fs.readFileSync(dataFile, 'utf8');
+        const data = JSON.parse(rawData);
+        helperData = new Map(Object.entries(data).map(([key, value]) => [key, value]));
+        console.log('Сервер: Данные helperData загружены из', dataFile);
+    } else {
+        console.log('Сервер: Файл helperData.json не найден, начата новая сессия');
+    }
+}
+
+loadHelperData();
+
 app.post('/api/admin/login', (req, res) => {
     const { username, password } = req.body;
     const validCredentials = {
@@ -130,7 +151,7 @@ wss.on('connection', (ws) => {
                     }
                     helperData.get(data.helperId).push({ questionId, imageUrl, clientId: data.clientId || null, answer: '' });
                     wss.clients.forEach(client => {
-                        if (client.readyState === WebSocket.OPEN && client.clientId && client.clientId !== data.clientId) { // Отправка всем фронтендам
+                        if (client.readyState === WebSocket.OPEN && client.clientId && client.clientId !== data.clientId) {
                             client.send(JSON.stringify({
                                 type: 'screenshot_info',
                                 questionId,
@@ -153,45 +174,28 @@ wss.on('connection', (ws) => {
                 const screenshot = screenshots.find(s => s.questionId === questionId);
                 if (screenshot) {
                     screenshot.answer = answer;
-                    const targetClientId = screenshot.clientId; // clientId клиента, отправившего скриншот
+                    const targetClientId = screenshot.clientId;
                     const hasAnswer = screenshots.every(s => s.answer && s.answer.trim() !== '');
+                    const targetClient = clients.get(targetClientId);
+                    if (targetClient && targetClient.readyState === WebSocket.OPEN) {
+                        targetClient.send(JSON.stringify({
+                            type: 'answer',
+                            questionId,
+                            answer,
+                            clientId: targetClientId
+                        }));
+                        console.log(`Сервер: Ответ отправлен клиенту ${targetClientId} для questionId: ${questionId}`);
+                    }
                     wss.clients.forEach(client => {
                         if (client.readyState === WebSocket.OPEN && client.clientId) {
-                            if (client.clientId === targetClientId) { // Отправка клиенту
-                                client.send(JSON.stringify({
-                                    type: 'answer',
-                                    questionId,
-                                    answer,
-                                    clientId: targetClientId
-                                }));
-                                console.log(`Сервер: Ответ отправлен клиенту ${targetClientId} для questionId: ${questionId}`);
-                            }
-                            // Уведомление всем фронтендам и клиенту об обновлении
                             client.send(JSON.stringify({
                                 type: 'update_helper_card',
                                 helperId,
                                 hasAnswer,
                                 clientId: client.clientId
                             }));
-                            if (client.clientId !== targetClientId) { // Не отправляем повторно клиенту
-                                client.send(JSON.stringify({
-                                    type: 'answer',
-                                    questionId,
-                                    answer,
-                                    clientId: client.clientId
-                                }));
-                            }
                         }
                     });
-                    const helperClient = helpers.get(helperId);
-                    if (helperClient && helperClient.readyState === WebSocket.OPEN) {
-                        helperClient.send(JSON.stringify({
-                            type: 'answer',
-                            questionId,
-                            answer,
-                            clientId: targetClientId
-                        }));
-                    }
                     break;
                 }
             }
@@ -365,4 +369,13 @@ app.get('/list-screenshots', (req, res) => {
         if (err) return res.status(500).send('Ошибка чтения папки');
         res.json(files);
     });
+});
+
+process.on('SIGTERM', () => {
+    saveHelperData();
+    process.exit(0);
+});
+process.on('SIGINT', () => {
+    saveHelperData();
+    process.exit(0);
 });
