@@ -405,7 +405,7 @@
                 return;
             }
 
-            ws = new WebSocket(`ws://${window.location.hostname}:10000`);
+            ws = new WebSocket(`wss://${window.location.hostname}`);
 
             ws.onopen = () => {
                 console.log('WebSocket подключен.');
@@ -700,3 +700,4 @@
     </script>
 </body>
 </html>
+
