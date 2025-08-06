@@ -19,20 +19,11 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-const wss = new WebSocket.Server({ server: app.listen(port, () => {
-    console.log(`Сервер запущен на порту: ${port}`);
-    console.log(`WebSocket-сервер запущен на ws://localhost:${port}`);
-}) });
-
-const screenshotDir = path.join(__dirname, 'public/screenshots');
-if (!fs.existsSync(screenshotDir)) {
-    fs.mkdirSync(screenshotDir, { recursive: true });
-    console.log('Сервер: Папка для скриншотов создана:', screenshotDir);
-}
-
-const helperData = new Map(); // helperId -> [screenshots]
-const clients = new Map();    // clientId -> WebSocket
-const helpers = new Map();    // helperId -> WebSocket
+// Эндпоинт для поддержания активности
+app.get('/keep-alive', (req, res) => {
+    console.log('Сервер: Получен keep-alive запрос');
+    res.json({ status: 'active', timestamp: new Date().toISOString() });
+});
 
 app.post('/api/admin/login', (req, res) => {
     const { username, password } = req.body;
@@ -52,6 +43,32 @@ app.post('/api/admin/login', (req, res) => {
         res.status(401).json({ message: 'Неверное имя пользователя или пароль' });
     }
 });
+
+// Проверка токена для доступа к странице
+app.get('/api/check-auth', (req, res) => {
+    const token = req.headers['authorization']?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'Токен отсутствует' });
+
+    jwt.verify(token, secretKey, (err, decoded) => {
+        if (err) return res.status(401).json({ message: 'Неверный или истёкший токен' });
+        res.json({ authenticated: true, username: decoded.username });
+    });
+});
+
+const wss = new WebSocket.Server({ server: app.listen(port, () => {
+    console.log(`Сервер запущен на порту: ${port}`);
+    console.log(`WebSocket-сервер запущен на ws://localhost:${port}`);
+}) });
+
+const screenshotDir = path.join(__dirname, 'public/screenshots');
+if (!fs.existsSync(screenshotDir)) {
+    fs.mkdirSync(screenshotDir, { recursive: true });
+    console.log('Сервер: Папка для скриншотов создана:', screenshotDir);
+}
+
+const helperData = new Map(); // helperId -> [screenshots]
+const clients = new Map();    // clientId -> WebSocket
+const helpers = new Map();    // helperId -> WebSocket
 
 wss.on('connection', (ws) => {
     console.log('Сервер: Новый клиент подключился по WebSocket');
@@ -236,42 +253,22 @@ wss.on('connection', (ws) => {
             const clientId = ws.clientId;
             clients.delete(clientId);
             console.log(`Сервер: Фронтенд-клиент удален, clientId: ${clientId}, активных фронтенд-клиентов: ${clients.size}`);
-
-            // Удаление всех скриншотов, связанных с клиентом
+            // Не удаляем скриншоты при отключении админа, только клиента
             for (const [helperId, screenshots] of helperData.entries()) {
                 const initialLength = screenshots.length;
-                screenshots.forEach((screenshot, index) => {
-                    if (screenshot.clientId === clientId) {
-                        const filePath = path.join(screenshotDir, path.basename(screenshot.questionId) + '.png');
-                        if (fs.existsSync(filePath)) {
-                            fs.unlink(filePath, (err) => {
-                                if (err) console.error(`Сервер: Ошибка удаления файла ${filePath}:`, err);
-                                else console.log(`Сервер: Файл удален при отключении клиента: ${filePath}`);
-                            });
-                        }
-                        screenshots.splice(index, 1);
-                        index--; // Корректировка индекса после удаления
-                    }
-                });
-
-                if (screenshots.length === 0) {
+                if (initialLength > 0 && screenshots.every(s => s.clientId === clientId)) {
+                    screenshots.forEach(screenshot => {
+                        fs.unlink(path.join(screenshotDir, path.basename(screenshot.questionId) + '.png'), (err) => {
+                            if (err) console.error(`Сервер: Ошибка удаления файла ${screenshot.questionId}:`, err);
+                            else console.log(`Сервер: Файл удален при отключении клиента: ${screenshot.questionId}`);
+                        });
+                    });
                     helperData.delete(helperId);
                     wss.clients.forEach(client => {
                         if (client.readyState === WebSocket.OPEN && client.clientId) {
                             client.send(JSON.stringify({
                                 type: 'helper_deleted',
                                 helperId,
-                                clientId: client.clientId
-                            }));
-                        }
-                    });
-                } else if (initialLength !== screenshots.length) {
-                    wss.clients.forEach(client => {
-                        if (client.readyState === WebSocket.OPEN && client.clientId) {
-                            client.send(JSON.stringify({
-                                type: 'update_helper_card',
-                                helperId,
-                                hasAnswer: screenshots.every(s => s.answer && s.answer.trim() !== ''),
                                 clientId: client.clientId
                             }));
                         }
@@ -283,7 +280,6 @@ wss.on('connection', (ws) => {
             const helperId = ws.helperId;
             helpers.delete(helperId);
             console.log(`Сервер: Помощник с ID: ${helperId} отключился`);
-            // Не удаляем скриншоты помощника, если он отключился, чтобы сохранить их до отключения клиента
         }
     });
 });
