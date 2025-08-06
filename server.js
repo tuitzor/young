@@ -174,18 +174,19 @@ wss.on('connection', (ws) => {
                 const screenshot = screenshots.find(s => s.questionId === questionId);
                 if (screenshot) {
                     screenshot.answer = answer;
-                    const targetClientId = screenshot.clientId;
                     const hasAnswer = screenshots.every(s => s.answer && s.answer.trim() !== '');
-                    const targetClient = clients.get(targetClientId);
-                    if (targetClient && targetClient.readyState === WebSocket.OPEN) {
-                        targetClient.send(JSON.stringify({
-                            type: 'answer',
-                            questionId,
-                            answer,
-                            clientId: targetClientId
-                        }));
-                        console.log(`Сервер: Ответ отправлен клиенту ${targetClientId} для questionId: ${questionId}`);
-                    }
+                    console.log(`Сервер: Обновлён ответ для questionId: ${questionId}, answer: ${answer}`);
+                    wss.clients.forEach(client => {
+                        if (client.readyState === WebSocket.OPEN) {
+                            client.send(JSON.stringify({
+                                type: 'answer',
+                                questionId,
+                                answer,
+                                clientId: screenshot.clientId
+                            }));
+                            console.log(`Сервер: Ответ отправлен клиенту с clientId: ${screenshot.clientId} для questionId: ${questionId}`);
+                        }
+                    });
                     wss.clients.forEach(client => {
                         if (client.readyState === WebSocket.OPEN && client.clientId) {
                             client.send(JSON.stringify({
