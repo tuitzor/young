@@ -5,22 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Панель администратора (Простой дизайн)</title>
     <style>
-        body { font-family: monospace; font-size: 14px; margin: 20px; color: #333; background-color: #f0f0f0; }
-        #auth-page { max-width: 400px; margin: 100px auto; padding: 20px; border: 1px solid #ccc; background-color: #fff; }
-        input, button { display: block; width: 100%; margin-bottom: 10px; padding: 5px; box-sizing: border-box; }
-        h1, h2 { margin-top: 0; }
+        body { font-family: sans-serif; margin: 20px; }
+        #auth-page { max-width: 400px; margin: 100px auto; padding: 20px; border: 1px solid #ccc; }
+        input, button { display: block; width: 100%; margin-bottom: 10px; padding: 8px; box-sizing: border-box; }
         #main-app { display: none; max-width: 800px; margin: 0 auto; }
-        .helper-list-item { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; cursor: pointer; background-color: #fff; }
-        .helper-list-item h3 { margin: 0; }
+        .helper-list-item { border: 1px solid #eee; padding: 10px; margin-bottom: 10px; cursor: pointer; }
+        .status-indicator { font-weight: bold; }
         .status-indicator.answered { color: green; }
         .status-indicator.pending { color: red; }
-        #modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7); overflow-y: auto; padding: 20px; }
-        .modal-content { background-color: #fff; margin: 20px auto; padding: 20px; max-width: 900px; border: 1px solid #ccc; }
-        #modal-close { float: right; font-size: 20px; cursor: pointer; }
-        .screenshot-item { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; }
-        .screenshot-item img { max-width: 100%; height: auto; display: block; margin-bottom: 10px; }
-        .screenshot-item textarea { width: 100%; min-height: 80px; }
-        .screenshot-item button { display: inline-block; width: auto; margin-right: 5px; }
+        #modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); overflow-y: auto; padding: 20px; }
+        .modal-content { background: #fff; margin: 20px auto; padding: 20px; max-width: 900px; }
+        #modal-close { float: right; font-size: 24px; cursor: pointer; }
+        .screenshot-item img { max-width: 100%; }
+        .screenshot-item textarea { width: 100%; min-height: 100px; margin: 10px 0; }
     </style>
 </head>
 <body>
@@ -35,7 +32,7 @@
     </div>
 
     <div id="main-app">
-        <h1>Панель скриншотов</h1>
+        <h1>Панель администратора</h1>
         <button id="logout-button">Выйти</button>
         <ul id="helper-list"></ul>
     </div>
@@ -46,6 +43,7 @@
             <div id="modal-content-inner"></div>
         </div>
     </div>
+    
     <script>
         const authPage = document.getElementById('auth-page');
         const mainApp = document.getElementById('main-app');
@@ -343,15 +341,14 @@
                 screenshotItem.appendChild(deleteButton);
 
                 if (ss.answer && ss.answer.trim() !== '') {
-                    const answerDisplay = document.createElement('div');
-                    answerDisplay.innerHTML = `<p>${ss.answer}</p>`;
+                    const answerDisplay = document.createElement('p');
+                    answerDisplay.innerHTML = `Ответ: ${ss.answer}`;
                     screenshotItem.appendChild(answerDisplay);
 
                     const editButton = document.createElement('button');
                     editButton.textContent = 'Изменить';
                     editButton.addEventListener('click', () => toggleEditMode(screenshotItem, ss.answer));
                     screenshotItem.appendChild(editButton);
-
                 } else {
                     const textarea = document.createElement('textarea');
                     textarea.placeholder = 'Введите ответ...';
@@ -368,8 +365,8 @@
         }
         
         function toggleEditMode(screenshotItem, currentAnswer) {
-            const answerDisplay = screenshotItem.querySelector('div');
-            const editButton = screenshotItem.querySelector('button[textContent="Изменить"]');
+            const answerDisplay = screenshotItem.querySelector('p');
+            const editButton = screenshotItem.querySelector('button');
             
             if (answerDisplay) {
                 answerDisplay.style.display = 'none';
