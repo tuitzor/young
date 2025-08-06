@@ -9,11 +9,8 @@
     let lastClickTime = 0;
     const clickTimeout = 1000;
     const helperSessionId = `helper-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    let clientId = localStorage.getItem('clientId');
-    if (!clientId) {
-        clientId = prompt('Введите clientId админ-панели (например, client-1754121167701-nm9wdxr26):') || 
-                   `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        localStorage.setItem('clientId', clientId);
+   let clientId = localStorage.getItem('clientId') || `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+localStorage.setItem('clientId', clientId);
     }
     console.log("helper.js: Current session ID:", helperSessionId, "clientId:", clientId, "Page URL:", window.location.href);
 
