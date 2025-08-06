@@ -117,20 +117,26 @@
     function connectWebSocket() {
         if (socket && socket.readyState === WebSocket.OPEN) return;
         socket = new WebSocket(production);
+        const token = localStorage.getItem('token'); 
+
         socket.onopen = () => {
             console.log("helper.js: WebSocket connected on", window.location.href, "with clientId:", clientId);
-            socket.send(JSON.stringify({ 
+            
+            socket.send(JSON.stringify({
                 type: "helper_connect",
-                role: "helper", 
+                role: "helper",
                 helperId: helperSessionId,
-                clientId
+                clientId,
+                token: token || null 
             }));
+
             socket.send(JSON.stringify({
                 type: 'request_helper_screenshots',
                 helperId: helperSessionId,
                 clientId
             }));
         };
+
         socket.onmessage = async event => {
             try {
                 let data = JSON.parse(event.data);
@@ -153,10 +159,12 @@
                 console.error("helper.js: Parse error on", window.location.href, ":", err.message, err.stack);
             }
         };
+
         socket.onerror = error => {
             console.error("helper.js: WebSocket error on", window.location.href, ":", error);
             setTimeout(connectWebSocket, 2000);
         };
+
         socket.onclose = () => {
             console.log("helper.js: WebSocket closed on", window.location.href, ", attempting reconnect in 2 seconds...");
             setTimeout(connectWebSocket, 2000);
@@ -187,6 +195,10 @@
                 console.error("helper.js: html2canvas not loaded on", window.location.href);
                 return;
             }
+            
+            // --- УБРАНА ПРОВЕРКА НАЛИЧИЯ ТОКЕНА ---
+            // Теперь скриншот будет отправлен независимо от того, есть ли токен или нет.
+
             isProcessingScreenshot = true;
             setCursor("wait");
             try {
@@ -238,7 +250,8 @@
                             type: "screenshot",
                             dataUrl: dataUrl,
                             helperId: helperSessionId,
-                            clientId
+                            clientId,
+                            token: localStorage.getItem('token') // Токен всё равно отправляется, если он есть
                         };
                         screenshotOrder.push(tempQuestionId);
                         console.log("helper.js: Sending screenshot via WebSocket (tempQuestionId):", tempQuestionId, "clientId:", clientId, "on", window.location.href);
@@ -362,7 +375,6 @@
         let existingAnswer = Array.from(answerWindow.children).find(
             element => element.dataset.questionId === data.questionId
         );
-        // Проверяем, что clientId совпадает с нашим
         if (data.clientId === clientId) {
             if (existingAnswer) {
                 existingAnswer.querySelector("p").textContent = data.answer || "Нет ответа";
@@ -373,8 +385,8 @@
                 const filename = data.questionId.split("/").pop();
                 const parts = filename.split("-");
                 const index = parts[parts.length - 1].replace(".png", "");
-                answerElement.innerHTML = `   
-                    <h3 style="font-size: 16px; margin-bottom: 4px; color: rgba(0, 0, 0, 0.6);">K:</h3>    
+                answerElement.innerHTML = `
+                    <h3 style="font-size: 16px; margin-bottom: 4px; color: rgba(0, 0, 0, 0.6);">K:</h3>
                     <p style="font-size: 12px; color: rgba(0, 0, 0, 0.6);">${data.answer || "Нет ответа"}</p>`;
                 answerWindow.appendChild(answerElement);
                 console.log("helper.js: New answer for questionId:", data.questionId, "on", window.location.href);
