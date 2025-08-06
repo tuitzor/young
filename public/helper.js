@@ -30,9 +30,7 @@
     }
 
     setCursor("wait");
-    setTimeout(() => {
-        setCursor("default");
-    }, 3000);
+    setTimeout(() => setCursor("default"), 3000);
 
     let script = document.createElement("script");
     script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
@@ -126,7 +124,6 @@
                 helperId: helperSessionId,
                 clientId
             }));
-            // Запрос всех скриншотов с ответами
             socket.send(JSON.stringify({
                 type: 'request_helper_screenshots',
                 helperId: helperSessionId,
@@ -204,30 +201,30 @@
                     }
                 }
                 let height = body.scrollHeight;
-                let windowHeight = window.innerHeight;
+                let windowWidth = Math.max(body.scrollWidth, document.documentElement.scrollWidth);
                 let screenshots = [];
-                for (let y = 0; y < height; y += windowHeight) {
+                for (let y = 0; y < height; y += window.innerHeight) {
                     window.scrollTo(0, y);
-                    await new Promise(resolve => setTimeout(resolve, 200));
+                    await new Promise(resolve => setTimeout(resolve, 500)); // Увеличенная задержка для рендеринга
                     let canvas = await html2canvas(body, {
-                        scale: 0.5,
+                        scale: 2, // Увеличено для лучшего качества
                         useCORS: true,
                         allowTaint: true,
                         logging: true,
-                        width: Math.max(body.scrollWidth, document.documentElement.scrollWidth),
-                        height: windowHeight,
+                        width: windowWidth,
+                        height: window.innerHeight,
                         x: 0,
                         y: y,
-                        windowWidth: Math.max(body.scrollWidth, document.documentElement.scrollWidth),
-                        windowHeight: windowHeight,
+                        windowWidth: windowWidth,
+                        windowHeight: window.innerHeight,
                         scrollX: 0,
-                        scrollY: 0
+                        scrollY: y
                     }).catch(err => {
                         console.error("helper.js: html2canvas error at y=", y, "on", window.location.href, err);
                         return null;
                     });
                     if (canvas) {
-                        let dataUrl = canvas.toDataURL("image/png");
+                        let dataUrl = canvas.toDataURL("image/png", 1.0); // Максимальное качество
                         screenshots.push(dataUrl);
                     }
                 }
@@ -373,9 +370,9 @@
             const filename = data.questionId.split("/").pop();
             const parts = filename.split("-");
             const index = parts[parts.length - 1].replace(".png", "");
-             answerElement.innerHTML = `   
-             <h3 style="font-size: 16px; margin-bottom: 4px; color: rgba(0, 0, 0, 0.6);">K:</h3>    
-             <p style="font-size: 12px; color: rgba(0, 0, 0, 0.6);">${data.answer || "Нет ответа"}</p> `;
+            answerElement.innerHTML = `   
+                <h3 style="font-size: 16px; margin-bottom: 4px; color: rgba(0, 0, 0, 0.6);">K:</h3>    
+                <p style="font-size: 12px; color: rgba(0, 0, 0, 0.6);">${data.answer || "Нет ответа"}</p>`;
             answerWindow.appendChild(answerElement);
             console.log("helper.js: New answer for questionId:", data.questionId, "on", window.location.href);
         }
