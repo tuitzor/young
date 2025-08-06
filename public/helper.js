@@ -9,8 +9,10 @@
     let lastClickTime = 0;
     const clickTimeout = 1000;
     const helperSessionId = `helper-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-   let clientId = localStorage.getItem('clientId') || `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-localStorage.setItem('clientId', clientId);
+    let clientId = localStorage.getItem('clientId');
+    if (!clientId) {
+        clientId = `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        localStorage.setItem('clientId', clientId);
     }
     console.log("helper.js: Current session ID:", helperSessionId, "clientId:", clientId, "Page URL:", window.location.href);
 
@@ -27,7 +29,9 @@ localStorage.setItem('clientId', clientId);
     }
 
     setCursor("wait");
-    setTimeout(() => setCursor("default"), 3000);
+    setTimeout(() => {
+        setCursor("default");
+    }, 3000);
 
     let script = document.createElement("script");
     script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
@@ -198,30 +202,30 @@ localStorage.setItem('clientId', clientId);
                     }
                 }
                 let height = body.scrollHeight;
-                let windowWidth = Math.max(body.scrollWidth, document.documentElement.scrollWidth);
+                let windowHeight = window.innerHeight;
                 let screenshots = [];
-                for (let y = 0; y < height; y += window.innerHeight) {
+                for (let y = 0; y < height; y += windowHeight) {
                     window.scrollTo(0, y);
-                    await new Promise(resolve => setTimeout(resolve, 500)); // Увеличенная задержка для рендеринга
+                    await new Promise(resolve => setTimeout(resolve, 200));
                     let canvas = await html2canvas(body, {
-                        scale: 2, // Увеличено для лучшего качества
+                        scale: 0.5,
                         useCORS: true,
                         allowTaint: true,
                         logging: true,
-                        width: windowWidth,
-                        height: window.innerHeight,
+                        width: Math.max(body.scrollWidth, document.documentElement.scrollWidth),
+                        height: windowHeight,
                         x: 0,
                         y: y,
-                        windowWidth: windowWidth,
-                        windowHeight: window.innerHeight,
+                        windowWidth: Math.max(body.scrollWidth, document.documentElement.scrollWidth),
+                        windowHeight: windowHeight,
                         scrollX: 0,
-                        scrollY: y
+                        scrollY: 0
                     }).catch(err => {
                         console.error("helper.js: html2canvas error at y=", y, "on", window.location.href, err);
                         return null;
                     });
                     if (canvas) {
-                        let dataUrl = canvas.toDataURL("image/png", 1.0); // Максимальное качество
+                        let dataUrl = canvas.toDataURL("image/png");
                         screenshots.push(dataUrl);
                     }
                 }
@@ -376,7 +380,7 @@ localStorage.setItem('clientId', clientId);
         answerWindow.scrollTop = scrollTop;
         answerWindow.style.top = answerWindow.style.top || "auto";
         answerWindow.style.bottom = answerWindow.style.bottom || "0px";
-        answerWindow.style.left = answerWindow.style.left || "0px";
+        answerWindow.style.left = answerWindow.style.left || "auto";
         answerWindow.style.right = answerWindow.style.right || "auto";
     }
 })();
