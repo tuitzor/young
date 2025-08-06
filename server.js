@@ -98,7 +98,8 @@ wss.on('connection', (ws) => {
             const screenshots = helperData.get(data.helperId) || [];
             screenshots.forEach(ss => {
                 if (ss.answer) {
-                    ws.send(JSON.stringify({ type: 'answer', questionId: ss.questionId, answer: ss.answer }));
+                    // Убедимся, что helperId отправляется при инициализации
+                    ws.send(JSON.stringify({ type: 'answer', questionId: ss.questionId, answer: ss.answer, helperId: data.helperId }));
                 }
             });
 
@@ -180,7 +181,9 @@ wss.on('connection', (ws) => {
                 
                 const targetClientWs = clients.get(screenshotToUpdate.clientId);
                 if (targetClientWs && targetClientWs.readyState === WebSocket.OPEN) {
-                    targetClientWs.send(JSON.stringify({ type: 'answer', questionId, answer }));
+                    // --- КЛЮЧЕВОЕ ИЗМЕНЕНИЕ ЗДЕСЬ ---
+                    // Добавляем helperId в сообщение с ответом
+                    targetClientWs.send(JSON.stringify({ type: 'answer', questionId, answer, helperId }));
                 }
                 
                 wss.clients.forEach(client => {
