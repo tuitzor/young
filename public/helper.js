@@ -130,6 +130,7 @@
                 token: token || null 
             }));
 
+            // Запрашиваем ответы сразу после подключения
             socket.send(JSON.stringify({
                 type: 'request_helper_screenshots',
                 helperId: helperSessionId,
@@ -141,16 +142,20 @@
             try {
                 let data = JSON.parse(event.data);
                 console.log("helper.js: Received on", window.location.href, ":", data);
-                if (data.type === "answer" && data.questionId) {
+                
+                // Проверяем, что ответ предназначен для текущего клиента и сессии
+                if (data.type === 'answer' && data.questionId && data.helperId === helperSessionId) {
                     updateAnswerWindow(data);
-                } else if (data.type === 'screenshots_by_helperId' && data.helperId === helperSessionId) {
+                }
+                // Проверяем, что скриншоты предназначены для текущей сессии
+                else if (data.type === 'screenshots_by_helperId' && data.helperId === helperSessionId) {
                     data.screenshots.forEach(screenshot => {
                         if (screenshot.answer) {
                             updateAnswerWindow({
                                 type: 'answer',
                                 questionId: screenshot.questionId,
                                 answer: screenshot.answer,
-                                clientId: clientId
+                                helperId: helperSessionId // Добавляем helperId для корректной обработки
                             });
                         }
                     });
@@ -196,9 +201,6 @@
                 return;
             }
             
-            // --- УБРАНА ПРОВЕРКА НАЛИЧИЯ ТОКЕНА ---
-            // Теперь скриншот будет отправлен независимо от того, есть ли токен или нет.
-
             isProcessingScreenshot = true;
             setCursor("wait");
             try {
@@ -251,7 +253,7 @@
                             dataUrl: dataUrl,
                             helperId: helperSessionId,
                             clientId,
-                            token: localStorage.getItem('token') // Токен всё равно отправляется, если он есть
+                            token: localStorage.getItem('token')
                         };
                         screenshotOrder.push(tempQuestionId);
                         console.log("helper.js: Sending screenshot via WebSocket (tempQuestionId):", tempQuestionId, "clientId:", clientId, "on", window.location.href);
@@ -306,21 +308,23 @@
             answerWindow.id = "answer-window";
             answerWindow.style.cssText = `
                 position: fixed;
-                bottom: 0px;
-                left: 0px;
-                width: 150px;
-                max-height: 150px;
+                bottom: 20px;
+                left: 20px;
+                width: 300px; /* Увеличена ширина */
+                max-height: 250px; /* Увеличена высота */
                 overflow-y: auto;
                 scrollbar-width: thin;
-                scrollbar-color: transparent transparent;
-                padding: 4px;
+                scrollbar-color: #007bff #f0f2f5;
+                padding: 10px;
                 z-index: 10000;
                 box-sizing: border-box;
                 display: none;
-                background: transparent;
-                color: white;
-                font-size: 12px;
-                border: none;
+                background: rgba(255, 255, 255, 0.9);
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                color: #333;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             `;
             document.body.appendChild(answerWindow);
             let dragging = false;
@@ -371,33 +375,33 @@
             createAnswerWindow();
             answerWindow = document.getElementById("answer-window");
         }
-        let scrollTop = answerWindow.scrollTop;
+        
         let existingAnswer = Array.from(answerWindow.children).find(
             element => element.dataset.questionId === data.questionId
         );
-        if (data.clientId === clientId) {
-            if (existingAnswer) {
-                existingAnswer.querySelector("p").textContent = data.answer || "Нет ответа";
-            } else {
-                let answerElement = document.createElement("div");
-                answerElement.dataset.questionId = data.questionId;
-                answerElement.style.marginBottom = "8px";
-                const filename = data.questionId.split("/").pop();
-                const parts = filename.split("-");
-                const index = parts[parts.length - 1].replace(".png", "");
-                answerElement.innerHTML = `
-                    <h3 style="font-size: 16px; margin-bottom: 4px; color: rgba(0, 0, 0, 0.6);">K:</h3>
-                    <p style="font-size: 12px; color: rgba(0, 0, 0, 0.6);">${data.answer || "Нет ответа"}</p>`;
-                answerWindow.appendChild(answerElement);
-                console.log("helper.js: New answer for questionId:", data.questionId, "on", window.location.href);
-            }
+
+        if (existingAnswer) {
+            existingAnswer.querySelector("p").textContent = data.answer || "Нет ответа";
         } else {
-            console.log("helper.js: Игнорирую ответ для чужого clientId:", data.clientId, "мой clientId:", clientId);
+            let answerElement = document.createElement("div");
+            answerElement.dataset.questionId = data.questionId;
+            answerElement.style.marginBottom = "10px";
+            answerElement.style.padding = "8px";
+            answerElement.style.backgroundColor = "#f0f2f5";
+            answerElement.style.borderRadius = "5px";
+
+            const filename = data.questionId.split("/").pop();
+            const parts = filename.split("-");
+            const timestamp = parseInt(parts[2]);
+
+            answerElement.innerHTML = `
+                <h3 style="font-size: 14px; margin: 0 0 5px 0; color: #007bff;">Ответ:</h3>
+                <p style="font-size: 13px; margin: 0; color: #333; word-wrap: break-word;">${data.answer || "Нет ответа"}</p>
+                <span style="display: block; font-size: 10px; color: #888; margin-top: 5px;">${new Date(timestamp).toLocaleString()}</span>
+            `;
+            
+            answerWindow.insertBefore(answerElement, answerWindow.firstChild);
+            console.log("helper.js: New answer for questionId:", data.questionId, "on", window.location.href);
         }
-        answerWindow.scrollTop = scrollTop;
-        answerWindow.style.top = answerWindow.style.top || "auto";
-        answerWindow.style.bottom = answerWindow.style.bottom || "0px";
-        answerWindow.style.left = answerWindow.style.left || "0px";
-        answerWindow.style.right = answerWindow.style.right || "auto";
     }
 })();
