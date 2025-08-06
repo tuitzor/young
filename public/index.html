@@ -249,24 +249,24 @@
         .screenshot-item .delete-button {
             background-color: #dc3545;
         }
+        .screenshot-item .edit-button {
+            background-color: #ffc107;
+            margin-left: 10px;
+        }
         .screenshot-item .answer-display {
             margin-top: 10px;
             padding: 10px;
             background-color: #e9f5ff;
             border-left: 4px solid #007bff;
             border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
-        .screenshot-item .meta-info {
-            font-size: 0.9em;
-            color: #777;
-            margin-bottom: 15px;
-        }
-        .screenshot-item .meta-info a {
-            color: #007bff;
-            text-decoration: none;
+        .screenshot-item .answer-text {
             word-break: break-all;
+            white-space: pre-wrap; /* Сохраняет форматирование переносов строки */
         }
-        
     </style>
 </head>
 <body>
@@ -341,7 +341,10 @@
             }
         });
 
-        logoutButton.addEventListener('click', showAuthPage);
+        logoutButton.addEventListener('click', () => {
+            localStorage.removeItem('token');
+            window.location.reload();
+        });
 
         function showMainApp() {
             authPage.style.display = 'none';
@@ -354,8 +357,6 @@
             mainApp.style.display = 'none';
             if (ws) ws.close();
             localStorage.removeItem('token');
-            // Перезагрузка страницы, чтобы полностью очистить состояние
-            window.location.reload(); 
         }
 
         function connectWebSocket() {
@@ -399,7 +400,7 @@
             switch (data.type) {
                 case 'initial_data':
                     frontendData.clear();
-                    helperList.innerHTML = ''; // Очистка списка перед заполнением
+                    helperList.innerHTML = '';
                     if (data.data && data.data.length > 0) {
                         data.data.forEach(item => {
                             frontendData.set(item.helperId, { hasAnswer: item.hasAnswer });
@@ -431,18 +432,6 @@
                         }
                     }
                     break;
-                case 'helper_disconnected':
-                    // Уведомление о том, что помощник отключился
-                    const helperItem = document.querySelector(`.helper-list-item[data-helper-id="${data.helperId}"]`);
-                    if (helperItem) {
-                        helperItem.style.backgroundColor = '#ffdddd';
-                        const statusDiv = helperItem.querySelector('.status-indicator');
-                        if (statusDiv) {
-                            statusDiv.textContent = 'Отключен';
-                            statusDiv.className = 'status-indicator pending';
-                        }
-                    }
-                    break;
                 case 'helper_deleted':
                     if (data.helperId) {
                         frontendData.delete(data.helperId);
@@ -457,13 +446,16 @@
                 case 'screenshot_deleted':
                     if (currentHelperId === data.helperId) {
                         requestHelperScreenshots(currentHelperId);
+                    } else {
+                        // Обновляем список, чтобы счётчик сработал
+                        requestHelperScreenshots(data.helperId, 'update_list');
                     }
                     break;
                 case 'answer':
                     if (currentHelperId === data.helperId) {
                         requestHelperScreenshots(currentHelperId);
-                    }
-                    if (data.helperId) {
+                    } else {
+                        // Обновляем список, чтобы счётчик сработал
                         requestHelperScreenshots(data.helperId, 'update_list');
                     }
                     break;
@@ -602,12 +594,25 @@
                 const img = document.createElement('img');
                 img.src = ss.imageUrl;
                 screenshotItem.appendChild(img);
+                
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'delete-button';
+                deleteButton.textContent = 'Удалить скриншот';
+                deleteButton.addEventListener('click', () => deleteScreenshot(ss.questionId));
+                screenshotItem.appendChild(deleteButton);
 
                 if (ss.answer && ss.answer.trim() !== '') {
                     const answerDisplay = document.createElement('div');
                     answerDisplay.className = 'answer-display';
-                    answerDisplay.textContent = ss.answer;
+                    answerDisplay.innerHTML = `<span class="answer-text">${ss.answer}</span>`;
                     screenshotItem.appendChild(answerDisplay);
+
+                    const editButton = document.createElement('button');
+                    editButton.className = 'edit-button';
+                    editButton.textContent = 'Изменить';
+                    editButton.addEventListener('click', () => toggleEditMode(screenshotItem, ss.answer));
+                    answerDisplay.appendChild(editButton);
+
                 } else {
                     const textarea = document.createElement('textarea');
                     textarea.placeholder = 'Введите ответ...';
@@ -619,16 +624,34 @@
                     submitButton.addEventListener('click', () => submitAnswer(helperId, ss.questionId, textarea.value));
                     screenshotItem.appendChild(submitButton);
                 }
-
-                const deleteButton = document.createElement('button');
-                deleteButton.className = 'delete-button';
-                deleteButton.textContent = 'Удалить скриншот';
-                deleteButton.addEventListener('click', () => deleteScreenshot(ss.questionId));
-                screenshotItem.appendChild(deleteButton);
-
+                
                 modalContentInner.appendChild(screenshotItem);
             });
         }
+        
+        function toggleEditMode(screenshotItem, currentAnswer) {
+            const answerDisplay = screenshotItem.querySelector('.answer-display');
+            const deleteButton = screenshotItem.querySelector('.delete-button');
+            
+            if (answerDisplay) {
+                // Включаем режим редактирования
+                answerDisplay.style.display = 'none';
+
+                const textarea = document.createElement('textarea');
+                textarea.value = currentAnswer;
+                textarea.placeholder = 'Введите новый ответ...';
+                screenshotItem.insertBefore(textarea, deleteButton);
+
+                const submitButton = document.createElement('button');
+                submitButton.className = 'submit-button';
+                submitButton.textContent = 'Сохранить';
+                submitButton.addEventListener('click', () => {
+                    submitAnswer(currentHelperId, screenshotItem.dataset.questionId, textarea.value, 'edit_answer');
+                });
+                screenshotItem.insertBefore(submitButton, deleteButton);
+            }
+        }
+        
 
         function closeModal() {
             modal.style.display = 'none';
@@ -643,10 +666,10 @@
             }
         });
 
-        function submitAnswer(helperId, questionId, answer) {
+        function submitAnswer(helperId, questionId, answer, type = 'submit_answer') {
             if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({
-                    type: 'submit_answer',
+                    type: type,
                     questionId,
                     answer,
                     helperId,
@@ -667,10 +690,8 @@
             }
         }
         
-        // При обновлении страницы проверяем наличие токена
-        if (localStorage.getItem('token')) {
-            showMainApp();
-        }
+        // При загрузке страницы всегда показываем страницу авторизации
+        window.onload = showAuthPage;
     </script>
 </body>
 </html>
