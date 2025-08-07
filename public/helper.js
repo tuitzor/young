@@ -8,7 +8,6 @@
     let lastClickTime = 0;
     const clickTimeout = 1000;
     
-    // Клиент генерирует свой ID или берет из localStorage
     let clientId = localStorage.getItem('clientId');
     if (!clientId) {
         clientId = `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -120,20 +119,16 @@
         socket.onopen = () => {
             console.log("helper.js: WebSocket connected on", window.location.href, "with clientId:", clientId);
             
-            // Отправляем сообщение о подключении клиента
             socket.send(JSON.stringify({
-                type: "frontend_connect",
-                role: "frontend",
+                type: "helper_connect",
                 clientId
             }));
             
-            // Клиенту не нужно запрашивать данные, он будет получать ответы, как только они появятся.
         };
         socket.onmessage = async event => {
             try {
                 let data = JSON.parse(event.data);
                 console.log("helper.js: Received on", window.location.href, ":", data);
-                // Клиент получает ответ, который адресован именно ему.
                 if (data.type === "answer" && data.clientId === clientId) {
                     updateAnswerWindow(data);
                 }
@@ -223,7 +218,6 @@
                         let data = {
                             type: "screenshot",
                             dataUrl: dataUrl,
-                            // helperId больше не нужен
                             clientId
                         };
                         console.log("helper.js: Sending screenshot via WebSocket (clientId):", clientId, "on", window.location.href);
