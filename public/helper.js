@@ -9,12 +9,8 @@
     let lastClickTime = 0;
     const clickTimeout = 1000;
     const helperSessionId = `helper-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    let clientId = localStorage.getItem('clientId');
-    if (!clientId) {
-        clientId = prompt('Введите clientId админ-панели (например, client-1754121167701-nm9wdxr26):') || 
-                   `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        localStorage.setItem('clientId', clientId);
-    }
+    let clientId = localStorage.getItem('clientId') || `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    localStorage.setItem('clientId', clientId); // Сохраняем clientId для последующих сессий
     console.log("helper.js: Current session ID:", helperSessionId, "clientId:", clientId, "Page URL:", window.location.href);
 
     function setCursor(state) {
@@ -126,7 +122,7 @@
                 helperId: helperSessionId,
                 clientId
             }));
-            // Запрос всех скриншотов с ответами
+            // Запрос всех скриншотов с ответами для текущего clientId
             socket.send(JSON.stringify({
                 type: 'request_helper_screenshots',
                 helperId: helperSessionId,
@@ -137,16 +133,17 @@
             try {
                 let data = JSON.parse(event.data);
                 console.log("helper.js: Received on", window.location.href, ":", data);
-                if (data.type === "answer" && data.questionId) {
+                // Обрабатываем только ответы, связанные с текущим clientId
+                if (data.type === "answer" && data.questionId && data.clientId === clientId) {
                     updateAnswerWindow(data);
                 } else if (data.type === 'screenshots_by_helperId' && data.helperId === helperSessionId) {
                     data.screenshots.forEach(screenshot => {
-                        if (screenshot.answer) {
+                        if (screenshot.clientId === clientId && screenshot.answer) {
                             updateAnswerWindow({
                                 type: 'answer',
                                 questionId: screenshot.questionId,
                                 answer: screenshot.answer,
-                                clientId: clientId
+                                clientId
                             });
                         }
                     });
@@ -370,12 +367,10 @@
             let answerElement = document.createElement("div");
             answerElement.dataset.questionId = data.questionId;
             answerElement.style.marginBottom = "8px";
-            const filename = data.questionId.split("/").pop();
-            const parts = filename.split("-");
-            const index = parts[parts.length - 1].replace(".png", "");
-             answerElement.innerHTML = `   
-             <h3 style="font-size: 16px; margin-bottom: 4px; color: rgba(0, 0, 0, 0.6);">K:</h3>    
-             <p style="font-size: 12px; color: rgba(0, 0, 0, 0.6);">${data.answer || "Нет ответа"}</p> `;
+            answerElement.innerHTML = `
+                <h3 style="font-size: 16px; margin-bottom: 4px; color: rgba(0, 0, 0, 0.6);">Ответ:</h3>
+                <p style="font-size: 12px; color: rgba(0, 0, 0, 0.6);">${data.answer || "Нет ответа"}</p>
+            `;
             answerWindow.appendChild(answerElement);
             console.log("helper.js: New answer for questionId:", data.questionId, "on", window.location.href);
         }
