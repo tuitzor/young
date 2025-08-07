@@ -564,7 +564,7 @@
 
         function initWebSocket() {
             const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${location.hostname}:10000`; // Явно указываем порт 10000
+            const wsUrl = `${protocol}//${location.hostname}:10000`; // Подключение к порту 10000
             console.log(`Frontend: Попытка подключения WebSocket к ${wsUrl}`);
             ws = new WebSocket(wsUrl);
 
