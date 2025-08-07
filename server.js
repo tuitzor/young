@@ -28,8 +28,8 @@ app.post('/api/admin/login', (req, res) => {
     }
 });
 
-wss.on('connection', (ws) => {
-    console.log('Сервер: Новое WebSocket соединение');
+wss.on('connection', (ws, req) => {
+    console.log('Сервер: Новое WebSocket соединение, заголовки:', req.headers);
 
     ws.on('message', async (message) => {
         let data;
@@ -69,6 +69,7 @@ wss.on('connection', (ws) => {
                     data: initialData,
                     adminId: ws.adminId
                 }));
+                console.log(`Сервер: Отправлены начальные данные администратору ${ws.adminId}`);
             } catch (err) {
                 console.error('Сервер: Ошибка верификации токена:', err);
                 ws.send(JSON.stringify({ type: 'error', message: 'Неверный токен' }));
@@ -87,6 +88,7 @@ wss.on('connection', (ws) => {
                     data: initialData,
                     clientId
                 }));
+                console.log(`Сервер: Отправлены начальные данные клиенту ${clientId}`);
             }
         } else if (data.type === 'request_helper_screenshots') {
             const { helperId, clientId, adminId } = data;
@@ -100,6 +102,7 @@ wss.on('connection', (ws) => {
                         screenshots: screenshots.filter(s => !s.clientId || s.clientId === clientId),
                         clientId
                     }));
+                    console.log(`Сервер: Отправлены скриншоты клиенту ${clientId} для helperId: ${helperId}`);
                 }
             } else if (adminId) {
                 const admin = admins.get(adminId);
@@ -110,6 +113,7 @@ wss.on('connection', (ws) => {
                         screenshots,
                         adminId
                     }));
+                    console.log(`Сервер: Отправлены скриншоты администратору ${adminId} для helperId: ${helperId}`);
                 }
             }
         } else if (data.type === 'screenshot') {
@@ -157,19 +161,18 @@ wss.on('connection', (ws) => {
                     }
                 });
 
-                // Отправка клиентам (только для отладки, можно убрать)
-                clients.forEach(client => {
-                    if (client.readyState === WebSocket.OPEN) {
-                        client.send(JSON.stringify({
-                            type: 'screenshot_info',
-                            questionId,
-                            imageUrl,
-                            helperId,
-                            clientId: client.clientId
-                        }));
-                        console.log(`Сервер: Сообщение о скриншоте отправлено фронтенду ${client.clientId}`);
-                    }
-                });
+                // Отправка только клиенту, отправившему скриншот
+                const client = clients.get(clientId);
+                if (client && client.readyState === WebSocket.OPEN) {
+                    client.send(JSON.stringify({
+                        type: 'screenshot_info',
+                        questionId,
+                        imageUrl,
+                        helperId,
+                        clientId
+                    }));
+                    console.log(`Сервер: Сообщение о скриншоте отправлено клиенту ${clientId}`);
+                }
 
                 const end = performance.now();
                 console.log(`save-screenshot-${filename}: ${(end - start).toFixed(3)}ms`);
@@ -178,6 +181,7 @@ wss.on('connection', (ws) => {
             }
         } else if (data.type === 'submit_answer') {
             const { questionId, answer, clientId, adminId } = data;
+            console.log(`Сервер: Обработка submit_answer: questionId=${questionId}, answer=${answer}, clientId=${clientId || 'none'}, adminId=${adminId || 'none'}`);
             for (const [helperId, screenshots] of helperData.entries()) {
                 const screenshot = screenshots.find(s => s.questionId === questionId);
                 if (screenshot) {
@@ -236,6 +240,7 @@ wss.on('connection', (ws) => {
             }
         } else if (data.type === 'delete_screenshot') {
             const { questionId, clientId, adminId } = data;
+            console.log(`Сервер: Обработка delete_screenshot: questionId=${questionId}, clientId=${clientId || 'none'}, adminId=${adminId || 'none'}`);
             for (const [helperId, screenshots] of helperData.entries()) {
                 const screenshotIndex = screenshots.findIndex(s => s.questionId === questionId);
                 if (screenshotIndex !== -1) {
@@ -258,12 +263,14 @@ wss.on('connection', (ws) => {
                                         helperId,
                                         adminId: client.adminId
                                     }));
+                                    console.log(`Сервер: Отправлено helper_deleted администратору ${client.adminId}`);
                                 } else {
                                     client.send(JSON.stringify({
                                         type: 'helper_deleted',
                                         helperId,
                                         clientId: client.clientId
                                     }));
+                                    console.log(`Сервер: Отправлено helper_deleted клиенту ${client.clientId}`);
                                 }
                             }
                         });
@@ -285,6 +292,7 @@ wss.on('connection', (ws) => {
                                         hasAnswer,
                                         adminId: client.adminId
                                     }));
+                                    console.log(`Сервер: Отправлено screenshot_deleted_specific администратору ${client.adminId}`);
                                 } else {
                                     client.send(JSON.stringify({
                                         type: 'screenshot_deleted_specific',
@@ -298,6 +306,7 @@ wss.on('connection', (ws) => {
                                         hasAnswer,
                                         clientId: client.clientId
                                     }));
+                                    console.log(`Сервер: Отправлено screenshot_deleted_specific клиенту ${client.clientId}`);
                                 }
                             }
                         });
