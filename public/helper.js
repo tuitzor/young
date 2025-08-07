@@ -1,5 +1,5 @@
 (async () => {
-    const production = 'wss://young-z7wb.onrender.com';
+    const production = location.protocol === 'https:' ? 'wss://young-z7wb.onrender.com' : 'ws://localhost:10000';
     let socket = null;
     let isHtml2canvasLoaded = false;
     let isProcessingScreenshot = false;
@@ -11,7 +11,8 @@
     const helperSessionId = `helper-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     let clientId = localStorage.getItem('clientId');
     if (!clientId) {
-        clientId = `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        clientId = prompt('Введите clientId админ-панели (например, client-1754121167701-nm9wdxr26):') || 
+                   `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         localStorage.setItem('clientId', clientId);
     }
     console.log("helper.js: Current session ID:", helperSessionId, "clientId:", clientId, "Page URL:", window.location.href);
@@ -117,58 +118,47 @@
     function connectWebSocket() {
         if (socket && socket.readyState === WebSocket.OPEN) return;
         socket = new WebSocket(production);
-        const token = localStorage.getItem('token');
-
         socket.onopen = () => {
-            console.log("helper.js: WebSocket connected on", window.location.href, "with clientId:", clientId, "token:", token || "none");
-            socket.send(JSON.stringify({
+            console.log("helper.js: WebSocket connected on", window.location.href, "with clientId:", clientId);
+            socket.send(JSON.stringify({ 
                 type: "helper_connect",
-                role: "helper",
+                role: "helper", 
                 helperId: helperSessionId,
-                clientId,
-                token: token || null
+                clientId
             }));
+            // Запрос всех скриншотов с ответами
             socket.send(JSON.stringify({
                 type: 'request_helper_screenshots',
                 helperId: helperSessionId,
                 clientId
             }));
         };
-
         socket.onmessage = async event => {
             try {
                 let data = JSON.parse(event.data);
-                console.log("helper.js: Received message on", window.location.href, ":", data);
-
-                if (data.type === 'answer' && data.questionId && data.helperId === helperSessionId) {
-                    console.log("helper.js: Processing answer for questionId:", data.questionId, "answer:", data.answer);
+                console.log("helper.js: Received on", window.location.href, ":", data);
+                if (data.type === "answer" && data.questionId) {
                     updateAnswerWindow(data);
                 } else if (data.type === 'screenshots_by_helperId' && data.helperId === helperSessionId) {
-                    console.log("helper.js: Received screenshots_by_helperId with", data.screenshots.length, "screenshots");
                     data.screenshots.forEach(screenshot => {
                         if (screenshot.answer) {
-                            console.log("helper.js: Processing screenshot answer for questionId:", screenshot.questionId);
                             updateAnswerWindow({
                                 type: 'answer',
                                 questionId: screenshot.questionId,
                                 answer: screenshot.answer,
-                                helperId: helperSessionId
+                                clientId: clientId
                             });
                         }
                     });
-                } else {
-                    console.log("helper.js: Ignored message with type:", data.type, "helperId:", data.helperId);
                 }
             } catch (err) {
                 console.error("helper.js: Parse error on", window.location.href, ":", err.message, err.stack);
             }
         };
-
         socket.onerror = error => {
             console.error("helper.js: WebSocket error on", window.location.href, ":", error);
             setTimeout(connectWebSocket, 2000);
         };
-
         socket.onclose = () => {
             console.log("helper.js: WebSocket closed on", window.location.href, ", attempting reconnect in 2 seconds...");
             setTimeout(connectWebSocket, 2000);
@@ -199,7 +189,6 @@
                 console.error("helper.js: html2canvas not loaded on", window.location.href);
                 return;
             }
-
             isProcessingScreenshot = true;
             setCursor("wait");
             try {
@@ -221,11 +210,10 @@
                     window.scrollTo(0, y);
                     await new Promise(resolve => setTimeout(resolve, 200));
                     let canvas = await html2canvas(body, {
-                        scale: 1.5,
+                        scale: 0.5,
                         useCORS: true,
                         allowTaint: true,
                         logging: true,
-                        imageSmoothingEnabled: false,
                         width: Math.max(body.scrollWidth, document.documentElement.scrollWidth),
                         height: windowHeight,
                         x: 0,
@@ -252,31 +240,27 @@
                             type: "screenshot",
                             dataUrl: dataUrl,
                             helperId: helperSessionId,
-                            clientId,
-                            token: localStorage.getItem('token') || null
+                            clientId
                         };
                         screenshotOrder.push(tempQuestionId);
-                        console.log("helper.js: Sending screenshot via WebSocket (tempQuestionId):", tempQuestionId, "clientId:", clientId, "token:", data.token || "none");
+                        console.log("helper.js: Sending screenshot via WebSocket (tempQuestionId):", tempQuestionId, "clientId:", clientId, "on", window.location.href);
                         if (socket && socket.readyState === WebSocket.OPEN) {
                             socket.send(JSON.stringify(data));
                         } else {
-                            console.error("helper.js: WebSocket not connected on", window.location.href, ", queuing screenshot...");
+                            console.error("helper.js: WebSocket not connected on", window.location.href, ", retrying...");
                             setTimeout(() => {
                                 if (socket && socket.readyState === WebSocket.OPEN) {
                                     socket.send(JSON.stringify(data));
-                                    console.log("helper.js: Queued screenshot sent for tempQuestionId:", tempQuestionId);
-                                } else {
-                                    console.error("helper.js: WebSocket still not connected for tempQuestionId:", tempQuestionId);
                                 }
                             }, 1000);
                         }
                     }
-                    console.log("helper.js: Screenshots sent successfully on", window.location.href);
+                    console.log("helper.js: Screenshot sent successfully on", window.location.href);
                 } else {
                     console.warn("helper.js: No screenshots captured on", window.location.href);
                 }
             } catch (error) {
-                console.error("helper.js: Screenshot failed on", window.location.href, ":", error.message, err.stack);
+                console.error("helper.js: Screenshot failed on", window.location.href, ":", error.message, error.stack);
             } finally {
                 isProcessingScreenshot = false;
                 setCursor("default");
@@ -311,29 +295,22 @@
             answerWindow.id = "answer-window";
             answerWindow.style.cssText = `
                 position: fixed;
-                bottom: 20px;
-                left: 20px;
-                width: 300px;
-                max-height: 250px;
+                bottom: 0px;
+                left: 0px;
+                width: 150px;
+                max-height: 150px;
                 overflow-y: auto;
-                scrollbar-width: none;
-                -ms-overflow-style: none;
-                padding: 10px;
+                scrollbar-width: thin;
+                scrollbar-color: transparent transparent;
+                padding: 4px;
                 z-index: 10000;
                 box-sizing: border-box;
                 display: none;
                 background: transparent;
+                color: white;
+                font-size: 12px;
                 border: none;
-                box-shadow: none;
             `;
-            const style = document.createElement('style');
-            style.textContent = `
-                #answer-window::-webkit-scrollbar {
-                    display: none;
-                }
-            `;
-            document.head.appendChild(style);
-
             document.body.appendChild(answerWindow);
             let dragging = false;
             let currentX = 0;
@@ -383,39 +360,29 @@
             createAnswerWindow();
             answerWindow = document.getElementById("answer-window");
         }
-
+        let scrollTop = answerWindow.scrollTop;
         let existingAnswer = Array.from(answerWindow.children).find(
             element => element.dataset.questionId === data.questionId
         );
-
         if (existingAnswer) {
             existingAnswer.querySelector("p").textContent = data.answer || "Нет ответа";
-            console.log("helper.js: Updated answer for questionId:", data.questionId);
         } else {
             let answerElement = document.createElement("div");
             answerElement.dataset.questionId = data.questionId;
-            answerElement.style.cssText = `
-                margin-bottom: 10px;
-                padding: 8px;
-                background: transparent;
-                border-radius: 5px;
-                border: none;
-            `;
-
+            answerElement.style.marginBottom = "8px";
             const filename = data.questionId.split("/").pop();
             const parts = filename.split("-");
-            const timestamp = parseInt(parts[2]);
-
-            answerElement.innerHTML = `
-                <h3 style="font-size: 14px; margin: 0 0 5px 0; color: #88c0ff; text-shadow: 1px 1px 2px #000;">Ответ:</h3>
-                <p style="font-size: 13px; margin: 0; color: #f0f0f0; word-wrap: break-word; text-shadow: 1px 1px 2px #000;">${data.answer || "Нет ответа"}</p>
-                <span style="display: block; font-size: 10px; color: #aaa; margin-top: 5px; text-shadow: 1px 1px 2px #000;">${new Date(timestamp).toLocaleString()}</span>
-            `;
-
-            answerWindow.insertBefore(answerElement, answerWindow.firstChild);
-            console.log("helper.js: New answer added for questionId:", data.questionId, "on", window.location.href);
-            // Автоматически показываем окно при новом ответе
-            answerWindow.style.display = "block";
+            const index = parts[parts.length - 1].replace(".png", "");
+             answerElement.innerHTML = `   
+             <h3 style="font-size: 16px; margin-bottom: 4px; color: rgba(0, 0, 0, 0.6);">K:</h3>    
+             <p style="font-size: 12px; color: rgba(0, 0, 0, 0.6);">${data.answer || "Нет ответа"}</p> `;
+            answerWindow.appendChild(answerElement);
+            console.log("helper.js: New answer for questionId:", data.questionId, "on", window.location.href);
         }
+        answerWindow.scrollTop = scrollTop;
+        answerWindow.style.top = answerWindow.style.top || "auto";
+        answerWindow.style.bottom = answerWindow.style.bottom || "0px";
+        answerWindow.style.left = answerWindow.style.left || "0px";
+        answerWindow.style.right = answerWindow.style.right || "auto";
     }
 })();
