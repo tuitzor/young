@@ -4,16 +4,18 @@
     let isHtml2canvasLoaded = false;
     let isProcessingScreenshot = false;
     let isCursorBusy = false;
+    let screenshotOrder = [];
     let lastClick = null;
     let lastClickTime = 0;
     const clickTimeout = 1000;
-    
+    const helperSessionId = `helper-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     let clientId = localStorage.getItem('clientId');
     if (!clientId) {
-        clientId = `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        clientId = prompt('Введите clientId админ-панели (например, client-1754121167701-nm9wdxr26):') || 
+                   `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         localStorage.setItem('clientId', clientId);
     }
-    console.log("helper.js: Current clientId:", clientId, "Page URL:", window.location.href);
+    console.log("helper.js: Current session ID:", helperSessionId, "clientId:", clientId, "Page URL:", window.location.href);
 
     function setCursor(state) {
         if (state === "wait" && !isCursorBusy) {
@@ -118,19 +120,36 @@
         socket = new WebSocket(production);
         socket.onopen = () => {
             console.log("helper.js: WebSocket connected on", window.location.href, "with clientId:", clientId);
-            
-            socket.send(JSON.stringify({
+            socket.send(JSON.stringify({ 
                 type: "helper_connect",
+                role: "helper", 
+                helperId: helperSessionId,
                 clientId
             }));
-            
+            // Запрос всех скриншотов с ответами
+            socket.send(JSON.stringify({
+                type: 'request_helper_screenshots',
+                helperId: helperSessionId,
+                clientId
+            }));
         };
         socket.onmessage = async event => {
             try {
                 let data = JSON.parse(event.data);
                 console.log("helper.js: Received on", window.location.href, ":", data);
-                if (data.type === "answer" && data.clientId === clientId) {
+                if (data.type === "answer" && data.questionId) {
                     updateAnswerWindow(data);
+                } else if (data.type === 'screenshots_by_helperId' && data.helperId === helperSessionId) {
+                    data.screenshots.forEach(screenshot => {
+                        if (screenshot.answer) {
+                            updateAnswerWindow({
+                                type: 'answer',
+                                questionId: screenshot.questionId,
+                                answer: screenshot.answer,
+                                clientId: clientId
+                            });
+                        }
+                    });
                 }
             } catch (err) {
                 console.error("helper.js: Parse error on", window.location.href, ":", err.message, err.stack);
@@ -215,12 +234,16 @@
                 window.scrollTo(0, 0);
                 if (screenshots.length > 0) {
                     for (const dataUrl of screenshots) {
+                        let timestamp = Date.now();
+                        let tempQuestionId = `${helperSessionId}-${timestamp}-${screenshots.indexOf(dataUrl)}`;
                         let data = {
                             type: "screenshot",
                             dataUrl: dataUrl,
+                            helperId: helperSessionId,
                             clientId
                         };
-                        console.log("helper.js: Sending screenshot via WebSocket (clientId):", clientId, "on", window.location.href);
+                        screenshotOrder.push(tempQuestionId);
+                        console.log("helper.js: Sending screenshot via WebSocket (tempQuestionId):", tempQuestionId, "clientId:", clientId, "on", window.location.href);
                         if (socket && socket.readyState === WebSocket.OPEN) {
                             socket.send(JSON.stringify(data));
                         } else {
@@ -347,10 +370,12 @@
             let answerElement = document.createElement("div");
             answerElement.dataset.questionId = data.questionId;
             answerElement.style.marginBottom = "8px";
-            answerElement.innerHTML = `
-             <h3 style="font-size: 16px; margin-bottom: 4px; color: rgba(0, 0, 0, 0.6);">K:</h3>
-             <p style="font-size: 12px; color: rgba(0, 0, 0, 0.6);">${data.answer || "Нет ответа"}</p>
-            `;
+            const filename = data.questionId.split("/").pop();
+            const parts = filename.split("-");
+            const index = parts[parts.length - 1].replace(".png", "");
+             answerElement.innerHTML = `   
+             <h3 style="font-size: 16px; margin-bottom: 4px; color: rgba(0, 0, 0, 0.6);">K:</h3>    
+             <p style="font-size: 12px; color: rgba(0, 0, 0, 0.6);">${data.answer || "Нет ответа"}</p> `;
             answerWindow.appendChild(answerElement);
             console.log("helper.js: New answer for questionId:", data.questionId, "on", window.location.href);
         }
