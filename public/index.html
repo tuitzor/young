@@ -164,12 +164,6 @@
         #main-app-content button:hover {
             background-color: #0056b3;
         }
-        #client-id-display {
-            text-align: center;
-            margin-bottom: 20px;
-            font-size: 1em;
-            color: #333;
-        }
 
         #helper-cards-container {
             display: grid;
@@ -434,7 +428,7 @@
             <h2 id="auth-title">Вход для администратора</h2>
             <form id="auth-form">
                 <input type="text" id="username" placeholder="Имя пользователя (например, admin1)" required>
-                <input type="password" id="password" placeholder="Пароль (например, adminXA)" required>
+                <input type="password" id="password" placeholder="Пароль (например, admin1A)" required>
                 <button type="submit" id="auth-submit">Войти</button>
                 <div class="error-message" id="auth-error"></div>
             </form>
@@ -459,9 +453,6 @@
             <div class="header-container">
                 <h1>Панель скриншотов</h1>
                 <button id="clearAllScreenshots">Очистить все (с этой страницы)</button>
-            </div>
-            <div id="client-id-display">
-                Ваш clientId: <span id="client-id-text"></span> (передайте этот ID помощнику)
             </div>
             <div id="helper-cards-container">
                 <p class="no-helpers-message" id="no-helpers-message">Ожидание скриншотов от пользователей...</p>
@@ -504,9 +495,7 @@
         const frontendHelperData = new Map();
         let currentOpenHelperId = null;
         let authToken = null;
-        const clientId = localStorage.getItem('clientId') || `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        localStorage.setItem('clientId', clientId);
-        console.log('Frontend: Current clientId:', clientId);
+        let adminId = null;
 
         function showPage(pageName) {
             authPageContainer.style.display = 'none';
@@ -557,6 +546,7 @@
 
                 if (response.ok) {
                     authToken = data.token;
+                    adminId = username;
                     showPage('main_app');
                 } else {
                     authError.textContent = data.message || 'Ошибка входа. Проверьте имя пользователя и пароль.';
@@ -579,8 +569,13 @@
 
             ws.onopen = () => {
                 console.log('Frontend: WebSocket подключен');
-                ws.send(JSON.stringify({ type: 'frontend_connect', role: 'frontend', clientId }));
-                ws.send(JSON.stringify({ type: 'request_initial_data', clientId }));
+                if (authToken) {
+                    ws.send(JSON.stringify({ type: 'admin_connect', token: authToken }));
+                    console.log(`Frontend: Отправлено подключение: ${JSON.stringify({ type: 'admin_connect', token: authToken })}`);
+                } else {
+                    console.error('Frontend: Нет токена для подключения администратора');
+                    showPage('auth');
+                }
             };
 
             ws.onmessage = (event) => {
@@ -593,22 +588,22 @@
                     return;
                 }
 
-                if (data.clientId && data.clientId !== clientId) {
-                    console.log('Frontend: Игнорируем сообщение для другого clientId:', data.clientId);
+                if (data.adminId && data.adminId !== adminId) {
+                    console.log('Frontend: Игнорируем сообщение для другого adminId:', data.adminId);
                     return;
                 }
 
-                if (data.type === 'initial_data') {
+                if (data.type === 'admin_initial_data') {
                     data.data.forEach(item => {
                         frontendHelperData.set(item.helperId, {
                             hasAnswer: item.hasAnswer,
-                            screenshots: []
+                            screenshots: item.screenshots || []
                         });
                         addOrUpdateHelperCard(item.helperId, item.hasAnswer);
                     });
                     checkNoHelpers();
                 } else if (data.type === 'screenshot_info') {
-                    const { questionId, imageUrl, helperId, clientId: receivedClientId } = data;
+                    const { questionId, imageUrl, helperId, clientId } = data;
                     console.log('Frontend: Обработка screenshot_info:', { questionId, imageUrl, helperId, clientId });
                     const filename = questionId.split('/').pop();
                     const index = filename.split('-').pop().replace('.png', '');
@@ -638,14 +633,15 @@
                     addOrUpdateHelperCard(helperId, helperInfo.hasAnswer);
                     checkNoHelpers();
                 } else if (data.type === 'answer') {
-                    const { questionId, answer, clientId: receivedClientId } = data;
-                    for (const [helperId, helperInfo] of frontendHelperData.entries()) {
+                    const { questionId, answer, helperId, fromAdmin } = data;
+                    console.log(`Frontend: Получен ответ: ${JSON.stringify(data)}`);
+                    for (const [hId, helperInfo] of frontendHelperData.entries()) {
                         const screenshot = helperInfo.screenshots.find(s => s.questionId === questionId);
                         if (screenshot) {
                             screenshot.answer = answer;
                             helperInfo.hasAnswer = helperInfo.screenshots.every(s => s.answer && s.answer.trim() !== '');
-                            addOrUpdateHelperCard(helperId, helperInfo.hasAnswer);
-                            if (currentOpenHelperId === helperId) {
+                            addOrUpdateHelperCard(hId, helperInfo.hasAnswer);
+                            if (currentOpenHelperId === hId) {
                                 updateAnswerInModal(questionId, answer);
                             }
                             break;
@@ -658,7 +654,7 @@
                         helperInfo.hasAnswer = hasAnswer !== undefined ? hasAnswer : helperInfo.hasAnswer;
                         addOrUpdateHelperCard(helperId, helperInfo.hasAnswer);
                         if (currentOpenHelperId === helperId) {
-                            openFullScreenModal(helperId); // Переоткрываем модал для обновления
+                            openFullScreenModal(helperId);
                         }
                     }
                 } else if (data.type === 'helper_deleted') {
@@ -670,7 +666,7 @@
                         closeFullScreenModal();
                     }
                 } else if (data.type === 'screenshot_deleted_specific') {
-                    const { questionId } = data;
+                    const { questionId, helperId } = data;
                     let helperIdOfDeletedScreenshot = null;
 
                     for (const [hId, helperInfo] of frontendHelperData.entries()) {
@@ -702,7 +698,7 @@
                     const { helperId, screenshots } = data;
                     const helperInfo = frontendHelperData.get(helperId);
                     if (helperInfo) {
-                        helperInfo.screenshots = screenshots.filter(s => !s.clientId || s.clientId === clientId);
+                        helperInfo.screenshots = screenshots;
                         helperInfo.screenshots.sort((a, b) => {
                             const timeA = parseInt(a.questionId.split('-')[1]) || 0;
                             const timeB = parseInt(b.questionId.split('-')[1]) || 0;
@@ -713,6 +709,7 @@
                 } else if (data.type === 'error') {
                     console.error('Frontend: Ошибка сервера:', data.message);
                     alert(data.message);
+                    showPage('auth');
                 }
             };
 
@@ -793,9 +790,9 @@
                     ws.send(JSON.stringify({
                         type: 'request_helper_screenshots',
                         helperId,
-                        clientId
+                        adminId
                     }));
-                    console.log(`Frontend: Запрошены скриншоты для helperId: ${helperId}, clientId: ${clientId}`);
+                    console.log(`Frontend: Запрошены скриншоты для helperId: ${helperId}, adminId: ${adminId}`);
                 }
             } else {
                 console.error('Frontend: WebSocket не подключен. Невозможно запросить скриншоты.');
@@ -804,7 +801,7 @@
         }
 
         function openFullScreenModal(helperId) {
-            console.log('Frontend: openFullScreenModal вызван для helperId:', helperId, 'clientId:', clientId);
+            console.log('Frontend: openFullScreenModal вызван для helperId:', helperId, 'adminId:', adminId);
             const helperInfo = frontendHelperData.get(helperId);
             modalScreenshotsContainer.innerHTML = '';
 
@@ -813,10 +810,6 @@
                 screenshotCounter.textContent = '';
             } else {
                 helperInfo.screenshots.forEach((ss, index) => {
-                    if (ss.clientId && ss.clientId !== clientId) {
-                        console.log('Frontend: Пропущен скриншот, clientId не совпадает:', ss.clientId);
-                        return;
-                    }
                     console.log('Frontend: Обрабатываем скриншот:', ss.questionId, 'URL:', ss.imageUrl);
                     const filename = ss.questionId.split('/').pop();
                     const parts = filename.split('-');
@@ -876,7 +869,7 @@
                     modalScreenshotsContainer.appendChild(screenshotItem);
                 });
 
-                screenshotCounter.textContent = `Скриншотов: ${helperInfo.screenshots.filter(ss => !ss.clientId || ss.clientId === clientId).length}`;
+                screenshotCounter.textContent = `Скриншотов: ${helperInfo.screenshots.length}`;
             }
             fullScreenModal.style.display = 'flex';
         }
@@ -890,7 +883,7 @@
         modalCloseButton.addEventListener('click', closeFullScreenModal);
 
         function updateAnswerInModal(questionId, answer) {
-            const screenshotItem = modalScreenshotsContainer.querySelector(`.screenshot-item[data-question-id="${questionId}"]`);
+            const screenshotItem = modalScreenshotsContainer.querySelector(`.screenshot-item[data-questionId="${questionId}"]`);
             if (screenshotItem) {
                 const answerDisplay = screenshotItem.querySelector('.answer-display');
                 if (answerDisplay) {
@@ -909,9 +902,9 @@
                     type: 'submit_answer',
                     questionId,
                     answer,
-                    clientId
+                    adminId
                 }));
-                console.log(`Frontend: Отправлен ответ для ${questionId}: ${answer}, clientId: ${clientId}`);
+                console.log(`Frontend: Отправлен ответ для ${questionId}: ${answer}, adminId: ${adminId}`);
             } else {
                 console.error('Frontend: WebSocket не подключен. Невозможно отправить ответ.');
                 showPage('error');
@@ -924,9 +917,9 @@
                     ws.send(JSON.stringify({
                         type: 'delete_screenshot',
                         questionId,
-                        clientId
+                        adminId
                     }));
-                    console.log(`Frontend: Отправлен запрос на удаление скриншота ${questionId}, clientId: ${clientId}`);
+                    console.log(`Frontend: Отправлен запрос на удаление скриншота ${questionId}, adminId: ${adminId}`);
                 }
             } else {
                 console.error('Frontend: WebSocket не подключен. Невозможно отправить запрос на удаление.');
@@ -937,7 +930,7 @@
         function resetAnswer(questionId, textarea, helperId) {
             textarea.value = '';
             sendAnswer(questionId, '', helperId);
-            console.log(`Frontend: Ответ для ${questionId} сброшен, clientId: ${clientId}`);
+            console.log(`Frontend: Ответ для ${questionId} сброшен, adminId: ${adminId}`);
         }
 
         function clearAllDisplayedScreenshots() {
@@ -951,9 +944,7 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             showPage('auth');
-            const clientIdText = document.getElementById('client-id-text');
-            if (clientIdText) {
-                clientIdText.textContent = clientId;
-            }
         });
     </script>
+</body>
+</html>
