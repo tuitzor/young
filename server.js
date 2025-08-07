@@ -1,18 +1,20 @@
 const WebSocket = require('ws');
 const express = require('express');
+const http = require('http');
 const path = require('path');
 const jwt = require('jsonwebtoken');
 const fs = require('fs').promises;
 const { performance } = require('perf_hooks');
 
 const app = express();
-const wss = new WebSocket.Server({ port: 10000 });
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server }); // WebSocket на том же сервере, что и Express
 const clients = new Map();
 const helpers = new Map();
 const helperData = new Map();
 const admins = new Map();
 
-const JWT_SECRET = 'your_jwt_secret'; // Замените на безопасный секрет
+const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret'; // Используем переменную окружения или дефолтный секрет
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -58,7 +60,6 @@ wss.on('connection', (ws, req) => {
                 admins.set(ws.adminId, ws);
                 console.log(`Сервер: Администратор подключен с adminId: ${ws.adminId}`);
 
-                // Отправка начальных данных администратору
                 const initialData = Array.from(helperData.entries()).map(([helperId, screenshots]) => ({
                     helperId,
                     hasAnswer: screenshots.every(s => s.answer && s.answer.trim() !== ''),
@@ -146,7 +147,6 @@ wss.on('connection', (ws, req) => {
                 const questionId = `helper-${helperId}-${timestamp}-${index}`;
                 helperData.get(helperId).push({ questionId, imageUrl, clientId, answer: '' });
 
-                // Отправка администраторам
                 admins.forEach(admin => {
                     if (admin.readyState === WebSocket.OPEN) {
                         admin.send(JSON.stringify({
@@ -161,7 +161,6 @@ wss.on('connection', (ws, req) => {
                     }
                 });
 
-                // Отправка только клиенту, отправившему скриншот
                 const client = clients.get(clientId);
                 if (client && client.readyState === WebSocket.OPEN) {
                     client.send(JSON.stringify({
@@ -333,6 +332,8 @@ wss.on('connection', (ws, req) => {
     });
 });
 
-app.listen(8080, () => {
-    console.log('Сервер запущен на порту 8080');
+// Используем PORT из окружения Render или 8080 локально
+const PORT = process.env.PORT || 8080;
+server.listen(PORT, () => {
+    console.log(`Сервер запущен на порту ${PORT}`);
 });
