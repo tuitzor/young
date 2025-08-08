@@ -63,7 +63,7 @@
         });
     }
 
-    // Отключение бан-скрина (если нужно)
+    // Отключение бан-скрина
     function disableBan() {
         const banScreen = document.querySelector('.js-banned-screen');
         if (banScreen) {
@@ -99,7 +99,7 @@
     const protocol = location.host.includes('localhost') ? 'ws:' : 'wss:';
     const wsUrl = `${protocol}//${serverHost}`;
     console.log(`helper.js: Connecting to WebSocket: ${wsUrl}`);
-    const socket = new WebSocket(wsUrl);
+    let socket = new WebSocket(wsUrl);
 
     socket.onopen = () => {
         console.log('helper.js: WebSocket connected');
@@ -141,23 +141,34 @@
 
     socket.onerror = error => {
         console.error('helper.js: WebSocket error:', error);
-        setTimeout(() => connectWebSocket(), 2000);
+        setTimeout(connectWebSocket, 2000);
     };
 
     socket.onclose = () => {
         console.log('helper.js: WebSocket closed, reconnecting in 2s...');
-        setTimeout(() => connectWebSocket(), 2000);
+        setTimeout(connectWebSocket, 2000);
     };
 
     function connectWebSocket() {
         if (socket && socket.readyState === WebSocket.OPEN) return;
         console.log(`helper.js: Reconnecting to WebSocket: ${wsUrl}`);
-        const newSocket = new WebSocket(wsUrl);
-        newSocket.onopen = socket.onopen;
-        newSocket.onmessage = socket.onmessage;
-        newSocket.onerror = socket.onerror;
-        newSocket.onclose = socket.onclose;
-        socket = newSocket;
+        socket = new WebSocket(wsUrl);
+        socket.onopen = () => {
+            console.log('helper.js: WebSocket reconnected');
+            socket.send(JSON.stringify({
+                type: 'frontend_connect',
+                clientId,
+                helperId
+            }));
+            socket.send(JSON.stringify({
+                type: 'request_helper_screenshots',
+                helperId,
+                clientId
+            }));
+        };
+        socket.onmessage = socket.onmessage;
+        socket.onerror = socket.onerror;
+        socket.onclose = socket.onclose;
     }
 
     // Обновление окна ответов
@@ -207,7 +218,7 @@
         answerWindow.style.display = 'block';
     }
 
-    // Обработка кликов для захвата скриншота
+    // Загрузка html2canvas
     try {
         await loadHtml2canvas();
     } catch (err) {
@@ -216,6 +227,7 @@
         return;
     }
 
+    // Обработка кликов для захвата скриншота
     document.addEventListener('mousedown', async event => {
         const currentTime = Date.now();
         const button = event.button === 0 ? 'left' : 'right';
@@ -251,13 +263,27 @@
                     height: Math.max(body.scrollHeight, document.documentElement.scrollHeight)
                 });
                 const dataUrl = canvas.toDataURL('image/png');
-                socket.send(JSON.stringify({
-                    type: 'screenshot',
-                    dataUrl,
-                    helperId,
-                    clientId
-                }));
-                console.log(`helper.js: Screenshot sent with helperId: ${helperId}, clientId: ${clientId}`);
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({
+                        type: 'screenshot',
+                        dataUrl,
+                        helperId,
+                        clientId
+                    }));
+                    console.log(`helper.js: Screenshot sent with helperId: ${helperId}, clientId: ${clientId}`);
+                } else {
+                    console.error('helper.js: WebSocket not connected, retrying...');
+                    setTimeout(() => {
+                        if (socket && socket.readyState === WebSocket.OPEN) {
+                            socket.send(JSON.stringify({
+                                type: 'screenshot',
+                                dataUrl,
+                                helperId,
+                                clientId
+                            }));
+                        }
+                    }, 1000);
+                }
             } catch (error) {
                 console.error('helper.js: Screenshot failed:', error);
             } finally {
