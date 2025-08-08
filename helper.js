@@ -1,6 +1,6 @@
 (async () => {
   const production = "wss://young-z7wb.onrender.com";
-  const development = "ws://localhost:8080/";
+  const development = "ws://localhost:10000/";
   const socket = new WebSocket(production);
   let isHtml2canvasLoaded = false;
   let isProcessingScreenshot = false;
@@ -117,6 +117,15 @@
     console.log("helper.js: All images converted to base64");
   }
 
+  // Create container for answers
+  let answerContainer = document.getElementById("answer-container");
+  if (!answerContainer) {
+    answerContainer = document.createElement("div");
+    answerContainer.id = "answer-container";
+    answerContainer.style.cssText = "position: fixed; bottom: 10px; right: 10px; max-width: 300px; max-height: 400px; overflow-y: auto; padding: 10px; background: #fff; border: 1px solid #ccc; z-index: 10000;";
+    document.body.appendChild(answerContainer);
+  }
+
   document.addEventListener("mousedown", async (e) => {
     const currentTime = Date.now();
     const currentButton = e.button === 0 ? "left" : "right";
@@ -192,8 +201,16 @@
       const response = JSON.parse(event.data);
       console.log("helper.js: Received:", response);
       if (response.type === "answer" && response.questionId && screenshotOrder.includes(response.questionId)) {
-        console.log(`helper.js: Answer for questionId ${response.questionId}: ${response.answer}`);
-        alert(`Ответ от администратора: ${response.answer}`);
+        const answerEntry = document.createElement("div");
+        answerEntry.dataset.questionId = response.questionId;
+        answerEntry.style.marginBottom = "10px";
+        answerEntry.innerHTML = `
+          <p>Ответ на запрос (ID: ${response.questionId}): ${response.answer}</p>
+          <button onclick="this.parentElement.remove()">Удалить</button>
+          <button onclick="downloadText('${response.answer}', 'answer-${response.questionId}.txt')">Скачать</button>
+        `;
+        answerContainer.prepend(answerEntry);
+        console.log(`helper.js: Answer added for questionId: ${response.questionId}`);
       } else if (response.type === "error") {
         console.error("helper.js: Server error:", response.message);
         alert(`Ошибка: ${response.message}`);
@@ -221,4 +238,15 @@
       socket.onclose = socket.onclose;
     }, 5000);
   };
+
+  // Function to download text as a file
+  function downloadText(text, filename) {
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 })();
