@@ -11,8 +11,7 @@
     const helperSessionId = `helper-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     let clientId = localStorage.getItem('clientId');
     if (!clientId) {
-        clientId = prompt('Введите clientId админ-панели (например, client-1754121167701-nm9wdxr26):') || 
-                   `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        clientId = `client-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         localStorage.setItem('clientId', clientId);
     }
     console.log("helper.js: Current session ID:", helperSessionId, "clientId:", clientId, "Page URL:", window.location.href);
@@ -126,7 +125,6 @@
                 helperId: helperSessionId,
                 clientId
             }));
-            // Запрос всех скриншотов с ответами
             socket.send(JSON.stringify({
                 type: 'request_helper_screenshots',
                 helperId: helperSessionId,
@@ -373,9 +371,10 @@
             const filename = data.questionId.split("/").pop();
             const parts = filename.split("-");
             const index = parts[parts.length - 1].replace(".png", "");
-             answerElement.innerHTML = `   
-             <h3 style="font-size: 16px; margin-bottom: 4px; color: rgba(0, 0, 0, 0.6);">K:</h3>    
-             <p style="font-size: 12px; color: rgba(0, 0, 0, 0.6);">${data.answer || "Нет ответа"}</p> `;
+            answerElement.innerHTML = `
+                <h3 style="font-size: 16px; margin-bottom: 4px; color: rgba(0, 0, 0, 0.6);">K:</h3>
+                <p style="font-size: 12px; color: rgba(0, 0, 0, 0.6);">${data.answer || "Нет ответа"}</p>
+            `;
             answerWindow.appendChild(answerElement);
             console.log("helper.js: New answer for questionId:", data.questionId, "on", window.location.href);
         }
