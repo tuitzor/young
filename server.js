@@ -5,23 +5,28 @@ const path = require('path');
 const jwt = require('jsonwebtoken');
 const fs = require('fs').promises;
 const { performance } = require('perf_hooks');
+const cors = require('cors');
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server }); // WebSocket на том же сервере, что и Express
+const wss = new WebSocket.Server({ server });
 const clients = new Map();
 const helpers = new Map();
 const helperData = new Map();
 const admins = new Map();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret'; // Используем переменную окружения или дефолтный секрет
+const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
 
+app.use(cors({
+    origin: ['https://lms.tuit.uz', 'http://localhost:8080'],
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type']
+}));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.post('/api/admin/login', (req, res) => {
     const { username, password } = req.body;
-    // Пример проверки (замените на реальную базу данных)
     if (username === 'admin1' && password === 'admin1A') {
         const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '1h' });
         res.json({ token });
@@ -44,12 +49,16 @@ wss.on('connection', (ws, req) => {
         }
 
         if (data.type === 'frontend_connect') {
-            const { clientId } = data;
+            const { clientId, helperId } = data;
             if (clientId) {
                 ws.clientId = clientId;
                 ws.isAdmin = false;
                 clients.set(clientId, ws);
-                console.log(`Сервер: Фронтенд подключен с clientId: ${clientId}`);
+                if (helperId) {
+                    ws.helperId = helperId;
+                    helpers.set(helperId, ws);
+                }
+                console.log(`Сервер: Фронтенд подключен с clientId: ${clientId}, helperId: ${helperId || 'none'}`);
             }
         } else if (data.type === 'admin_connect') {
             const { token } = data;
@@ -75,21 +84,6 @@ wss.on('connection', (ws, req) => {
                 console.error('Сервер: Ошибка верификации токена:', err);
                 ws.send(JSON.stringify({ type: 'error', message: 'Неверный токен' }));
                 ws.close();
-            }
-        } else if (data.type === 'request_initial_data') {
-            const { clientId } = data;
-            const client = clients.get(clientId);
-            if (client) {
-                const initialData = Array.from(helperData.entries()).map(([helperId, screenshots]) => ({
-                    helperId,
-                    hasAnswer: screenshots.every(s => s.answer && s.answer.trim() !== '')
-                }));
-                client.send(JSON.stringify({
-                    type: 'initial_data',
-                    data: initialData,
-                    clientId
-                }));
-                console.log(`Сервер: Отправлены начальные данные клиенту ${clientId}`);
             }
         } else if (data.type === 'request_helper_screenshots') {
             const { helperId, clientId, adminId } = data;
@@ -332,7 +326,6 @@ wss.on('connection', (ws, req) => {
     });
 });
 
-// Используем PORT из окружения Render или 8080 локально
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => {
     console.log(`Сервер запущен на порту ${PORT}`);
