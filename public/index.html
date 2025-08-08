@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Получатель скриншотов</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    #screenshot-container {
+      max-width: 100%;
+      margin-top: 20px;
+    }
+    img {
+      max-width: 100%;
+      height: auto;
+      margin-bottom: 10px;
+      border: 1px solid #ccc;
+    }
+    #clientIdDisplay {
+      font-weight: bold;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <h1>Получатель скриншотов</h1>
+  <p>Ваш Client ID: <span id="clientIdDisplay"></span></p>
+  <p id="roleInfo"></p>
+  <div id="screenshot-container"></div>
+  <script>
+    // Автоматическая генерация clientId
+    const clientId = `recipient-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+    document.getElementById('clientIdDisplay').textContent = clientId;
+
+    // Определение роли через параметр URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const role = urlParams.get('role') === 'admin' ? 'admin' : 'helper';
+    document.getElementById('roleInfo').textContent = role === 'admin' 
+      ? 'Вы администратор и видите все скриншоты.' 
+      : 'Вы клиент и видите только свои ответы. Поделитесь вашим Client ID с отправителем.';
+
+    let ws;
+    const screenshotOrder = [];
+
+    function connect() {
+      ws = new WebSocket('wss://young-z7wb.onrender.com');
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ role, clientId }));
+        console.log(`Подключено как: ${clientId} (${role})`);
+      };
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'screenshot' && role === 'admin') {
+            const img = document.createElement('img');
+            img.src = data.screenshot;
+            const div = document.createElement('div');
+            div.innerHTML = `<p>От: ${data.senderId} (ID запроса: ${data.questionId})</p>`;
+            div.appendChild(img);
+            document.getElementById('screenshot-container').prepend(div);
+            console.log('Получен скриншот от:', data.senderId);
+          } else if (data.type === 'answer' && role === 'helper' && screenshotOrder.includes(data.questionId)) {
+            const div = document.createElement('div');
+            div.innerHTML = `<p>Ответ на ваш запрос (ID: ${data.questionId}): ${data.answer}</p>`;
+            document.getElementById('screenshot-container').prepend(div);
+            console.log('Получен ответ:', data.answer);
+          } else if (data.type === 'error') {
+            console.error('Ошибка сервера:', data.message);
+            alert('Ошибка: ' + data.message);
+          }
+        } catch (error) {
+          console.error('Ошибка обработки сообщения:', error);
+        }
+      };
+      ws.onclose = () => {
+        console.log('Соединение разорвано, повторное подключение через 5 секунд...');
+        setTimeout(connect, 5000);
+      };
+      ws.onerror = (error) => {
+        console.error('Ошибка WebSocket:', error);
+        alert('Ошибка подключения к серверу');
+      };
+    }
+
+    // Подключение при загрузке страницы
+    connect();
+  </script>
+</body>
+</html>
