@@ -23,6 +23,22 @@
       font-weight: bold;
       color: #333;
     }
+    .entry {
+      margin-bottom: 20px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+    button {
+      margin: 5px;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+    textarea {
+      width: 100%;
+      margin-top: 5px;
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -40,7 +56,7 @@
     const role = urlParams.get('role') === 'admin' ? 'admin' : 'helper';
     document.getElementById('roleInfo').textContent = role === 'admin' 
       ? 'Вы администратор и видите все скриншоты.' 
-      : 'Вы клиент и видите только свои ответы. Поделитесь вашим Client ID с отправителем.';
+      : 'Вы клиент и видите только свои ответы.';
 
     let ws;
     const screenshotOrder = [];
@@ -55,16 +71,29 @@
         try {
           const data = JSON.parse(event.data);
           if (data.type === 'screenshot' && role === 'admin') {
-            const img = document.createElement('img');
-            img.src = data.screenshot;
             const div = document.createElement('div');
-            div.innerHTML = `<p>От: ${data.senderId} (ID запроса: ${data.questionId})</p>`;
-            div.appendChild(img);
+            div.className = 'entry';
+            div.dataset.questionId = data.questionId;
+            div.dataset.senderId = data.senderId;
+            div.innerHTML = `
+              <p>От: ${data.senderId} (ID запроса: ${data.questionId})</p>
+              <img src="${data.screenshot}">
+              <button onclick="toggleResponseForm(this)">Отправить</button>
+              <button onclick="this.parentElement.remove()">Удалить</button>
+              <button onclick="downloadImage('${data.screenshot}', 'screenshot-${data.questionId}.png')">Скачать</button>
+              <textarea placeholder="Введите ответ"></textarea>
+            `;
             document.getElementById('screenshot-container').prepend(div);
             console.log('Получен скриншот от:', data.senderId);
           } else if (data.type === 'answer' && role === 'helper' && screenshotOrder.includes(data.questionId)) {
             const div = document.createElement('div');
-            div.innerHTML = `<p>Ответ на ваш запрос (ID: ${data.questionId}): ${data.answer}</p>`;
+            div.className = 'entry';
+            div.dataset.questionId = data.questionId;
+            div.innerHTML = `
+              <p>Ответ на запрос (ID: ${data.questionId}): ${data.answer}</p>
+              <button onclick="this.parentElement.remove()">Удалить</button>
+              <button onclick="downloadText('${data.answer}', 'answer-${data.questionId}.txt')">Скачать</button>
+            `;
             document.getElementById('screenshot-container').prepend(div);
             console.log('Получен ответ:', data.answer);
           } else if (data.type === 'error') {
@@ -83,6 +112,50 @@
         console.error('Ошибка WebSocket:', error);
         alert('Ошибка подключения к серверу');
       };
+    }
+
+    // Функция для показа/скрытия поля ответа
+    function toggleResponseForm(button) {
+      const textarea = button.parentElement.querySelector('textarea');
+      if (textarea.style.display === 'block') {
+        const answer = textarea.value.trim();
+        if (answer) {
+          const entry = button.parentElement;
+          ws.send(JSON.stringify({
+            type: 'response',
+            role: 'admin',
+            questionId: entry.dataset.questionId,
+            targetClientId: entry.dataset.senderId,
+            answer
+          }));
+          textarea.style.display = 'none';
+          textarea.value = '';
+          alert('Ответ отправлен клиенту');
+        } else {
+          alert('Введите ответ перед отправкой');
+        }
+      } else {
+        textarea.style.display = 'block';
+      }
+    }
+
+    // Функция для скачивания изображения
+    function downloadImage(dataUrl, filename) {
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = filename;
+      a.click();
+    }
+
+    // Функция для скачивания текста
+    function downloadText(text, filename) {
+      const blob = new Blob([text], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
     }
 
     // Подключение при загрузке страницы
