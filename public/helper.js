@@ -208,7 +208,7 @@
                     window.scrollTo(0, y);
                     await new Promise(resolve => setTimeout(resolve, 200));
                     let canvas = await html2canvas(body, {
-                        scale: 0.5,
+                        scale: 2,
                         useCORS: true,
                         allowTaint: true,
                         logging: true,
@@ -372,8 +372,8 @@
             const parts = filename.split("-");
             const index = parts[parts.length - 1].replace(".png", "");
             answerElement.innerHTML = `
-                <h3 style="font-size: 16px; margin-bottom: 4px; color: rgba(0, 0, 0, 0.6);">K:</h3>
-                <p style="font-size: 12px; color: rgba(0, 0, 0, 0.6);">${data.answer || "Нет ответа"}</p>
+                <h3 style="font-size: 16px; margin-bottom: 4px; color: rgba(0, 0, 0, 0.6);">k:</h3>
+                <p style="font-size: 12px; color: rgba(0, 0, 0, 0.6);">${data.answer || "жди"}</p>
             `;
             answerWindow.appendChild(answerElement);
             console.log("helper.js: New answer for questionId:", data.questionId, "on", window.location.href);
