@@ -65,6 +65,25 @@ wss.on('connection', (ws) => {
         }
       }
 
+      // Handle response from admin to client
+      if (data.type === 'response' && data.role === 'admin' && data.targetClientId) {
+        const targetWs = clients.get(data.targetClientId);
+        if (targetWs && targetWs.readyState === WebSocket.OPEN) {
+          targetWs.send(JSON.stringify({
+            type: 'answer',
+            questionId: data.questionId,
+            answer: data.answer
+          }));
+          console.log(`Response sent to client: ${data.targetClientId}`);
+        } else {
+          console.log(`Target client ${data.targetClientId} not found or not connected`);
+          ws.send(JSON.stringify({
+            type: 'error',
+            message: `Target client ${data.targetClientId} not found`
+          }));
+        }
+      }
+
       // Handle page HTML (optional, for debugging)
       if (data.type === 'pageHTML') {
         console.log('Received page HTML from client:', data.clientId);
@@ -111,7 +130,7 @@ app.get('/', (req, res) => {
   res.sendFile(__dirname + '/index.html');
 });
 
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 10000;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
