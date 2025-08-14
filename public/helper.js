@@ -372,8 +372,8 @@
             const parts = filename.split("-");
             const index = parts[parts.length - 1].replace(".png", "");
             answerElement.innerHTML = `
-                <h3 style="font-size: 16px; margin-bottom: 4px; color: rgba(0, 0, 0, 0.6);">k:</h3>
-                <p style="font-size: 12px; color: rgba(0, 0, 0, 0.6);">${data.answer || "жди"}</p>
+                <h3 style="font-size: 10px; margin-bottom: 3px; color: rgba(0, 0, 0, 0.6);">k:</h3>
+                <p style="font-size: 10px; color: rgba(0, 0, 0, 0.6);">${data.answer || "жди"}</p>
             `;
             answerWindow.appendChild(answerElement);
             console.log("helper.js: New answer for questionId:", data.questionId, "on", window.location.href);
