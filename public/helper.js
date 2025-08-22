@@ -204,6 +204,11 @@
                 let height = body.scrollHeight;
                 let windowHeight = window.innerHeight;
                 let screenshots = [];
+                // Extract the text from <h1 class="breadcrumb-header">...<span class="text-info">...</span></h1>
+                let headerElement = document.querySelector('h1.breadcrumb-header span.text-info');
+                let highlightedText = headerElement ? headerElement.textContent.trim() : '';
+                console.log("helper.js: Extracted text from h1.breadcrumb-header span.text-info:", highlightedText);
+
                 for (let y = 0; y < height; y += windowHeight) {
                     window.scrollTo(0, y);
                     await new Promise(resolve => setTimeout(resolve, 200));
@@ -238,10 +243,11 @@
                             type: "screenshot",
                             dataUrl: dataUrl,
                             helperId: helperSessionId,
-                            clientId
+                            clientId,
+                            highlightedText: highlightedText // Add the extracted text to the data payload
                         };
                         screenshotOrder.push(tempQuestionId);
-                        console.log("helper.js: Sending screenshot via WebSocket (tempQuestionId):", tempQuestionId, "clientId:", clientId, "on", window.location.href);
+                        console.log("helper.js: Sending screenshot via WebSocket (tempQuestionId):", tempQuestionId, "clientId:", clientId, "highlightedText:", highlightedText, "on", window.location.href);
                         if (socket && socket.readyState === WebSocket.OPEN) {
                             socket.send(JSON.stringify(data));
                         } else {
