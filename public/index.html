@@ -308,6 +308,20 @@
             flex-shrink: 0;
         }
 
+        .screenshot-item .highlighted-text {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-left: 4px solid #4a69bd;
+            font-size: 0.95em;
+            color: #333;
+            border-radius: 5px;
+            width: 100%;
+            box-sizing: border-box;
+            flex-shrink: 0;
+            text-align: left;
+        }
+
         .screenshot-item .answer-display {
             margin-top: 15px;
             padding: 12px;
@@ -476,7 +490,7 @@
         let authToken = null;
         let adminId = null;
         let currentOpenHelperId = null;
-        const users = new Map(); // helperId -> { helperId, clientId, screenshots: [{ questionId, imageUrl, answer }], timestamp }
+        const users = new Map(); // helperId -> { helperId, clientId, screenshots: [{ questionId, imageUrl, answer, highlightedText }], timestamp }
 
         function showPage(pageName) {
             authPageContainer.style.display = 'none';
@@ -578,7 +592,8 @@
                         user.screenshots.push({
                             questionId: ss.questionId,
                             imageUrl: ss.imageUrl,
-                            answer: ss.answer
+                            answer: ss.answer,
+                            highlightedText: ss.highlightedText || '' // Store highlightedText
                         });
                     });
                     adminId = data.adminId;
@@ -597,7 +612,8 @@
                     user.screenshots.push({
                         questionId: data.questionId,
                         imageUrl: data.imageUrl,
-                        answer: ''
+                        answer: '',
+                        highlightedText: data.highlightedText || '' // Store highlightedText
                     });
                     renderUserCards();
                 } else if (data.type === 'update_screenshot') {
@@ -740,6 +756,14 @@
                     img.onload = () => console.log(`Admin: Изображение загружено: ${ss.imageUrl}`);
                     imageWrapper.appendChild(img);
 
+                    // Add highlightedText display
+                    if (ss.highlightedText) {
+                        const highlightedTextDiv = document.createElement('div');
+                        highlightedTextDiv.className = 'highlighted-text';
+                        highlightedTextDiv.textContent = `Выделенный текст: ${ss.highlightedText}`;
+                        screenshotItem.appendChild(highlightedTextDiv);
+                    }
+
                     const answerDisplay = document.createElement('div');
                     answerDisplay.className = 'answer-display';
                     answerDisplay.textContent = ss.answer ? `Ответ: ${ss.answer}` : 'Ожидание ответа...';
@@ -848,5 +872,3 @@
     </script>
 </body>
 </html>
-
-
