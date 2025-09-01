@@ -216,131 +216,167 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.9);
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.95), rgba(20, 20, 40, 0.95));
             z-index: 1000;
             flex-direction: column;
-            padding: 20px;
+            padding: 30px;
             box-sizing: border-box;
             overflow-y: auto;
+            backdrop-filter: blur(5px);
         }
 
         #modal-header {
             width: 100%;
-            max-width: 90vw;
+            max-width: 95vw;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
-            padding: 0 10px;
+            margin-bottom: 30px;
+            padding: 15px 20px;
             box-sizing: border-box;
             position: sticky;
             top: 0;
-            background-color: rgba(0, 0, 0, 0.9);
+            background: rgba(20, 20, 40, 0.9);
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
             z-index: 101;
         }
 
         #modal-header #modal-close-button {
             position: static;
             margin-bottom: 0;
+            background-color: #dc3545;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 500;
+            transition: background-color 0.2s ease, transform 0.2s ease;
+        }
+
+        #modal-header #modal-close-button:hover {
+            background-color: #c82333;
+            transform: translateY(-2px);
         }
 
         #modal-header #screenshot-counter {
-            color: white;
-            font-size: 1.1em;
-            font-weight: bold;
+            color: #fff;
+            font-size: 1.2em;
+            font-weight: 600;
+            letter-spacing: 0.5px;
         }
 
         #modal-screenshots-container {
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 25px;
             width: 100%;
-            max-width: 1000px;
+            max-width: 1200px;
             margin: 0 auto;
-            padding-bottom: 20px;
+            padding-bottom: 40px;
             box-sizing: border-box;
             align-items: center;
         }
 
         .screenshot-item {
-            background-color: white;
-            border: 1px solid #e0e0e0;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            background: linear-gradient(145deg, #ffffff, #f8f9fa);
+            border: none;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
             display: flex;
             flex-direction: column;
             align-items: center;
             box-sizing: border-box;
             width: 100%;
+            max-width: 1000px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .screenshot-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
         }
 
         .screenshot-item h3 {
-            font-size: 1.2em;
-            margin-top: 0;
-            margin-bottom: 15px;
-            color: #4a69bd;
-            border-bottom: 1px solid #f0f0f0;
-            padding-bottom: 10px;
+            font-size: 1.4em;
+            margin: 0 0 20px 0;
+            color: #1a3c6d;
+            border-bottom: 2px solid #e0e7ff;
+            padding-bottom: 12px;
             width: 100%;
             text-align: left;
-            flex-shrink: 0;
+            font-weight: 600;
         }
+
         .screenshot-item .image-wrapper {
             width: 100%;
+            max-width: 900px;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 150px;
+            min-height: 200px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 15px;
+            box-sizing: border-box;
         }
 
         .screenshot-item img {
             max-width: 100%;
-            max-height: 500px;
+            max-height: 600px;
             width: auto;
             height: auto;
             display: block;
             margin: 0 auto;
-            border: 1px solid #f5f5f5;
-            border-radius: 5px;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
             object-fit: contain;
             background-color: #fff;
-            flex-shrink: 0;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
 
         .screenshot-item .answer-display {
-            margin-top: 15px;
-            padding: 12px;
+            margin-top: 20px;
+            padding: 15px;
             background-color: #e9f5ff;
-            border-left: 4px solid #007bff;
-            font-size: 0.95em;
-            color: #333;
-            border-radius: 5px;
-            min-height: 3em;
+            border-left: 5px solid #0056b3;
+            font-size: 1em;
+            color: #1a3c6d;
+            border-radius: 6px;
+            min-height: 3.5em;
             display: flex;
             align-items: center;
             width: 100%;
             box-sizing: border-box;
-            flex-shrink: 0;
         }
+
         .screenshot-item textarea {
-            margin-top: 15px;
-            min-height: 60px;
+            margin-top: 20px;
+            min-height: 80px;
             width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
             font-size: 1em;
             box-sizing: border-box;
-            flex-shrink: 0;
+            background-color: #f8fafc;
+            resize: vertical;
+            transition: border-color 0.2s ease;
         }
+
+        .screenshot-item textarea:focus {
+            border-color: #007bff;
+            outline: none;
+        }
+
         .screenshot-item .action-buttons {
             display: flex;
-            gap: 10px;
-            margin-top: 15px;
+            gap: 15px;
+            margin-top: 20px;
             width: 100%;
             flex-shrink: 0;
         }
+
         .screenshot-item .action-buttons button {
             flex: 1;
             padding: 12px;
@@ -351,42 +387,45 @@
             transition: background-color 0.2s ease, transform 0.2s ease;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
+
         .screenshot-item .action-buttons button:hover {
             transform: translateY(-2px);
         }
+
         .screenshot-item .submit-button {
             background-color: #28a745;
             color: white;
         }
+
         .screenshot-item .submit-button:hover {
             background-color: #218838;
         }
+
         .screenshot-item .delete-button {
             background-color: #dc3545;
             color: white;
         }
+
         .screenshot-item .delete-button:hover {
             background-color: #c82333;
         }
+
         .screenshot-item .reset-button {
             background-color: #6c757d;
             color: white;
         }
+
         .screenshot-item .reset-button:hover {
             background-color: #5a6268;
         }
-        .no-screenshots-message {
-            text-align: center;
-            font-size: 1.2em;
-            color: #777;
-            padding: 50px;
-        }
+
+        .no-screenshots-message,
         .no-screenshots-for-user {
             text-align: center;
-            width: 100%;
             font-size: 1.2em;
             color: #ccc;
             padding: 50px;
+            width: 100%;
         }
 
         @media (max-width: 768px) {
@@ -395,13 +434,28 @@
             }
             #modal-screenshots-container {
                 gap: 15px;
+                max-width: 95vw;
+            }
+            .screenshot-item {
+                max-width: 95vw;
+                padding: 15px;
             }
             .screenshot-item img {
-                max-height: 300px;
+                max-height: 400px;
+            }
+            .screenshot-item .image-wrapper {
+                max-width: 100%;
+                padding: 10px;
             }
             .screenshot-item .action-buttons button {
                 padding: 10px;
                 font-size: 0.9em;
+            }
+            #modal-header {
+                padding: 10px 15px;
+            }
+            #full-screen-modal {
+                padding: 20px;
             }
         }
     </style>
