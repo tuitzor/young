@@ -56,11 +56,11 @@ app.post('/api/admin/login', (req, res) => {
     const { username, password } = req.body;
     const validCredentials = {
         'AYAZ': 'AYAZ1',
-        'admin1': 'admin1A',
-        'admin2': 'admin2A',
-        'admin3': 'admin3A',
-        'admin4': 'admin4A',
-        'admin5': 'admin5A'
+        'XASAN': 'XASAN1',
+        'XUSAN': 'XUSAN1',
+        'JAHON': 'JAHON1',
+        'KAMRON': 'KAMRON1',
+        'EDUARD': 'EDUARD1'
     };
 
     if (validCredentials[username] && validCredentials[username] === password) {
@@ -455,3 +455,4 @@ app.get('/list-screenshots', (req, res) => {
         res.json(files);
     });
 });
+
