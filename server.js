@@ -1,458 +1,183 @@
 const express = require('express');
 const WebSocket = require('ws');
-const jwt = require('jsonwebtoken');
 const path = require('path');
 const fs = require('fs');
-const sharp = require('sharp');
 const cors = require('cors');
 
 const app = express();
-const port = process.env.PORT || 10000;
-const secretKey = 'your-secret-key'; // Replace with a secure key in production
+const PORT = process.env.PORT || 10000;
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
-app.use('/screenshots', express.static(path.join(__dirname, 'public/screenshots')));
+app.use(express.static('public'));
+app.use('/tests', express.static(path.join(__dirname, 'public/tests')));
 
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-const wss = new WebSocket.Server({ server: app.listen(port, () => {
-    console.log(`Сервер запущен на порту: ${port}`);
-    console.log(`WebSocket-сервер запущен на ws://localhost:${port}`);
-}) });
-
-const screenshotDir = path.join(__dirname, 'public/screenshots');
-if (!fs.existsSync(screenshotDir)) {
-    fs.mkdirSync(screenshotDir, { recursive: true });
-    console.log('Сервер: Папка для скриншотов создана:', screenshotDir);
+// Папка для хранения тестов
+const testsDir = path.join(__dirname, 'public/tests');
+if (!fs.existsSync(testsDir)) {
+    fs.mkdirSync(testsDir, { recursive: true });
 }
 
-const helperData = new Map(); // helperId -> [screenshots]
-const clients = new Map();    // clientId -> WebSocket
-const helpers = new Map();    // helperId -> WebSocket
-const admins = new Map();     // adminId -> WebSocket
+// Хранилище: helperId → данные теста
+const activeTests = new Map(); // helperId → { data, timestamp, url, clientId }
 
-function loadExistingScreenshots() {
-    fs.readdirSync(screenshotDir).forEach(file => {
-        const match = file.match(/^helper-([^-]+)-(\d+-\d+)\.png$/);
-        if (match) {
-            const helperId = `helper-${match[1]}`;
-            const questionId = `${helperId}-${match[2]}`;
-            if (!helperData.has(helperId)) {
-                helperData.set(helperId, []);
-            }
-            helperData.get(helperId).push({ questionId, imageUrl: `/screenshots/${file}`, clientId: null, answer: '' });
-        }
-    });
-    console.log(`Сервер: Загружено ${helperData.size} помощников с ${Array.from(helperData.values()).reduce((sum, v) => sum + v.length, 0)} скриншотами`);
-}
+const clients = new Map(); // clientId → ws (фронтенд)
+const helpers = new Map(); // helperId → ws
+const admins = new Map();  // adminId → ws
 
-loadExistingScreenshots();
-
-app.post('/api/admin/login', (req, res) => {
-    const { username, password } = req.body;
-    const validCredentials = {
-        'AYAZ': 'AYAZ1',
-        'XASAN': 'XASAN1',
-        'XUSAN': 'XUSAN1',
-        'JAHON': 'JAHON1',
-        'KAMRON': 'KAMRON1',
-        'EDUARD': 'EDUARD1'
-    };
-
-    if (validCredentials[username] && validCredentials[username] === password) {
-        const token = jwt.sign({ username, role: 'admin' }, secretKey, { expiresIn: '1h' });
-        res.json({ token });
-    } else {
-        res.status(401).json({ message: 'Неверное имя пользователя или пароль' });
-    }
+// === Запуск сервера ===
+const server = app.listen(PORT, () => {
+    console.log(`Сервер запущен: http://localhost:${PORT}`);
+    console.log(`Тесты будут доступны по: http://localhost:${PORT}/tests`);
 });
 
+const wss = new WebSocket.Server({ server });
+
+// === WebSocket обработка ===
 wss.on('connection', (ws) => {
-    console.log('Сервер: Новый клиент подключился по WebSocket');
-    ws.isAlive = true;
-    ws.on('pong', () => {
-        ws.isAlive = true;
-        console.log(`Сервер: Получен pong от клиента, helperId: ${ws.helperId || 'unknown'}, clientId: ${ws.clientId || 'unknown'}, adminId: ${ws.adminId || 'unknown'}`);
-    });
+    console.log('Новый клиент подключился');
 
-    ws.on('message', (message) => {
+    ws.isAlive = true;
+    ws.on('pong', () => ws.isAlive = true);
+
+    ws.on('message', (msg) => {
         let data;
         try {
-            data = JSON.parse(message);
-            console.log('Сервер: Получено сообщение по WS:', data);
-        } catch (err) {
-            console.error('Сервер: Ошибка разбора сообщения:', err);
+            data = JSON.parse(msg);
+        } catch (e) {
+            console.error('Ошибка парсинга:', e);
             return;
         }
 
+        // === 1. Подключение фронтенда (студента) ===
         if (data.type === 'frontend_connect' && data.role === 'frontend') {
-            ws.clientId = data.clientId || `anonymous-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            ws.clientId = data.clientId || `client-${Date.now()}`;
             clients.set(ws.clientId, ws);
-            console.log(`Сервер: Фронтенд-клиент идентифицирован, clientId: ${ws.clientId}, активных фронтенд-клиентов: ${clients.size}`);
-            const initialData = Array.from(helperData.entries()).map(([helperId, screenshots]) => ({
+            console.log(`Фронтенд подключён: ${ws.clientId}`);
+
+            // Отправляем ему список всех активных тестов
+            const list = Array.from(activeTests.entries()).map(([helperId, info]) => ({
                 helperId,
-                hasAnswer: screenshots.every(s => s.answer && s.answer.trim() !== '')
+                url: info.url,
+                title: info.title || 'Без названия',
+                total: info.data.length,
+                timestamp: info.timestamp
             }));
-            ws.send(JSON.stringify({ type: 'initial_data', data: initialData, clientId: ws.clientId }));
-        } else if (data.type === 'admin_connect' && data.role === 'admin') {
-            ws.adminId = `admin-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            ws.send(JSON.stringify({ type: 'tests_list', list }));
+        }
+
+        // === 2. Подключение админа ===
+        if (data.type === 'admin_connect' && data.role === 'admin') {
+            ws.adminId = `admin-${Date.now()}`;
             admins.set(ws.adminId, ws);
-            console.log(`Сервер: Админ подключился, adminId: ${ws.adminId}, активных админов: ${admins.size}`);
-            // Send all screenshots to the admin
-            const allScreenshots = Array.from(helperData.entries()).flatMap(([helperId, screenshots]) =>
-                screenshots.map(screenshot => ({
-                    helperId,
-                    questionId: screenshot.questionId,
-                    imageUrl: screenshot.imageUrl,
-                    clientId: screenshot.clientId,
-                    answer: screenshot.answer
-                }))
-            );
+            console.log(`Админ подключён: ${ws.adminId}`);
+
+            // Отправляем админу ВСЁ
             ws.send(JSON.stringify({
-                type: 'all_screenshots',
-                screenshots: allScreenshots,
-                adminId: ws.adminId
+                type: 'all_tests_full',
+                tests: Object.fromEntries(activeTests)
             }));
-            console.log(`Сервер: Отправлены все скриншоты админу ${ws.adminId}`);
-        } else if (data.type === 'request_initial_data') {
-            const initialData = Array.from(helperData.entries()).map(([helperId, screenshots]) => ({
-                helperId,
-                hasAnswer: screenshots.every(s => s.answer && s.answer.trim() !== '')
-            }));
-            ws.send(JSON.stringify({ type: 'initial_data', data: initialData, clientId: data.clientId || 'anonymous' }));
-        } else if (data.type === 'helper_connect' && data.role === 'helper') {
+        }
+
+        // === 3. Подключение помощника (хелпера) ===
+        if (data.type === 'helper_connect' && (data.role === 'helper' || data.role === 'auto_helper')) {
             ws.helperId = data.helperId;
             helpers.set(data.helperId, ws);
-            if (!helperData.has(data.helperId)) {
-                helperData.set(data.helperId, []);
+            console.log(`Хелпер подключён: ${data.helperId}`);
+        }
+
+        // === 4. Приём полного теста от хелпера (ГЛАВНОЕ!) ===
+        if (data.type === 'all_tests_auto' || data.type === 'all_tests_collected') {
+            const { helperId, clientId, url, title, tests } = data;
+
+            if (!helperId || !Array.isArray(tests) || tests.length === 0) {
+                console.log('Некорректные данные теста от', helperId);
+                return;
             }
-            console.log(`Сервер: Подключился помощник с ID: ${data.helperId}, активных помощников: ${helpers.size}`);
-        } else if (data.type === 'screenshot') {
-            const uniqueTimeLabel = `save-screenshot-${data.helperId}-${Date.now()}`;
-            console.time(uniqueTimeLabel);
-            const timestamp = Date.now();
-            const filename = `${data.helperId}-${timestamp}-0.png`;
-            const screenshotPath = path.join(screenshotDir, filename);
-            const buffer = Buffer.from(data.dataUrl.split(',')[1], 'base64');
-            sharp(buffer)
-                .resize({ width: 1280 })
-                .png({ quality: 80 })
-                .toFile(screenshotPath)
-                .then(() => {
-                    console.log(`Сервер: Скриншот сохранен: ${screenshotPath}`);
-                    const imageUrl = `/screenshots/${filename}`;
-                    const questionId = `${data.helperId}-${timestamp}-0`;
-                    if (!helperData.has(data.helperId)) {
-                        helperData.set(data.helperId, []);
-                    }
-                    helperData.get(data.helperId).push({ questionId, imageUrl, clientId: data.clientId || null, answer: '' });
-                    // Notify frontends (except the sender) and admins
-                    wss.clients.forEach(client => {
-                        if (client.readyState === WebSocket.OPEN) {
-                            if (client.clientId && client.clientId !== data.clientId) {
-                                client.send(JSON.stringify({
-                                    type: 'screenshot_info',
-                                    questionId,
-                                    imageUrl,
-                                    helperId: data.helperId,
-                                    clientId: client.clientId
-                                }));
-                                console.log(`Сервер: Сообщение о скриншоте отправлено фронтенду ${client.clientId}`);
-                            } else if (client.adminId) {
-                                client.send(JSON.stringify({
-                                    type: 'new_screenshot',
-                                    questionId,
-                                    imageUrl,
-                                    helperId: data.helperId,
-                                    clientId: data.clientId,
-                                    adminId: client.adminId
-                                }));
-                                console.log(`Сервер: Сообщение о скриншоте отправлено админу ${client.adminId}`);
-                            }
-                        }
-                    });
-                    console.timeEnd(uniqueTimeLabel);
-                })
-                .catch(err => {
-                    console.error('Сервер: Ошибка сохранения скриншота:', err);
-                    console.timeEnd(uniqueTimeLabel);
-                });
-        } else if (data.type === 'submit_answer') {
-            const { questionId, answer, clientId, adminId } = data;
-            for (const [helperId, screenshots] of helperData.entries()) {
-                const screenshot = screenshots.find(s => s.questionId === questionId);
-                if (screenshot) {
-                    screenshot.answer = answer;
-                    const targetClientId = screenshot.clientId; // Client who sent the screenshot
-                    const hasAnswer = screenshots.every(s => s.answer && s.answer.trim() !== '');
-                    // Send answer to the specific client and helper
-                    const targetClient = clients.get(targetClientId);
-                    if (targetClient && targetClient.readyState === WebSocket.OPEN) {
-                        targetClient.send(JSON.stringify({
-                            type: 'answer',
-                            questionId,
-                            answer,
-                            clientId: targetClientId
-                        }));
-                        console.log(`Сервер: Ответ отправлен клиенту ${targetClientId} для questionId: ${questionId}`);
-                    }
-                    const helperClient = helpers.get(helperId);
-                    if (helperClient && helperClient.readyState === WebSocket.OPEN) {
-                        helperClient.send(JSON.stringify({
-                            type: 'answer',
-                            questionId,
-                            answer,
-                            clientId: targetClientId
-                        }));
-                        console.log(`Сервер: Ответ отправлен помощнику ${helperId} для questionId: ${questionId}`);
-                    }
-                    // Notify all frontends and admins about the updated helper status
-                    wss.clients.forEach(client => {
-                        if (client.readyState === WebSocket.OPEN && client.clientId) {
-                            client.send(JSON.stringify({
-                                type: 'update_helper_card',
-                                helperId,
-                                hasAnswer,
-                                clientId: client.clientId
-                            }));
-                        }
-                        if (client.readyState === WebSocket.OPEN && client.adminId) {
-                            client.send(JSON.stringify({
-                                type: 'update_screenshot',
-                                questionId,
-                                answer,
-                                helperId,
-                                clientId: targetClientId,
-                                adminId: client.adminId
-                            }));
-                        }
-                    });
-                    break;
+
+            console.log(`\nПолучен тест от ${helperId}`);
+            console.log(`Вопросов: ${tests.length} | URL: ${url}`);
+
+            const testData = {
+                helperId,
+                clientId: clientId || null,
+                url,
+                title: title || new URL(url).pathname.split('/').pop() || 'test',
+                timestamp: Date.now(),
+                receivedAt: new Date().toISOString(),
+                data: tests
+            };
+
+            // Сохраняем в память
+            activeTests.set(helperId, testData);
+
+            // Сохраняем на диск (JSON + удобно открывать в браузере)
+            const safeName = helperId.replace(/[^a-zA-Z0-9_-]/g, '_');
+            const jsonPath = path.join(testsDir, `${safeName}.json`);
+            fs.writeFileSync(jsonPath, JSON.stringify(testData, null, 2));
+            console.log(`Тест сохранён: /tests/${safeName}.json`);
+
+            // Рассылаем всем
+            const notifyPayload = {
+                type: 'new_test_received',
+                helperId,
+                url,
+                title: testData.title,
+                total: tests.length,
+                jsonUrl: `/tests/${safeName}.json`,
+                timestamp: testData.timestamp
+            };
+
+            // Всем фронтендам
+            clients.forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                    client.send(JSON.stringify(notifyPayload));
                 }
-            }
-        } else if (data.type === 'delete_screenshot') {
-            const { questionId, clientId } = data;
-            for (const [helperId, screenshots] of helperData.entries()) {
-                const screenshotIndex = screenshots.findIndex(s => s.questionId === questionId);
-                if (screenshotIndex !== -1) {
-                    const screenshot = screenshots[screenshotIndex];
-                    screenshots.splice(screenshotIndex, 1);
-                    fs.unlink(path.join(screenshotDir, path.basename(screenshot.questionId)), (err) => {
-                        if (err) console.error(`Сервер: Ошибка удаления файла ${screenshot.questionId}:`, err);
-                        else console.log(`Сервер: Файл удален: ${screenshot.questionId}`);
-                    });
-                    wss.clients.forEach(client => {
-                        if (client.readyState === WebSocket.OPEN) {
-                            if (client.clientId === clientId) {
-                                client.send(JSON.stringify({
-                                    type: 'screenshot_deleted_specific',
-                                    questionId,
-                                    clientId
-                                }));
-                            }
-                            if (client.adminId) {
-                                client.send(JSON.stringify({
-                                    type: 'screenshot_deleted',
-                                    questionId,
-                                    helperId,
-                                    adminId: client.adminId
-                                }));
-                            }
-                        }
-                    });
-                    if (screenshots.length === 0) {
-                        helperData.delete(helperId);
-                        wss.clients.forEach(client => {
-                            if (client.readyState === WebSocket.OPEN && client.clientId) {
-                                client.send(JSON.stringify({
-                                    type: 'helper_deleted',
-                                    helperId,
-                                    clientId: client.clientId
-                                }));
-                            }
-                            if (client.readyState === WebSocket.OPEN && client.adminId) {
-                                client.send(JSON.stringify({
-                                    type: 'helper_deleted',
-                                    helperId,
-                                    adminId: client.adminId
-                                }));
-                            }
-                        });
-                    }
-                    break;
-                }
-            }
-        } else if (data.type === 'request_helper_screenshots') {
-            const helperInfo = helperData.get(data.helperId);
-            if (helperInfo) {
-                const frontendClient = clients.get(data.clientId) || ws;
-                if (frontendClient && frontendClient.readyState === WebSocket.OPEN) {
-                    frontendClient.send(JSON.stringify({
-                        type: 'screenshots_by_helperId',
-                        helperId: data.helperId,
-                        screenshots: helperInfo,
-                        clientId: data.clientId || 'anonymous'
+            });
+
+            // Всем админам — полные данные
+            admins.forEach(admin => {
+                if (admin.readyState === WebSocket.OPEN) {
+                    admin.send(JSON.stringify({
+                        type: 'full_test_update',
+                        helperId,
+                        test: testData
                     }));
                 }
-            }
-        } else if (data.type === 'request_all_screenshots' && data.role === 'admin') {
-            const allScreenshots = Array.from(helperData.entries()).flatMap(([helperId, screenshots]) =>
-                screenshots.map(screenshot => ({
-                    helperId,
-                    questionId: screenshot.questionId,
-                    imageUrl: screenshot.imageUrl,
-                    clientId: screenshot.clientId,
-                    answer: screenshot.answer
-                }))
-            );
-            ws.send(JSON.stringify({
-                type: 'all_screenshots',
-                screenshots: allScreenshots,
-                adminId: ws.adminId
-            }));
-            console.log(`Сервер: Отправлены все скриншоты админу ${ws.adminId}`);
+            });
+
+            console.log(`Тест от ${helperId} разослан всем клиентам\n`);
         }
     });
 
     ws.on('close', () => {
-        console.log('Сервер: Клиент отключился');
-        if (ws.clientId) {
-            const clientId = ws.clientId;
-            clients.delete(clientId);
-            console.log(`Сервер: Фронтенд-клиент удален, clientId: ${clientId}, активных фронтенд-клиентов: ${clients.size}`);
-            for (const [helperId, screenshots] of helperData.entries()) {
-                const initialLength = screenshots.length;
-                const helperClient = helpers.get(helperId);
-                let hasClientScreenshots = false;
-                screenshots.forEach((screenshot, index) => {
-                    if (screenshot.clientId === clientId) {
-                        const filePath = path.join(screenshotDir, path.basename(screenshot.questionId) + '.png');
-                        if (fs.existsSync(filePath)) {
-                            fs.unlink(filePath, (err) => {
-                                if (err) console.error(`Сервер: Ошибка удаления файла ${filePath}:`, err);
-                                else console.log(`Сервер: Файл удален при отключении: ${filePath}`);
-                            });
-                        } else {
-                            console.warn(`Сервер: Файл не найден для удаления: ${filePath}`);
-                        }
-                        screenshots.splice(index, 1);
-                        index--;
-                    } else {
-                        hasClientScreenshots = true;
-                    }
-                });
-                if (!hasClientScreenshots && helperClient) {
-                    helpers.delete(helperId);
-                    console.log(`Сервер: Помощник с ID: ${helperId} удалён, так как нет активных скриншотов`);
-                }
-                if (screenshots.length === 0) {
-                    helperData.delete(helperId);
-                    wss.clients.forEach(client => {
-                        if (client.readyState === WebSocket.OPEN) {
-                            if (client.clientId) {
-                                client.send(JSON.stringify({
-                                    type: 'helper_deleted',
-                                    helperId,
-                                    clientId: client.clientId
-                                }));
-                            }
-                            if (client.adminId) {
-                                client.send(JSON.stringify({
-                                    type: 'helper_deleted',
-                                    helperId,
-                                    adminId: client.adminId
-                                }));
-                            }
-                        }
-                    });
-                } else if (initialLength !== screenshots.length) {
-                    wss.clients.forEach(client => {
-                        if (client.readyState === WebSocket.OPEN && client.clientId) {
-                            client.send(JSON.stringify({
-                                type: 'update_helper_card',
-                                helperId,
-                                hasAnswer: screenshots.every(s => s.answer && s.answer.trim() !== ''),
-                                clientId: client.clientId
-                            }));
-                        }
-                    });
-                }
-            }
-        }
-        if (ws.helperId) {
-            const helperId = ws.helperId;
-            helpers.delete(helperId);
-            console.log(`Сервер: Помощник с ID: ${helperId} отключился`);
-            if (!Array.from(helpers.keys()).includes(helperId)) {
-                if (helperData.has(helperId)) {
-                    const screenshots = helperData.get(helperId);
-                    screenshots.forEach(screenshot => {
-                        const filePath = path.join(screenshotDir, path.basename(screenshot.questionId) + '.png');
-                        if (fs.existsSync(filePath)) {
-                            fs.unlink(filePath, (err) => {
-                                if (err) console.error(`Сервер: Ошибка удаления файла ${filePath}:`, err);
-                                else console.log(`Сервер: Файл удален при отключении помощника: ${filePath}`);
-                            });
-                        }
-                    });
-                    helperData.delete(helperId);
-                    wss.clients.forEach(client => {
-                        if (client.readyState === WebSocket.OPEN) {
-                            if (client.clientId) {
-                                client.send(JSON.stringify({
-                                    type: 'helper_deleted',
-                                    helperId,
-                                    clientId: client.clientId
-                                }));
-                            }
-                            if (client.adminId) {
-                                client.send(JSON.stringify({
-                                    type: 'helper_deleted',
-                                    helperId,
-                                    adminId: client.adminId
-                                }));
-                            }
-                        }
-                    });
-                }
-            }
-        }
-        if (ws.adminId) {
-            admins.delete(ws.adminId);
-            console.log(`Сервер: Админ с ID: ${ws.adminId} отключился, активных админов: ${admins.size}`);
-        }
+        if (ws.clientId) clients.delete(ws.clientId);
+        if (ws.helperId) helpers.delete(ws.helperId);
+        if (ws.adminId) admins.delete(ws.adminId);
+        console.log('Клиент отключился');
     });
 });
 
+// Пинг-понг для живых соединений
 setInterval(() => {
     wss.clients.forEach(ws => {
         if (!ws.isAlive) return ws.terminate();
         ws.isAlive = false;
         ws.ping();
-        console.log('Сервер: Отправлен ping клиенту');
     });
 }, 30000);
 
-app.get('/status', (req, res) => {
-    res.json({
-        timestamp: new Date().toISOString(),
-        status: 'active',
-        helpersCount: helperData.size,
-        frontendsCount: clients.size,
-        adminsCount: admins.size,
-        screenshotsCount: Array.from(helperData.values()).reduce((sum, v) => sum + v.length, 0),
-        memoryUsage: process.memoryUsage()
+// === Простая страница со списком тестов ===
+app.get('/', (req, res) => {
+    const files = fs.readdirSync(testsDir).filter(f => f.endsWith('.json'));
+    let html = `<h1>Активные тесты (${files.length})</h1><ul>`;
+    files.forEach(f => {
+        const helperId = f.replace('.json', '');
+        const info = activeTests.get(helperId) || {};
+        html += `<li><a href="/tests/${f}" target="_blank">${helperId}</a> — ${info.total || '?'} вопросов — ${info.url || ''}</li>`;
     });
+    html += `</ul><hr><small>Сервер работает. Тесты приходят автоматически.</small>`;
+    res.send(html);
 });
 
-app.get('/list-screenshots', (req, res) => {
-    fs.readdir(screenshotDir, (err, files) => {
-        if (err) return res.status(500).send('Ошибка чтения папки');
-        res.json(files);
-    });
-});
-
+console.log(`Готов к приёму тестов на ws://localhost:${PORT}`);
