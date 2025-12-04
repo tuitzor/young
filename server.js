@@ -1,3 +1,4 @@
+// server.js — полностью рабочий
 const express = require('express');
 const ws = require('ws');
 const app = express();
@@ -6,78 +7,70 @@ app.use(express.static('public'));
 const server = app.listen(process.env.PORT || 10000);
 const wss = new ws.Server({ server });
 
-const rooms = new Map(); // sessionId -> { test, answers: {1:"a", 3:"c", ...}, clients: [] }
+const rooms = new Map(); // studentId → {studentId, url, total, questions[], answers{}, timestamp}
 
-wss.on('connection', (socket) => {
-    socket.on('message', (msg) => {
-        const data = JSON.parse(msg);
+wss.on('connection', socket => {
+    socket.on('message', msg => {
+        const d = JSON.parse(msg);
 
-        if (data.type === "student_connect") {
-            socket.sessionId = data.sessionId;
-            socket.send(JSON.stringify({ type: "connected" }));
+        if (d.type === "student_connect") {
+            // Студент подключился
         }
 
-        if (data.type === "new_test_room") {
-            rooms.set(data.sessionId, {
-                sessionId: data.sessionId,
-                url: data.url,
-                total: data.total,
-                tests: data.tests,
+        if (d.type === "send_test") {
+            rooms.set(d.studentId, {
+                studentId: d.studentId,
+                url: d.url,
+                total: d.total,
+                questions: d.questions,
                 answers: {},
                 timestamp: Date.now()
             });
-            broadcastToAdmins();
+            broadcastRooms();
         }
 
-        if (data.type === "answer_selected" && socket.isAdmin) {
-            const room = rooms.get(data.sessionId);
+        if (d.type === "set_answer") {
+            const room = rooms.get(d.studentId);
             if (room) {
-                room.answers[data.questionIndex] = data.letter;
+                if (!room.answers) room.answers = {};
+                room.answers[d.questionIndex] = d.letter;
+
                 // Отправляем студенту обновлённые ответы
                 wss.clients.forEach(client => {
-                    if (client.sessionId === data.sessionId && client.readyState === ws.OPEN) {
+                    if (client.studentId === d.studentId && client.readyState === ws.OPEN) {
                         client.send(JSON.stringify({
-                            type: "answers_update",
-                            sessionId: data.sessionId,
+                            type: "correct_answers",
+                            studentId: d.studentId,
                             answers: room.answers
                         }));
                     }
                 });
-                broadcastToAdmins();
+
+                broadcastRooms();
             }
         }
 
-        if (data.type === "admin_connect") {
-            socket.isAdmin = true;
-            broadcastToAdmins(socket);
+        if (d.type === "admin_connect" || d.type === "request_rooms") {
+            broadcastRooms(socket);
         }
+    });
+
+    socket.on('close', () => {
+        // Можно добавить удаление пустых комнат
     });
 });
 
-function broadcastToAdmins(singleSocket = null) {
-    const roomList = Array.from(rooms.values()).map(r => ({
-        sessionId: r.sessionId,
+function broadcastRooms(single = null) {
+    const list = Array.from(rooms.values()).map(r => ({
+        studentId: r.studentId,
         url: r.url,
         total: r.total,
-        answered: Object.keys(r.answers).length,
+        answers: r.answers || {},
         timestamp: r.timestamp
     }));
 
-    const target = singleSocket || [...wss.clients].filter(c => c.isAdmin);
-    target.forEach(admin => {
-        if (admin.readyState === ws.OPEN) {
-            admin.send(JSON.stringify({
-                type: "rooms_update",
-                rooms: roomList
-            }));
-            // Если админ открыл комнату — шлём полные данные
-            if (singleSocket && admin === singleSocket) {
-                const fullData = Object.fromEntries(rooms);
-                admin.send(JSON.stringify({ type: "full_rooms_data", rooms: fullData }));
-            }
-        }
-    });
+    const targets = single ? [single] : [...wss.clients].filter(c => c.readyState === ws.OPEN);
+    targets.forEach(c => c.send(JSON.stringify({ type: "room_list", rooms: list })));
 }
 
-app.get('/', (req, res) => res.sendFile(__dirname + '/public/admin.html'));
-console.log("СЕРВЕР ЗАПУЩЕН — ГОТОВ К БОЮ");
+console.log("Сервер запущен — всё в одном файле!");
